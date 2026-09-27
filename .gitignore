@@ -16,3 +16,6 @@ dist/
 # Local databases
 *.duckdb
 *.duckdb.wal
+
+# Throwaway exploration scripts and samples
+scratch/
