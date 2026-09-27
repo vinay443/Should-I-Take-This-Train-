@@ -27,6 +27,13 @@ This creates the DuckDB database at `data/sitt.duckdb`, or wherever `SITT_DB_PAT
 The schema, with a comment on each table, is in
 [`src/sitt/db/schema.sql`](src/sitt/db/schema.sql).
 
+Load a timetable CSV, in the format described in
+[`docs/timetable-format.md`](docs/timetable-format.md):
+
+```bash
+uv run python -m sitt.ingest.timetable tests/fixtures/sample_timetable.csv
+```
+
 To run the Telegram crowd-logging bot, see [`docs/bot-setup.md`](docs/bot-setup.md).
 
 ## Development
@@ -52,6 +59,7 @@ src/sitt/
   config.py   settings from environment variables / .env
   db/         DuckDB schema and connection helpers
   ingest/     data collection (timetables, live running status)
+  timetable.py  queries over the static timetable (next trains between stations)
   models/     delay and crowding forecasts
   bot/        Telegram bot for crowd reports and recommendations
 tests/

@@ -1,0 +1,251 @@
+# SAMPLE DATA - NOT REAL TIMINGS.
+# Hand-made fixture for tests: station codes and names are real Central Railway
+# stations between Kalyan and CSMT, but train numbers, timings and running days
+# are invented. Do not use for travel planning.
+train_number,destination,service_type,direction,station_code,station_name,scheduled_arrival,scheduled_departure,days
+90101,Kalyan,slow,down,CSMT,Chhatrapati Shivaji Maharaj Terminus,,06:02,daily
+90101,Kalyan,slow,down,MSD,Masjid,06:04,06:04,daily
+90101,Kalyan,slow,down,SNRD,Sandhurst Road,06:06,06:06,daily
+90101,Kalyan,slow,down,BY,Byculla,06:09,06:10,daily
+90101,Kalyan,slow,down,CHG,Chinchpokli,06:12,06:12,daily
+90101,Kalyan,slow,down,CRD,Currey Road,06:14,06:14,daily
+90101,Kalyan,slow,down,PR,Parel,06:16,06:16,daily
+90101,Kalyan,slow,down,DR,Dadar,06:19,06:20,daily
+90101,Kalyan,slow,down,MTN,Matunga,06:22,06:22,daily
+90101,Kalyan,slow,down,SIN,Sion,06:25,06:25,daily
+90101,Kalyan,slow,down,CLA,Kurla,06:28,06:29,daily
+90101,Kalyan,slow,down,VVH,Vidyavihar,06:32,06:32,daily
+90101,Kalyan,slow,down,GC,Ghatkopar,06:34,06:35,daily
+90101,Kalyan,slow,down,VK,Vikhroli,06:39,06:39,daily
+90101,Kalyan,slow,down,KJRD,Kanjur Marg,06:42,06:42,daily
+90101,Kalyan,slow,down,BND,Bhandup,06:45,06:45,daily
+90101,Kalyan,slow,down,NHU,Nahur,06:47,06:47,daily
+90101,Kalyan,slow,down,MLND,Mulund,06:50,06:50,daily
+90101,Kalyan,slow,down,TNA,Thane,06:54,06:55,daily
+90101,Kalyan,slow,down,KLVA,Kalwa,06:59,06:59,daily
+90101,Kalyan,slow,down,MBQ,Mumbra,07:04,07:04,daily
+90101,Kalyan,slow,down,DIVA,Diva,07:08,07:08,daily
+90101,Kalyan,slow,down,KOPR,Kopar,07:12,07:12,daily
+90101,Kalyan,slow,down,DI,Dombivli,07:15,07:16,daily
+90101,Kalyan,slow,down,THK,Thakurli,07:19,07:19,daily
+90101,Kalyan,slow,down,KYN,Kalyan,07:23,,daily
+90103,Kalyan,fast,down,CSMT,Chhatrapati Shivaji Maharaj Terminus,,06:14,daily
+90103,Kalyan,fast,down,BY,Byculla,06:20,06:21,daily
+90103,Kalyan,fast,down,DR,Dadar,06:28,06:29,daily
+90103,Kalyan,fast,down,CLA,Kurla,06:36,06:37,daily
+90103,Kalyan,fast,down,GC,Ghatkopar,06:42,06:43,daily
+90103,Kalyan,fast,down,MLND,Mulund,06:54,06:55,daily
+90103,Kalyan,fast,down,TNA,Thane,06:59,07:00,daily
+90103,Kalyan,fast,down,DI,Dombivli,07:14,07:15,daily
+90103,Kalyan,fast,down,KYN,Kalyan,07:21,,daily
+90105,Titwala,slow,down,CSMT,Chhatrapati Shivaji Maharaj Terminus,,07:10,mon-sat
+90105,Titwala,slow,down,MSD,Masjid,07:12,07:12,mon-sat
+90105,Titwala,slow,down,SNRD,Sandhurst Road,07:14,07:14,mon-sat
+90105,Titwala,slow,down,BY,Byculla,07:17,07:18,mon-sat
+90105,Titwala,slow,down,CHG,Chinchpokli,07:20,07:20,mon-sat
+90105,Titwala,slow,down,CRD,Currey Road,07:22,07:22,mon-sat
+90105,Titwala,slow,down,PR,Parel,07:24,07:24,mon-sat
+90105,Titwala,slow,down,DR,Dadar,07:27,07:28,mon-sat
+90105,Titwala,slow,down,MTN,Matunga,07:30,07:30,mon-sat
+90105,Titwala,slow,down,SIN,Sion,07:33,07:33,mon-sat
+90105,Titwala,slow,down,CLA,Kurla,07:36,07:37,mon-sat
+90105,Titwala,slow,down,VVH,Vidyavihar,07:40,07:40,mon-sat
+90105,Titwala,slow,down,GC,Ghatkopar,07:42,07:43,mon-sat
+90105,Titwala,slow,down,VK,Vikhroli,07:47,07:47,mon-sat
+90105,Titwala,slow,down,KJRD,Kanjur Marg,07:50,07:50,mon-sat
+90105,Titwala,slow,down,BND,Bhandup,07:53,07:53,mon-sat
+90105,Titwala,slow,down,NHU,Nahur,07:55,07:55,mon-sat
+90105,Titwala,slow,down,MLND,Mulund,07:58,07:58,mon-sat
+90105,Titwala,slow,down,TNA,Thane,08:02,08:03,mon-sat
+90105,Titwala,slow,down,KLVA,Kalwa,08:07,08:07,mon-sat
+90105,Titwala,slow,down,MBQ,Mumbra,08:12,08:12,mon-sat
+90105,Titwala,slow,down,DIVA,Diva,08:16,08:16,mon-sat
+90105,Titwala,slow,down,KOPR,Kopar,08:20,08:20,mon-sat
+90105,Titwala,slow,down,DI,Dombivli,08:23,08:24,mon-sat
+90105,Titwala,slow,down,THK,Thakurli,08:27,08:27,mon-sat
+90105,Titwala,slow,down,KYN,Kalyan,08:31,08:32,mon-sat
+90107,Badlapur,fast,down,CSMT,Chhatrapati Shivaji Maharaj Terminus,,07:25,daily
+90107,Badlapur,fast,down,BY,Byculla,07:31,07:32,daily
+90107,Badlapur,fast,down,DR,Dadar,07:39,07:40,daily
+90107,Badlapur,fast,down,CLA,Kurla,07:47,07:48,daily
+90107,Badlapur,fast,down,GC,Ghatkopar,07:53,07:54,daily
+90107,Badlapur,fast,down,MLND,Mulund,08:05,08:06,daily
+90107,Badlapur,fast,down,TNA,Thane,08:10,08:11,daily
+90107,Badlapur,fast,down,DI,Dombivli,08:25,08:26,daily
+90107,Badlapur,fast,down,KYN,Kalyan,08:32,08:33,daily
+90109,Kalyan,slow,down,CSMT,Chhatrapati Shivaji Maharaj Terminus,,07:40,sun
+90109,Kalyan,slow,down,MSD,Masjid,07:42,07:42,sun
+90109,Kalyan,slow,down,SNRD,Sandhurst Road,07:44,07:44,sun
+90109,Kalyan,slow,down,BY,Byculla,07:47,07:48,sun
+90109,Kalyan,slow,down,CHG,Chinchpokli,07:50,07:50,sun
+90109,Kalyan,slow,down,CRD,Currey Road,07:52,07:52,sun
+90109,Kalyan,slow,down,PR,Parel,07:54,07:54,sun
+90109,Kalyan,slow,down,DR,Dadar,07:57,07:58,sun
+90109,Kalyan,slow,down,MTN,Matunga,08:00,08:00,sun
+90109,Kalyan,slow,down,SIN,Sion,08:03,08:03,sun
+90109,Kalyan,slow,down,CLA,Kurla,08:06,08:07,sun
+90109,Kalyan,slow,down,VVH,Vidyavihar,08:10,08:10,sun
+90109,Kalyan,slow,down,GC,Ghatkopar,08:12,08:13,sun
+90109,Kalyan,slow,down,VK,Vikhroli,08:17,08:17,sun
+90109,Kalyan,slow,down,KJRD,Kanjur Marg,08:20,08:20,sun
+90109,Kalyan,slow,down,BND,Bhandup,08:23,08:23,sun
+90109,Kalyan,slow,down,NHU,Nahur,08:25,08:25,sun
+90109,Kalyan,slow,down,MLND,Mulund,08:28,08:28,sun
+90109,Kalyan,slow,down,TNA,Thane,08:32,08:33,sun
+90109,Kalyan,slow,down,KLVA,Kalwa,08:37,08:37,sun
+90109,Kalyan,slow,down,MBQ,Mumbra,08:42,08:42,sun
+90109,Kalyan,slow,down,DIVA,Diva,08:46,08:46,sun
+90109,Kalyan,slow,down,KOPR,Kopar,08:50,08:50,sun
+90109,Kalyan,slow,down,DI,Dombivli,08:53,08:54,sun
+90109,Kalyan,slow,down,THK,Thakurli,08:57,08:57,sun
+90109,Kalyan,slow,down,KYN,Kalyan,09:01,,sun
+90113,Thane,slow,down,CSMT,Chhatrapati Shivaji Maharaj Terminus,,08:00,daily
+90113,Thane,slow,down,MSD,Masjid,08:02,08:02,daily
+90113,Thane,slow,down,SNRD,Sandhurst Road,08:04,08:04,daily
+90113,Thane,slow,down,BY,Byculla,08:07,08:08,daily
+90113,Thane,slow,down,CHG,Chinchpokli,08:10,08:10,daily
+90113,Thane,slow,down,CRD,Currey Road,08:12,08:12,daily
+90113,Thane,slow,down,PR,Parel,08:14,08:14,daily
+90113,Thane,slow,down,DR,Dadar,08:17,08:18,daily
+90113,Thane,slow,down,MTN,Matunga,08:20,08:20,daily
+90113,Thane,slow,down,SIN,Sion,08:23,08:23,daily
+90113,Thane,slow,down,CLA,Kurla,08:26,08:27,daily
+90113,Thane,slow,down,VVH,Vidyavihar,08:30,08:30,daily
+90113,Thane,slow,down,GC,Ghatkopar,08:32,08:33,daily
+90113,Thane,slow,down,VK,Vikhroli,08:37,08:37,daily
+90113,Thane,slow,down,KJRD,Kanjur Marg,08:40,08:40,daily
+90113,Thane,slow,down,BND,Bhandup,08:43,08:43,daily
+90113,Thane,slow,down,NHU,Nahur,08:45,08:45,daily
+90113,Thane,slow,down,MLND,Mulund,08:48,08:48,daily
+90113,Thane,slow,down,TNA,Thane,08:52,,daily
+90111,Kalyan,slow,down,CSMT,Chhatrapati Shivaji Maharaj Terminus,,23:52,daily
+90111,Kalyan,slow,down,MSD,Masjid,23:54,23:54,daily
+90111,Kalyan,slow,down,SNRD,Sandhurst Road,23:56,23:56,daily
+90111,Kalyan,slow,down,BY,Byculla,23:59,00:00,daily
+90111,Kalyan,slow,down,CHG,Chinchpokli,00:02,00:02,daily
+90111,Kalyan,slow,down,CRD,Currey Road,00:04,00:04,daily
+90111,Kalyan,slow,down,PR,Parel,00:06,00:06,daily
+90111,Kalyan,slow,down,DR,Dadar,00:09,00:10,daily
+90111,Kalyan,slow,down,MTN,Matunga,00:12,00:12,daily
+90111,Kalyan,slow,down,SIN,Sion,00:15,00:15,daily
+90111,Kalyan,slow,down,CLA,Kurla,00:18,00:19,daily
+90111,Kalyan,slow,down,VVH,Vidyavihar,00:22,00:22,daily
+90111,Kalyan,slow,down,GC,Ghatkopar,00:24,00:25,daily
+90111,Kalyan,slow,down,VK,Vikhroli,00:29,00:29,daily
+90111,Kalyan,slow,down,KJRD,Kanjur Marg,00:32,00:32,daily
+90111,Kalyan,slow,down,BND,Bhandup,00:35,00:35,daily
+90111,Kalyan,slow,down,NHU,Nahur,00:37,00:37,daily
+90111,Kalyan,slow,down,MLND,Mulund,00:40,00:40,daily
+90111,Kalyan,slow,down,TNA,Thane,00:44,00:45,daily
+90111,Kalyan,slow,down,KLVA,Kalwa,00:49,00:49,daily
+90111,Kalyan,slow,down,MBQ,Mumbra,00:54,00:54,daily
+90111,Kalyan,slow,down,DIVA,Diva,00:58,00:58,daily
+90111,Kalyan,slow,down,KOPR,Kopar,01:02,01:02,daily
+90111,Kalyan,slow,down,DI,Dombivli,01:05,01:06,daily
+90111,Kalyan,slow,down,THK,Thakurli,01:09,01:09,daily
+90111,Kalyan,slow,down,KYN,Kalyan,01:13,,daily
+90102,CSMT,slow,up,KYN,Kalyan,,04:15,daily
+90102,CSMT,slow,up,THK,Thakurli,04:19,04:19,daily
+90102,CSMT,slow,up,DI,Dombivli,04:22,04:23,daily
+90102,CSMT,slow,up,KOPR,Kopar,04:26,04:26,daily
+90102,CSMT,slow,up,DIVA,Diva,04:30,04:30,daily
+90102,CSMT,slow,up,MBQ,Mumbra,04:34,04:34,daily
+90102,CSMT,slow,up,KLVA,Kalwa,04:39,04:39,daily
+90102,CSMT,slow,up,TNA,Thane,04:43,04:44,daily
+90102,CSMT,slow,up,MLND,Mulund,04:48,04:48,daily
+90102,CSMT,slow,up,NHU,Nahur,04:51,04:51,daily
+90102,CSMT,slow,up,BND,Bhandup,04:53,04:53,daily
+90102,CSMT,slow,up,KJRD,Kanjur Marg,04:56,04:56,daily
+90102,CSMT,slow,up,VK,Vikhroli,04:59,04:59,daily
+90102,CSMT,slow,up,GC,Ghatkopar,05:03,05:04,daily
+90102,CSMT,slow,up,VVH,Vidyavihar,05:06,05:06,daily
+90102,CSMT,slow,up,CLA,Kurla,05:09,05:10,daily
+90102,CSMT,slow,up,SIN,Sion,05:13,05:13,daily
+90102,CSMT,slow,up,MTN,Matunga,05:16,05:16,daily
+90102,CSMT,slow,up,DR,Dadar,05:18,05:19,daily
+90102,CSMT,slow,up,PR,Parel,05:22,05:22,daily
+90102,CSMT,slow,up,CRD,Currey Road,05:24,05:24,daily
+90102,CSMT,slow,up,CHG,Chinchpokli,05:26,05:26,daily
+90102,CSMT,slow,up,BY,Byculla,05:28,05:29,daily
+90102,CSMT,slow,up,SNRD,Sandhurst Road,05:32,05:32,daily
+90102,CSMT,slow,up,MSD,Masjid,05:34,05:34,daily
+90102,CSMT,slow,up,CSMT,Chhatrapati Shivaji Maharaj Terminus,05:36,,daily
+90104,CSMT,slow,up,KYN,Kalyan,07:02,07:03,daily
+90104,CSMT,slow,up,THK,Thakurli,07:07,07:07,daily
+90104,CSMT,slow,up,DI,Dombivli,07:10,07:11,daily
+90104,CSMT,slow,up,KOPR,Kopar,07:14,07:14,daily
+90104,CSMT,slow,up,DIVA,Diva,07:18,07:18,daily
+90104,CSMT,slow,up,MBQ,Mumbra,07:22,07:22,daily
+90104,CSMT,slow,up,KLVA,Kalwa,07:27,07:27,daily
+90104,CSMT,slow,up,TNA,Thane,07:31,07:32,daily
+90104,CSMT,slow,up,MLND,Mulund,07:36,07:36,daily
+90104,CSMT,slow,up,NHU,Nahur,07:39,07:39,daily
+90104,CSMT,slow,up,BND,Bhandup,07:41,07:41,daily
+90104,CSMT,slow,up,KJRD,Kanjur Marg,07:44,07:44,daily
+90104,CSMT,slow,up,VK,Vikhroli,07:47,07:47,daily
+90104,CSMT,slow,up,GC,Ghatkopar,07:51,07:52,daily
+90104,CSMT,slow,up,VVH,Vidyavihar,07:54,07:54,daily
+90104,CSMT,slow,up,CLA,Kurla,07:57,07:58,daily
+90104,CSMT,slow,up,SIN,Sion,08:01,08:01,daily
+90104,CSMT,slow,up,MTN,Matunga,08:04,08:04,daily
+90104,CSMT,slow,up,DR,Dadar,08:06,08:07,daily
+90104,CSMT,slow,up,PR,Parel,08:10,08:10,daily
+90104,CSMT,slow,up,CRD,Currey Road,08:12,08:12,daily
+90104,CSMT,slow,up,CHG,Chinchpokli,08:14,08:14,daily
+90104,CSMT,slow,up,BY,Byculla,08:16,08:17,daily
+90104,CSMT,slow,up,SNRD,Sandhurst Road,08:20,08:20,daily
+90104,CSMT,slow,up,MSD,Masjid,08:22,08:22,daily
+90104,CSMT,slow,up,CSMT,Chhatrapati Shivaji Maharaj Terminus,08:24,,daily
+90106,CSMT,fast,up,KYN,Kalyan,,07:12,daily
+90106,CSMT,fast,up,DI,Dombivli,07:18,07:19,daily
+90106,CSMT,fast,up,TNA,Thane,07:33,07:34,daily
+90106,CSMT,fast,up,MLND,Mulund,07:38,07:39,daily
+90106,CSMT,fast,up,GC,Ghatkopar,07:50,07:51,daily
+90106,CSMT,fast,up,CLA,Kurla,07:56,07:57,daily
+90106,CSMT,fast,up,DR,Dadar,08:04,08:05,daily
+90106,CSMT,fast,up,BY,Byculla,08:12,08:13,daily
+90106,CSMT,fast,up,CSMT,Chhatrapati Shivaji Maharaj Terminus,08:19,,daily
+90108,CSMT,fast,up,KYN,Kalyan,,07:31,mon-sat
+90108,CSMT,fast,up,DI,Dombivli,07:37,07:38,mon-sat
+90108,CSMT,fast,up,TNA,Thane,07:52,07:53,mon-sat
+90108,CSMT,fast,up,MLND,Mulund,07:57,07:58,mon-sat
+90108,CSMT,fast,up,GC,Ghatkopar,08:09,08:10,mon-sat
+90108,CSMT,fast,up,CLA,Kurla,08:15,08:16,mon-sat
+90108,CSMT,fast,up,DR,Dadar,08:23,08:24,mon-sat
+90108,CSMT,fast,up,BY,Byculla,08:31,08:32,mon-sat
+90108,CSMT,fast,up,CSMT,Chhatrapati Shivaji Maharaj Terminus,08:38,,mon-sat
+90110,CSMT,slow,up,KYN,Kalyan,,07:48,daily
+90110,CSMT,slow,up,THK,Thakurli,07:52,07:52,daily
+90110,CSMT,slow,up,DI,Dombivli,07:55,07:56,daily
+90110,CSMT,slow,up,KOPR,Kopar,07:59,07:59,daily
+90110,CSMT,slow,up,DIVA,Diva,08:03,08:03,daily
+90110,CSMT,slow,up,MBQ,Mumbra,08:07,08:07,daily
+90110,CSMT,slow,up,KLVA,Kalwa,08:12,08:12,daily
+90110,CSMT,slow,up,TNA,Thane,08:16,08:17,daily
+90110,CSMT,slow,up,MLND,Mulund,08:21,08:21,daily
+90110,CSMT,slow,up,NHU,Nahur,08:24,08:24,daily
+90110,CSMT,slow,up,BND,Bhandup,08:26,08:26,daily
+90110,CSMT,slow,up,KJRD,Kanjur Marg,08:29,08:29,daily
+90110,CSMT,slow,up,VK,Vikhroli,08:32,08:32,daily
+90110,CSMT,slow,up,GC,Ghatkopar,08:36,08:37,daily
+90110,CSMT,slow,up,VVH,Vidyavihar,08:39,08:39,daily
+90110,CSMT,slow,up,CLA,Kurla,08:42,08:43,daily
+90110,CSMT,slow,up,SIN,Sion,08:46,08:46,daily
+90110,CSMT,slow,up,MTN,Matunga,08:49,08:49,daily
+90110,CSMT,slow,up,DR,Dadar,08:51,08:52,daily
+90110,CSMT,slow,up,PR,Parel,08:55,08:55,daily
+90110,CSMT,slow,up,CRD,Currey Road,08:57,08:57,daily
+90110,CSMT,slow,up,CHG,Chinchpokli,08:59,08:59,daily
+90110,CSMT,slow,up,BY,Byculla,09:01,09:02,daily
+90110,CSMT,slow,up,SNRD,Sandhurst Road,09:05,09:05,daily
+90110,CSMT,slow,up,MSD,Masjid,09:07,09:07,daily
+90110,CSMT,slow,up,CSMT,Chhatrapati Shivaji Maharaj Terminus,09:09,,daily
+90112,CSMT,fast,up,KYN,Kalyan,,08:05,sun
+90112,CSMT,fast,up,DI,Dombivli,08:11,08:12,sun
+90112,CSMT,fast,up,TNA,Thane,08:26,08:27,sun
+90112,CSMT,fast,up,MLND,Mulund,08:31,08:32,sun
+90112,CSMT,fast,up,GC,Ghatkopar,08:43,08:44,sun
+90112,CSMT,fast,up,CLA,Kurla,08:49,08:50,sun
+90112,CSMT,fast,up,DR,Dadar,08:57,08:58,sun
+90112,CSMT,fast,up,BY,Byculla,09:05,09:06,sun
+90112,CSMT,fast,up,CSMT,Chhatrapati Shivaji Maharaj Terminus,09:12,,sun
