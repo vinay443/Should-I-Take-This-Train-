@@ -7,10 +7,12 @@ requires-python = ">=3.12"
 dependencies = [
     "duckdb>=1.5.5",
     "python-dotenv>=1.2.3",
+    "python-telegram-bot>=22.8",
 ]
 
 [project.scripts]
 sitt-init-db = "sitt.db.database:main"
+sitt-bot = "sitt.bot.app:main"
 
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13"]

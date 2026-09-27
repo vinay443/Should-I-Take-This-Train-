@@ -27,6 +27,8 @@ This creates the DuckDB database at `data/sitt.duckdb`, or wherever `SITT_DB_PAT
 The schema, with a comment on each table, is in
 [`src/sitt/db/schema.sql`](src/sitt/db/schema.sql).
 
+To run the Telegram crowd-logging bot, see [`docs/bot-setup.md`](docs/bot-setup.md).
+
 ## Development
 
 ```bash

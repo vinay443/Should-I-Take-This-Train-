@@ -81,7 +81,8 @@ CREATE TABLE IF NOT EXISTS observations (
 -- Riders often don't know the train_id, so a report may carry only a free-text
 -- `train_description` ("8:12 fast from Kalyan"), which is resolved to a train_id
 -- later. At least one of the two must be present.
--- `crowd_level` runs from 1 (seats free) to 5 (can't board).
+-- `crowd_level` runs from 1 (empty) to 5 (can't board).
+-- Bot reports use `source` = 'telegram:<user id>' and keep the raw message in `note`.
 CREATE SEQUENCE IF NOT EXISTS crowd_reports_id_seq;
 CREATE TABLE IF NOT EXISTS crowd_reports (
     id                  BIGINT PRIMARY KEY DEFAULT nextval('crowd_reports_id_seq'),
