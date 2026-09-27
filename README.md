@@ -68,11 +68,13 @@ data/         local database (gitignored)
 
 ## Roadmap
 
-1. **Data source research**: find what timetable and live running data exists for Mumbai
-   locals and how reliable it is.
-2. **Timetable ingestion**: load stations, trains and scheduled stops for the Central line.
+1. **Data source research** (done, see [`docs/data-sources.md`](docs/data-sources.md)):
+   find what timetable and live running data exists for Mumbai locals and how reliable it is.
+2. **Timetable ingestion** (done, see [`docs/timetable-format.md`](docs/timetable-format.md)):
+   load stations, trains and scheduled stops for the Central line.
 3. **Live collector**: poll live running status on a schedule and store observations.
-4. **Crowd logging bot**: a Telegram bot that lets riders report how crowded their train is.
+4. **Crowd logging bot** (done, see [`docs/bot-setup.md`](docs/bot-setup.md)): a Telegram
+   bot that lets riders report how crowded their train is.
 5. **Baseline models**: simple benchmarks such as historical averages by train, station and
    time of day.
 6. **LightGBM model**: a gradient-boosted model for delay and crowding.
