@@ -9,7 +9,7 @@ from telegram.constants import ChatType
 from telegram.error import TelegramError
 from telegram.ext import ApplicationHandlerStop, ContextTypes
 
-from sitt.bot import formatting, storage
+from sitt.bot import formatting, schedule, storage
 from sitt.bot.flow import (
     CANCEL_DATA,
     IST,
@@ -68,8 +68,19 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def next_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    # Placeholder: will call the timetable query and the model.
-    await update.effective_message.reply_text("Coming soon.")
+    # Timetable only for now; delay and crowd predictions will be added here.
+    message = update.effective_message
+    args = context.args or []
+    if len(args) != 2:
+        await message.reply_text(formatting.NEXT_USAGE)
+        return
+    now = datetime.now(IST)
+    try:
+        departures = schedule.upcoming_trains(context.bot_data[DB_PATH_KEY], *args, now)
+    except schedule.ScheduleError as exc:
+        await message.reply_text(f"{exc}\n{formatting.NEXT_USAGE}")
+        return
+    await message.reply_text(formatting.format_departures(departures, now))
 
 
 async def mylogs_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

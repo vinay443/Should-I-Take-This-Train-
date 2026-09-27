@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 COMMANDS = [
     BotCommand("log", "Log how crowded a train was"),
     BotCommand("mylogs", "Your last 10 reports"),
-    BotCommand("next", "Next-train suggestion (coming soon)"),
+    BotCommand("next", "Next scheduled trains, e.g. /next KYN CSMT"),
     BotCommand("cancel", "Abandon a log in progress"),
     BotCommand("help", "What this bot does"),
 ]

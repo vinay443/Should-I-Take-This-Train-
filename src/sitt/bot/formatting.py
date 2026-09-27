@@ -1,9 +1,11 @@
 """User-facing text. No Telegram imports here."""
 
 from collections.abc import Sequence
+from datetime import datetime
 
 from sitt.bot.flow import IST, LogDraft
 from sitt.bot.parsing import CROWD_LEVELS
+from sitt.bot.schedule import Departures
 from sitt.bot.stations import STATIONS_BY_CODE
 from sitt.bot.storage import StoredReport
 
@@ -15,9 +17,12 @@ which train is worth taking.
 Crowd can be 1-5 or empty / seats / standing / packed / can't board.
 /log: log a trip step by step with buttons.
 /mylogs: your last 10 reports.
-/next KYN CSMT: next-train suggestion (coming soon).
+/next KYN CSMT: the next scheduled trains between two stations.
 /cancel: abandon a log in progress.
 /help: show this message."""
+
+NEXT_USAGE = "Tell me where from and to, e.g. /next KYN CSMT or /next Thane Dadar."
+NEXT_FOOTER = "Timetable times only. Delay and crowd predictions are coming later."
 
 
 def crowd_label(level: int) -> str:
@@ -57,4 +62,21 @@ def format_report_list(reports: Sequence[StoredReport]) -> str:
         return "No reports yet. Log one with /log."
     lines = [f"Your last {len(reports)} report{'s' if len(reports) != 1 else ''}:"]
     lines += (f"• {format_report(report)}" for report in reports)
+    return "\n".join(lines)
+
+
+def format_departures(departures: Departures, now: datetime) -> str:
+    """Scheduled trains for `/next`. Trains on a later day than `now` show the weekday."""
+    route = f"{departures.origin} → {departures.destination}"
+    if not departures.trips:
+        return f"No scheduled trains {route} today or tomorrow.\n\n{NEXT_FOOTER}"
+    lines = [f"Next trains {route}:"]
+    for trip in departures.trips:
+        day = "" if trip.departure.date() == now.date() else f"{trip.departure:%a} "
+        minutes = round(trip.duration.total_seconds() / 60)
+        lines.append(
+            f"• {day}{trip.departure:%H:%M} {trip.train_type} to {trip.label}, "
+            f"arrives {trip.arrival:%H:%M} ({minutes} min)"
+        )
+    lines += ["", NEXT_FOOTER]
     return "\n".join(lines)
