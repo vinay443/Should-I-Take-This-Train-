@@ -5,7 +5,9 @@ name: Collect live data
 #
 # The schedule stays commented out until (1) Mobond has agreed to being polled and
 # (2) the "Probe live sources" workflow shows the sources answer GitHub's runners.
-# Mobond is also gated separately by the SITT_MOBOND_ENABLED repository variable.
+# Mobond is also gated separately: both repository variables SITT_MOBOND_ENABLED and
+# SITT_MOBOND_PERMISSION_CONFIRMED must be "true", here and again inside the collector.
+# This workflow has never been run on a GitHub runner.
 
 on:
   # schedule:
@@ -48,10 +50,11 @@ jobs:
         env:
           REQUESTED: ${{ inputs.source || 'all' }}
           MOBOND_ENABLED: ${{ vars.SITT_MOBOND_ENABLED }}
+          MOBOND_PERMITTED: ${{ vars.SITT_MOBOND_PERMISSION_CONFIRMED }}
         run: |
           source="$REQUESTED"
-          if [ "$MOBOND_ENABLED" != "true" ]; then
-            echo "::notice::Mobond is off. Set the repository variable SITT_MOBOND_ENABLED=true to enable it."
+          if [ "$MOBOND_ENABLED" != "true" ] || [ "$MOBOND_PERMITTED" != "true" ]; then
+            echo "::notice::Mobond is off. It needs both repository variables SITT_MOBOND_ENABLED=true and SITT_MOBOND_PERMISSION_CONFIRMED=true."
             case "$source" in
               all) source=ntes ;;
               mobond) source="" ;;
@@ -77,6 +80,9 @@ jobs:
         env:
           SOURCE: ${{ steps.sources.outputs.source }}
           COMMIT_RAW: ${{ vars.SITT_COMMIT_RAW }}
+          # The collector checks these again itself before any request to Mobond.
+          SITT_MOBOND_ENABLED: ${{ vars.SITT_MOBOND_ENABLED }}
+          SITT_MOBOND_PERMISSION_CONFIRMED: ${{ vars.SITT_MOBOND_PERMISSION_CONFIRMED }}
         run: |
           # Raw responses are always kept as a workflow artifact, never in the Parquet files.
           # SITT_COMMIT_RAW=true also commits them to the data branch, except Mobond's:

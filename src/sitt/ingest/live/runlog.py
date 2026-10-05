@@ -94,6 +94,11 @@ def build_records(
             records.append(RunRecord(status=SKIPPED_DISABLED, **common))
         elif not result.ok:
             records.append(RunRecord(status=FAILED, error=short_error(result.error), **common))
+        elif result.skipped:
+            # Enabled, but deliberately not polled this run (rate limit, backoff).
+            records.append(
+                RunRecord(status=SKIPPED_DISABLED, error=short_error(result.skipped), **common)
+            )
         elif not result.observations:
             records.append(RunRecord(status=PARTIAL, error="no readings parsed", **common))
         elif load_error is not None:

@@ -146,7 +146,9 @@ CREATE TABLE IF NOT EXISTS dq_flags (
 --                       'partial'          fetched, but nothing was parsed or the readings
 --                                          could not be loaded into this database yet;
 --                       'failed'           the source could not be fetched or parsed;
---                       'skipped_disabled' the source is switched off (Mobond by default).
+--                       'skipped_disabled' the source is switched off (Mobond by default),
+--                                          or was deliberately not polled this run: its
+--                                          rate limit or backoff. `error` then says which.
 --   `readings`          rows the source produced in this run.
 --   `trains_matched`,   distinct train numbers among them that are, or are not, in the
 --   `trains_unmatched`  timetable (`trains`). NULL when the run loaded nothing.

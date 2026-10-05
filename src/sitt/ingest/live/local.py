@@ -8,9 +8,9 @@ For when GitHub's runners can't reach the sources (see docs/collector.md). One r
 2. writes the raw responses and one Parquet batch under `data/`,
 3. loads every batch not yet in `data/sitt.duckdb` into its `observations` table.
 
-Sources: NTES always. Mobond only when `SITT_MOBOND_ENABLED=true` is set in the
-environment or `.env`; it is **off by default**, exactly as in the workflow, because
-Mobond hasn't agreed to being polled.
+Sources: NTES always. Mobond only when both `SITT_MOBOND_ENABLED=true` and
+`SITT_MOBOND_PERMISSION_CONFIRMED=true` are set in the environment or `.env`; it is **off
+by default**, exactly as in the workflow, because Mobond hasn't agreed to being polled.
 
 If the database is busy (the bot or the dashboard has it open for writing), the load is
 retried a few times and then skipped. Nothing is lost: the Parquet batch stays on disk and
@@ -48,16 +48,16 @@ from sitt.ingest.live.load import LoadResult, load
 
 logger = logging.getLogger("sitt.collect")
 
-MOBOND_SWITCH = "SITT_MOBOND_ENABLED"
+MOBOND_SWITCH = mobond.ENABLE_VARIABLE
 LOAD_ATTEMPTS = 4
 LOAD_RETRY_SECONDS = 5.0
 
 
 def enabled_sources(environ: dict[str, str] | None = None) -> list[str]:
-    """NTES, plus Mobond only if the switch is exactly 'true' (as in collect.yml)."""
+    """NTES, plus Mobond only if both of its switches are exactly 'true' (as in collect.yml)."""
     environ = os.environ if environ is None else environ
     sources = [ntes.SOURCE]
-    if environ.get(MOBOND_SWITCH, "").strip().lower() == "true":
+    if mobond.opt_in(environ)[0]:
         sources.insert(0, mobond.SOURCE)
     return sources
 
@@ -117,7 +117,11 @@ def run_once(
     client = client or make_client()
     try:
         collected = collect(
-            sources, client, observations_dir=observations_dir, raw_dir=data_dir / "raw"
+            sources,
+            client,
+            observations_dir=observations_dir,
+            raw_dir=data_dir / "raw",
+            state_dir=log_dir,
         )
     finally:
         if own:
@@ -182,7 +186,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     sources = enabled_sources()
     if mobond.SOURCE not in sources:
-        logger.info("Mobond is off (set %s=true to enable it)", MOBOND_SWITCH)
+        logger.info("%s", mobond.opt_in()[1])
     db_path = args.db or load_settings().db_path
     run = run_once(args.data_dir, db_path, sources)
     for line in summarise(run.collected, dry_run=False).splitlines():

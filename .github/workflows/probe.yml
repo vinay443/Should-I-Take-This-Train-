@@ -3,14 +3,18 @@ name: Probe live sources
 # Manual only. Fetches each live source once from a GitHub-hosted runner (US/Azure IPs)
 # and prints status codes, response sizes and a sample, to check whether Indian
 # Railways (NTES) or Mobond block non-Indian IPs. Stores nothing. See docs/collector.md.
+#
+# NTES only by default. Mobond is requested only when it is named in the input AND the
+# repository variables SITT_MOBOND_ENABLED and SITT_MOBOND_PERMISSION_CONFIRMED are both
+# "true". This workflow has never been run on a GitHub runner.
 
 on:
   workflow_dispatch:
     inputs:
       sources:
-        description: "Sources to probe, space-separated (mobond ntes)"
+        description: "Sources to probe, space-separated (ntes, and mobond once permitted)"
         type: string
-        default: "mobond ntes"
+        default: "ntes"
 
 permissions:
   contents: read
@@ -32,5 +36,8 @@ jobs:
       - name: Probe
         env:
           SOURCES: ${{ inputs.sources }}
+          # Mobond is not requested unless both repository variables are exactly "true".
+          SITT_MOBOND_ENABLED: ${{ vars.SITT_MOBOND_ENABLED }}
+          SITT_MOBOND_PERMISSION_CONFIRMED: ${{ vars.SITT_MOBOND_PERMISSION_CONFIRMED }}
         # $SOURCES is split into words on purpose; the probe rejects unknown names.
         run: uv run python -m sitt.ingest.live.probe $SOURCES

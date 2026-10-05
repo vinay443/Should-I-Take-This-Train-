@@ -29,6 +29,9 @@ class SourceResult:
     observations: list[Observation] = field(default_factory=list)
     raw_path: Path | None = None
     error: str | None = None
+    # Why the source was deliberately not fetched this run (Mobond's opt-in, rate limit
+    # or backoff). Not a failure.
+    skipped: str | None = None
 
     @property
     def ok(self) -> bool:
@@ -58,19 +61,29 @@ def collect(
     raw_dir: Path,
     dry_run: bool = False,
     now: datetime | None = None,
+    state_dir: Path | None = None,
 ) -> CollectResult:
-    """Fetch each source once, in order. A failing source never stops the others."""
+    """Fetch each source once, in order. A failing source never stops the others.
+
+    `state_dir` is where Mobond's rate-limit state lives (default `data/logs`).
+    """
     result = CollectResult(batch_id=new_batch_id(now or datetime.now(UTC)), sources=[])
     for source in sources:
         fetch, parse = SOURCES[source]
         source_result = SourceResult(source)
         result.sources.append(source_result)
+        options = {}
+        if source == mobond.SOURCE and state_dir is not None:
+            options["state_file"] = Path(state_dir) / mobond.STATE_FILE
         try:
-            raw = fetch(client)
+            raw = fetch(client, **options)
             if not dry_run:
                 # Archive before parsing, so a parser bug never loses the response.
                 source_result.raw_path = write_raw(raw, raw_dir, result.batch_id)
             source_result.observations = parse(raw)
+        except mobond.MobondSkipped as exc:
+            source_result.skipped = str(exc)
+            logger.info("%s", exc)
         except SourceError as exc:
             source_result.error = str(exc)
             logger.error("%s failed: %s", source, exc)

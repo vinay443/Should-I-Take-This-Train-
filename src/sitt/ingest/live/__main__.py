@@ -20,6 +20,9 @@ def summarise(result: CollectResult, dry_run: bool) -> str:
         if not source.ok:
             lines.append(f"  {source.source}: FAILED: {source.error}")
             continue
+        if source.skipped:
+            lines.append(f"  {source.source}: not fetched. {source.skipped}")
+            continue
         events = Counter(o.event for o in source.observations)
         delays = [o.delay_minutes for o in source.observations if o.delay_minutes is not None]
         median = sorted(delays)[len(delays) // 2] if delays else None
@@ -81,6 +84,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             observations_dir=observations_dir,
             raw_dir=args.raw_dir or args.data_dir / "raw",
             dry_run=args.dry_run,
+            state_dir=args.data_dir / "logs",
         )
     print(summarise(result, args.dry_run))
 

@@ -49,8 +49,14 @@ class FakeSources:
 
 
 @pytest.fixture(autouse=True)
-def no_pause(monkeypatch):
+def no_pause(monkeypatch, tmp_path_factory):
     monkeypatch.setattr(ntes, "PAUSE_SECONDS", 0)
+    # These tests exercise the collector with Mobond switched on, against a fake
+    # transport. Both switches are needed, and its rate-limit state goes to a temp folder.
+    monkeypatch.setenv(mobond.ENABLE_VARIABLE, "true")
+    monkeypatch.setenv(mobond.PERMISSION_VARIABLE, "true")
+    state = tmp_path_factory.mktemp("mobond-state") / mobond.STATE_FILE
+    monkeypatch.setattr(mobond, "DEFAULT_STATE_FILE", state)
 
 
 def _run(tmp_path: Path, fake: FakeSources, sources=("mobond", "ntes"), dry_run=False):
@@ -75,7 +81,10 @@ def test_collects_both_sources_politely(tmp_path):
     hosts = [r.url.host for r in fake.requests]
     assert hosts.count("mobond.com") == 1
     assert hosts.count("enquiry.indianrail.gov.in") == 3
-    assert all(r.headers["user-agent"] == user_agent() for r in fake.requests)
+    # Every request says who is asking. Mobond's also says how often.
+    for r in fake.requests:
+        expected = mobond.mobond_user_agent() if r.url.host == "mobond.com" else user_agent()
+        assert r.headers["user-agent"] == expected
 
     # Raw responses are archived per source and round-trip.
     for source in result.sources:
@@ -195,6 +204,10 @@ def test_cli(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(cli, "make_client", lambda: make_client(httpx.MockTransport(FakeSources())))
     assert cli.main(["--source", "mobond", "--data-dir", str(tmp_path)]) == 0
     assert "mobond: 40 observations" in capsys.readouterr().out
+    assert len(list((tmp_path / "observations").rglob("*.parquet"))) == 1
+    # A second run straight away is inside the rate limit: nothing is fetched, no failure.
+    assert cli.main(["--source", "mobond", "--data-dir", str(tmp_path)]) == 0
+    assert "mobond: not fetched. Mobond not polled (rate limit)" in capsys.readouterr().out
     assert len(list((tmp_path / "observations").rglob("*.parquet"))) == 1
 
 

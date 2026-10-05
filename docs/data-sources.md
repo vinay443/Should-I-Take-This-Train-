@@ -110,6 +110,117 @@ Research spike, **2026-09-27**. Every "tested" note below comes from a real requ
   - Store derived observations, not a public mirror of the raw feed.
   - **Email Mobond and ask for permission first.**
 
+#### Turning Mobond on (a checklist for when permission arrives)
+
+**As of 2026-10-05 Mobond has not been asked and has not agreed. The adapter is off, and no
+request has been made to Mobond or m-Indicator by this project's code since the research
+spike above.** Nothing below should be done until step 1 is complete.
+
+The adapter ([`src/sitt/ingest/live/mobond.py`](../src/sitt/ingest/live/mobond.py)) is built
+so that switching it on is a deliberate act and polling stays gentle.
+
+**1. Permission**
+
+- [ ] Write to Mobond (the m-Indicator team) and ask. Say what the project is (personal,
+      non-commercial), what you want to fetch (`getalllivetrains`, once every 15 minutes or
+      slower), what you will store (derived fields: train number, station, delay) and what
+      you won't publish (their status text).
+- [ ] Get a reply that says yes, **in writing**. Keep it. No reply is not a yes.
+- [ ] Note any conditions they set: a slower rate, attribution wording, a different endpoint,
+      a contact address to put in the User-Agent.
+
+**2. Terms**
+
+- [ ] Re-read the [m-Indicator terms](http://m.mobond.com/terms.xhtml). They were last
+      checked on 2026-09-27 and may have changed.
+- [ ] Confirm that what you were allowed covers publishing derived data, if you intend to
+      push Parquet files to the public `data` branch. If it doesn't, keep the data local.
+- [ ] `raw_status` (their text) never leaves your machine: it is not in the Parquet files or
+      the exports, and tests enforce that. Don't weaken it. Leave `SITT_COMMIT_RAW` alone.
+
+**3. Attribution**
+
+- [ ] Add a line to the README, and to anything public built on the data, naming Mobond /
+      m-Indicator as the source of live running status, in the wording they ask for.
+- [ ] If they gave a contact address or want one, set `SITT_USER_AGENT` to a string that
+      includes it. The default already names the project, the request rate and the
+      repository URL.
+
+**4. Request budget**
+
+- [ ] Decide the rate. The default and the minimum is one request per 15 minutes, which is 96
+      a day and about 220 KB. If they asked for slower, set
+      `SITT_MOBOND_MIN_INTERVAL_MINUTES` (it can only make the gap longer, never shorter).
+- [ ] Collect from **one place only**: either this PC or the GitHub workflow, never both.
+      Each keeps its own record of when it last asked, so two collectors would double the
+      rate.
+- [ ] On GitHub the rate limit has no memory between runs, because each run starts from a
+      fresh checkout. There the cron schedule is the only limit. Don't make it more frequent
+      than every 15 minutes.
+
+**5. Switch it on**
+
+Both settings must be exactly `true`. One alone does nothing.
+
+```
+SITT_MOBOND_ENABLED=true
+SITT_MOBOND_PERMISSION_CONFIRMED=true
+```
+
+- [ ] Locally: add both to `.env`. On GitHub: add both as repository variables (Settings →
+      Secrets and variables → Actions → Variables).
+- [ ] Run `uv run sitt-collect` once by hand and read the log. Expect one line for Mobond
+      with a few hundred observations.
+- [ ] Run it again straight away. Expect "Mobond not polled (rate limit)". That is the rate
+      limit working.
+
+**6. What to watch afterwards**
+
+In `uv run sitt-health` ([`collector.md`](collector.md#8-the-health-report)):
+
+- [ ] The `mobond` line says **UP**, with readings in the low hundreds per run. Runs where it
+      was rate-limited or backing off are counted with the switched-off runs, not as
+      failures.
+- [ ] No `source_down:mobond` or `low_readings:mobond` alert. A string of failures means
+      they have blocked or changed the endpoint: **stop and ask, don't work around it.** The
+      adapter backs off by itself, doubling the wait after each failure up to a day.
+- [ ] Trains matched against unmatched. Central line numbers (95xxx–97xxx) should match the
+      timetable. Western and Harbour trains are in the feed too and won't.
+
+In `uv run sitt-dq` ([`data-quality.md`](data-quality.md)):
+
+- [ ] **Station codes not in the timetable.** These are Mobond station names the alias map
+      (`src/sitt/ingest/live/stations.py`) doesn't know. Add them.
+- [ ] The **less accurate** rate for `mobond`. About 40% was seen in the spike.
+- [ ] `delay_jump` and `implausible_delay` flags on Mobond rows.
+
+And once, in the database:
+
+```sql
+SELECT count(*) FROM observations WHERE source = 'mobond' AND event = 'unknown';
+```
+
+- [ ] Any rows here are status wordings the parser doesn't know. Look at them in the raw
+      archive (`data/raw/`) and extend the parser. **The test fixture for this adapter is
+      hand-written and may be inaccurate** (see
+      [`tests/fixtures/live/README.md`](../tests/fixtures/live/README.md)), so the first real
+      responses are the first real test of the parser.
+
+**To switch it off again:** set either variable to anything but `true`. No request is made
+from then on.
+
+How the adapter behaves:
+
+| | |
+| --- | --- |
+| Opt-in | Two switches, both exactly `true`, checked inside the fetch function itself, so no caller can skip the check |
+| Rate limit | One request per `SITT_MOBOND_MIN_INTERVAL_MINUTES`, floor 15. The time of the last request is in `data/logs/mobond_state.json`, written before the request goes out |
+| Backoff | Each failed request doubles the wait: 30 min, 1 h, 2 h, ... up to 24 h. One success resets it |
+| Timeouts | 10 seconds, 5 to connect. One attempt, no retries |
+| User-Agent | `should-i-take-this-train/0.1 (personal non-commercial research project; at most one request every 15 minutes; +https://github.com/vinay443/Should-I-Take-This-Train-)` |
+| If the state file is unreadable | Treated as "a request was just made": it waits one interval |
+| If the request time can't be recorded | No request is made |
+
 ### 2.2 NTES (official, CRIS): works, but only near Kalyan and beyond
 
 - **URL:** `https://enquiry.indianrail.gov.in/mntes/`, the mobile web UI.

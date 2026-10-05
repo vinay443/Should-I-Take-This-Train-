@@ -41,6 +41,17 @@ class FakeSources:
 def quick(monkeypatch):
     monkeypatch.setattr(ntes, "PAUSE_SECONDS", 0)
     monkeypatch.delenv("SITT_MOBOND_ENABLED", raising=False)
+    monkeypatch.delenv("SITT_MOBOND_PERMISSION_CONFIRMED", raising=False)
+
+
+BOTH = {"SITT_MOBOND_ENABLED": "true", "SITT_MOBOND_PERMISSION_CONFIRMED": "true"}
+
+
+@pytest.fixture
+def mobond_permitted(monkeypatch):
+    """Both of Mobond's switches on, as they would be once Mobond has agreed."""
+    for name, value in BOTH.items():
+        monkeypatch.setenv(name, value)
 
 
 def _rows(db: Path) -> dict[str, int]:
@@ -56,12 +67,29 @@ def _rows(db: Path) -> dict[str, int]:
         ("false", ["ntes"]),
         ("1", ["ntes"]),  # only the word "true" switches it on, as in collect.yml
         ("yes", ["ntes"]),
-        ("true", ["mobond", "ntes"]),
-        (" TRUE ", ["mobond", "ntes"]),
+        ("true", ["ntes"]),  # enabled, but permission not confirmed: still off
     ],
 )
 def test_mobond_is_off_unless_switched_on(value, expected):
     environ = {} if value is None else {"SITT_MOBOND_ENABLED": value}
+    assert enabled_sources(environ) == expected
+
+
+@pytest.mark.parametrize(
+    ("enabled", "permitted", "expected"),
+    [
+        ("true", "true", ["mobond", "ntes"]),
+        (" TRUE ", "True", ["mobond", "ntes"]),
+        ("true", "", ["ntes"]),
+        ("true", "false", ["ntes"]),
+        ("true", "yes", ["ntes"]),  # only the word "true" counts, for each switch
+        ("", "true", ["ntes"]),
+        ("false", "true", ["ntes"]),
+        ("1", "1", ["ntes"]),
+    ],
+)
+def test_mobond_needs_both_switches(enabled, permitted, expected):
+    environ = {"SITT_MOBOND_ENABLED": enabled, "SITT_MOBOND_PERMISSION_CONFIRMED": permitted}
     assert enabled_sources(environ) == expected
 
 
@@ -82,13 +110,11 @@ def test_one_run_appends_to_the_database(tmp_path):
     assert len(list((data_dir / "raw").rglob("*-ntes.json.gz"))) == 2
 
 
-def test_mobond_is_fetched_once_when_enabled(tmp_path):
+def test_mobond_is_fetched_once_when_enabled(tmp_path, mobond_permitted):
     db = tmp_path / "sitt.duckdb"
     fake = FakeSources()
     with make_client(httpx.MockTransport(fake)) as client:
-        run = run_once(
-            tmp_path / "data", db, enabled_sources({"SITT_MOBOND_ENABLED": "true"}), client
-        )
+        run = run_once(tmp_path / "data", db, enabled_sources(BOTH), client)
     assert run.ok and fake.hosts.count("mobond.com") == 1
     assert _rows(db) == {"mobond": 40, "ntes": 9}
     with duckdb.connect(str(db), read_only=True) as con:
@@ -96,7 +122,7 @@ def test_mobond_is_fetched_once_when_enabled(tmp_path):
         assert con.execute("SELECT count(raw_status) FROM observations").fetchone() == (0,)
 
 
-def test_a_failed_source_still_loads_the_rest_and_reports_failure(tmp_path):
+def test_a_failed_source_still_loads_the_rest_and_reports_failure(tmp_path, mobond_permitted):
     db = tmp_path / "sitt.duckdb"
     fake = FakeSources(ntes_status=503)
     with make_client(httpx.MockTransport(fake)) as client:
@@ -160,10 +186,15 @@ def test_cli(tmp_path, monkeypatch, capsys):
 
     assert local.main(["--data-dir", str(data_dir), "--db", str(db)]) == 0
     log = (data_dir / "logs" / "collector.log").read_text(encoding="utf-8")
-    assert "Mobond is off (set SITT_MOBOND_ENABLED=true to enable it)" in log
+    assert "Mobond is off (it needs both SITT_MOBOND_ENABLED=true and" in log
     assert "ntes: 9 observations" in log and "loaded 9 rows from 1 new batch(es)" in log
     assert _rows(db) == {"ntes": 9}
 
+    # One switch is not enough.
     monkeypatch.setenv("SITT_MOBOND_ENABLED", "true")
     assert local.main(["--data-dir", str(data_dir), "--db", str(db), "--no-log-file"]) == 0
-    assert _rows(db) == {"mobond": 40, "ntes": 18}
+    assert _rows(db) == {"ntes": 18}
+    monkeypatch.setenv("SITT_MOBOND_PERMISSION_CONFIRMED", "true")
+    assert local.main(["--data-dir", str(data_dir), "--db", str(db), "--no-log-file"]) == 0
+    assert _rows(db) == {"mobond": 40, "ntes": 27}
+    assert (data_dir / "logs" / "mobond_state.json").is_file()

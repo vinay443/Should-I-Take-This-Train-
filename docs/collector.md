@@ -109,7 +109,9 @@ refuse GitHub's addresses, in which case the probe fails and the local collector
 is a step for you to take by hand:
 
 1. On GitHub, open **Actions → Probe live sources → Run workflow**.
-2. Leave `sources` as `mobond ntes`, or enter just `ntes` to leave Mobond alone.
+2. Leave `sources` as `ntes`. Mobond is only probed if you add `mobond` **and** both of its
+   repository variables are `true`; otherwise the probe prints "NOT FETCHED" for it and makes
+   no request.
 3. Read the **Probe** step's log. For each source it prints every request with its status code
    and size, the content type, a 400-character sample of the response, and how many
    observations were parsed.
@@ -131,9 +133,12 @@ only be started by hand until you do the following.
 3. **Run the collector once by hand:** Actions → Collect live data → Run workflow. The first
    run creates the `data` branch. Check that it contains a Parquet file.
 4. **Switch Mobond on, if agreed:** Settings → Secrets and variables → Actions → Variables →
-   New repository variable, with name `SITT_MOBOND_ENABLED` and value `true`. Without it, the
-   workflow fetches NTES only, even if you choose `mobond` or `all` by hand. Delete the
-   variable or set it to anything else to switch Mobond off again.
+   New repository variable. It needs **two**, both with the value `true`:
+   `SITT_MOBOND_ENABLED` and `SITT_MOBOND_PERMISSION_CONFIRMED`. Without both, the workflow
+   fetches NTES only, even if you choose `mobond` or `all` by hand. Delete either, or set it
+   to anything else, to switch Mobond off again. Go through
+   [Turning Mobond on](data-sources.md#turning-mobond-on-a-checklist-for-when-permission-arrives)
+   first.
 5. **Uncomment the schedule** in `collect.yml` and push to `main`:
 
    ```yaml
@@ -215,13 +220,20 @@ It prints what it fetched and loaded, and appends the same lines to
 `data/logs/collector.log`. The exit code is 1 if a source failed or the load didn't happen.
 
 **Mobond is off by default**, exactly as in the workflow. `sitt-collect` fetches NTES only
-unless `.env` (or the environment) has:
+unless `.env` (or the environment) has **both**:
 
 ```
 SITT_MOBOND_ENABLED=true
+SITT_MOBOND_PERMISSION_CONFIRMED=true
 ```
 
-Only the word `true` switches it on. Leave it off until Mobond has agreed.
+Only the word `true` counts, for each. The first says you want Mobond on; the second says
+Mobond has agreed. One without the other does nothing, and the log says which is missing.
+Leave both off until Mobond has agreed, then follow
+[Turning Mobond on](data-sources.md#turning-mobond-on-a-checklist-for-when-permission-arrives).
+
+Even when on, Mobond is asked at most once per 15 minutes, however often `sitt-collect` runs.
+A run inside that gap logs "Mobond not polled (rate limit)" and carries on with NTES.
 
 ### Every 15 minutes with Task Scheduler
 
@@ -297,7 +309,7 @@ not anything was fetched:
 | `run_id` | The batch ID, e.g. `20261005T144504Z-a0f215`. Equal to `observations.batch_id` for the run's readings |
 | `source` | `ntes` or `mobond` |
 | `started_at`, `finished_at` | When the run started and when fetching ended |
-| `status` | `ok`: fetched, parsed and loaded. `partial`: fetched, but nothing was parsed, or the readings couldn't be loaded into the database yet. `failed`: the source couldn't be fetched or parsed. `skipped_disabled`: the source is switched off (Mobond, by default) |
+| `status` | `ok`: fetched, parsed and loaded. `partial`: fetched, but nothing was parsed, or the readings couldn't be loaded into the database yet. `failed`: the source couldn't be fetched or parsed. `skipped_disabled`: the source is switched off (Mobond, by default), or was on but deliberately not polled this run because of its rate limit or backoff; `error` then says which |
 | `readings` | Rows the source produced |
 | `trains_matched`, `trains_unmatched` | Distinct train numbers in the run that are, or aren't, in the timetable |
 | `error` | One short line about what went wrong. Query strings are removed and it is never a response body |
@@ -599,5 +611,7 @@ uv run pytest tests/live
 The tests never touch the network. They run the parsers over the files in
 [`tests/fixtures/live/`](../tests/fixtures/live/), and run the whole collector against a fake
 HTTP transport that serves those files. The NTES file is a trimmed copy of a real board page
-saved on 2026-09-27. The Mobond file is invented: it has the feed's structure and every status
-wording the parser handles, but none of Mobond's data.
+saved on 2026-09-27. The Mobond file is **hand-written and may be inaccurate**: it has the
+feed's structure and every status wording the parser handles, but none of Mobond's data, and
+nothing proves the wordings are still what Mobond sends. See
+[`tests/fixtures/live/README.md`](../tests/fixtures/live/README.md).

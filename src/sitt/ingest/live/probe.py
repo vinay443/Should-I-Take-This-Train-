@@ -4,12 +4,16 @@
 
 Used by .github/workflows/probe.yml to check whether the sources answer requests from
 GitHub's (non-Indian) runner IPs.
+
+Mobond is only probed when both of its switches are set (see sitt.ingest.live.mobond).
+Otherwise the probe says so and makes no request to it.
 """
 
 import re
 import sys
 from collections.abc import Sequence
 
+from sitt.ingest.live import mobond
 from sitt.ingest.live.collect import SOURCES
 from sitt.ingest.live.common import SourceError, make_client, user_agent
 
@@ -35,6 +39,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"\n=== {name}")
             try:
                 raw = fetch(client)
+            except mobond.MobondSkipped as exc:
+                # Not a failure: no request was made, on purpose.
+                print(f"  NOT FETCHED: {exc}")
+                continue
             except SourceError as exc:
                 failures += 1
                 print("\n".join(f"  {line}" for line in exc.requests))
