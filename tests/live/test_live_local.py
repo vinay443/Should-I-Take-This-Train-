@@ -104,11 +104,15 @@ def test_a_failed_source_still_loads_the_rest_and_reports_failure(tmp_path):
     assert not run.ok and run.load_error is None
     assert _rows(db) == {"mobond": 40}
 
-    # Nothing collected at all: no load is attempted, and the database isn't created.
+    # Nothing collected at all: no load is attempted, but the failed run is still recorded.
     with make_client(httpx.MockTransport(FakeSources(ntes_status=503))) as client:
         nothing = run_once(tmp_path / "empty", tmp_path / "none.duckdb", ["ntes"], client)
     assert not nothing.ok and nothing.loaded is None
-    assert not (tmp_path / "none.duckdb").exists()
+    with duckdb.connect(str(tmp_path / "none.duckdb"), read_only=True) as con:
+        assert con.execute("SELECT count(*) FROM observations").fetchone() == (0,)
+        assert con.execute(
+            "SELECT source, status FROM collector_runs ORDER BY source"
+        ).fetchall() == [("mobond", "skipped_disabled"), ("ntes", "failed")]
 
 
 def test_a_busy_database_keeps_the_batch_for_the_next_run(tmp_path, monkeypatch):

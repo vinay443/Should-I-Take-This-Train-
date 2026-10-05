@@ -119,6 +119,56 @@ ALTER TABLE observations ADD COLUMN IF NOT EXISTS raw_status VARCHAR;
 ALTER TABLE observations ADD COLUMN IF NOT EXISTS batch_id VARCHAR;
 
 
+-- One row per collector run per source, written by `sitt-collect` (sitt.ingest.live.runlog).
+-- A run that fetched nothing, or failed outright, still gets its rows, so a hole in the
+-- data can be told apart: no row at all means no run happened (machine off or asleep),
+-- a 'failed' row means the run happened and the source didn't answer.
+--   `run_id`            the collector's batch ID, e.g. '20261005T144504Z-a0f215'. Equal to
+--                       observations.batch_id for the readings the run produced.
+--   `status`            'ok'               fetched, parsed and loaded;
+--                       'partial'          fetched, but nothing was parsed or the readings
+--                                          could not be loaded into this database yet;
+--                       'failed'           the source could not be fetched or parsed;
+--                       'skipped_disabled' the source is switched off (Mobond by default).
+--   `readings`          rows the source produced in this run.
+--   `trains_matched`,   distinct train numbers among them that are, or are not, in the
+--   `trains_unmatched`  timetable (`trains`). NULL when the run loaded nothing.
+--   `error`             a short description of what went wrong. Never a response body.
+--   `host`              the machine that ran it.
+--   `backfilled`        true for rows reconstructed from `observations` for runs made
+--                       before this table existed. Their times come from the batch ID.
+CREATE TABLE IF NOT EXISTS collector_runs (
+    run_id              VARCHAR NOT NULL,
+    source              VARCHAR NOT NULL,
+    started_at          TIMESTAMPTZ NOT NULL,
+    finished_at         TIMESTAMPTZ,
+    status              VARCHAR NOT NULL
+                        CHECK (status IN ('ok', 'partial', 'failed', 'skipped_disabled')),
+    readings            INTEGER NOT NULL DEFAULT 0,
+    trains_matched      INTEGER,
+    trains_unmatched    INTEGER,
+    error               VARCHAR,
+    host                VARCHAR,
+    backfilled          BOOLEAN NOT NULL DEFAULT false,
+    PRIMARY KEY (run_id, source)
+);
+
+
+-- What `sitt-health --alert-only` last said about each problem, so the same problem
+-- isn't reported again on every check (see sitt.health and docs/collector.md).
+--   `alert_key`     the problem, e.g. 'no_successful_run' or 'source_down:ntes'.
+--   `active`        whether the problem was present at the last check.
+--   `first_seen_at` when the current episode started.
+--   `last_sent_at`  when a message about it was last sent.
+CREATE TABLE IF NOT EXISTS alert_state (
+    alert_key       VARCHAR PRIMARY KEY,
+    active          BOOLEAN NOT NULL,
+    first_seen_at   TIMESTAMPTZ NOT NULL,
+    last_sent_at    TIMESTAMPTZ,
+    last_message    VARCHAR
+);
+
+
 -- How crowded a train was, as reported by riders (e.g. through the Telegram bot).
 -- Riders often don't know the train_id, so a report may carry only a free-text
 -- `train_description` ("8:12 fast from Kalyan"), which is resolved to a train_id

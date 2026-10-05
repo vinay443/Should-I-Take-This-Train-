@@ -53,6 +53,33 @@ class BlockSettings:
 
 
 @dataclass(frozen=True)
+class HealthSettings:
+    """What `sitt-health` expects of the collector, and when it raises an alert.
+
+    Each can be set with the environment variable named beside it. See docs/collector.md.
+    """
+
+    # SITT_COLLECT_CADENCE_MINUTES: how often the collector is scheduled to run.
+    cadence_minutes: float = 15.0
+    # SITT_HEALTH_GAP_TOLERANCE_MINUTES: two runs further apart than the cadence plus this
+    # have a gap between them. Task Scheduler starts runs a little late, never early.
+    gap_tolerance_minutes: float = 10.0
+    # SITT_ALERT_NO_RUN_HOURS: alert when no run has succeeded for this long.
+    alert_no_run_hours: float = 3.0
+    # SITT_ALERT_SOURCE_DOWN_RUNS: alert when a source failed in this many runs in a row.
+    alert_source_down_runs: int = 4
+    # SITT_ALERT_MIN_READINGS: alert when a source's mean readings per run, over its last
+    # SITT_ALERT_READINGS_RUNS successful runs, is below this.
+    alert_min_readings: float = 10.0
+    alert_readings_runs: int = 4
+    # SITT_ALERT_REPEAT_HOURS: repeat an alert that is still true no more often than this.
+    alert_repeat_hours: float = 12.0
+    # SITT_TELEGRAM_SEND: really send Telegram messages. Off by default, so that
+    # `sitt-health --telegram` prints what it would send (a dry run) until this is true.
+    telegram_send: bool = False
+
+
+@dataclass(frozen=True)
 class Settings:
     db_path: Path
     log_level: str
@@ -120,6 +147,26 @@ def load_block_settings() -> BlockSettings:
     return BlockSettings(
         default_start=_clock("SITT_BLOCK_DEFAULT_START", defaults.default_start),
         default_end=_clock("SITT_BLOCK_DEFAULT_END", defaults.default_end),
+    )
+
+
+def load_health_settings() -> HealthSettings:
+    defaults = HealthSettings()
+    return HealthSettings(
+        cadence_minutes=max(1.0, _number("SITT_COLLECT_CADENCE_MINUTES", defaults.cadence_minutes)),
+        gap_tolerance_minutes=_number(
+            "SITT_HEALTH_GAP_TOLERANCE_MINUTES", defaults.gap_tolerance_minutes
+        ),
+        alert_no_run_hours=_number("SITT_ALERT_NO_RUN_HOURS", defaults.alert_no_run_hours),
+        alert_source_down_runs=max(
+            1, _number("SITT_ALERT_SOURCE_DOWN_RUNS", defaults.alert_source_down_runs, int)
+        ),
+        alert_min_readings=_number("SITT_ALERT_MIN_READINGS", defaults.alert_min_readings),
+        alert_readings_runs=max(
+            1, _number("SITT_ALERT_READINGS_RUNS", defaults.alert_readings_runs, int)
+        ),
+        alert_repeat_hours=_number("SITT_ALERT_REPEAT_HOURS", defaults.alert_repeat_hours),
+        telegram_send=_flag("SITT_TELEGRAM_SEND"),
     )
 
 

@@ -28,3 +28,10 @@ scratch/
 # Synthetic observations (python -m sitt.synth) and trained models: generated, never committed.
 data/synthetic/
 /models/
+
+# Downloaded timetables and exported data never belong in git. The only CSV that does is
+# the invented sample the tests load.
+*.pdf
+*.parquet
+*.csv
+!tests/fixtures/**/*.csv

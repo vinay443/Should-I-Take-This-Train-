@@ -1,3 +1,3 @@
-from sitt.db.database import connect, init_db
+from sitt.db.database import DatabaseBusyError, connect, init_db, open_with_retry
 
-__all__ = ["connect", "init_db"]
+__all__ = ["DatabaseBusyError", "connect", "init_db", "open_with_retry"]

@@ -16,6 +16,9 @@ If the database is busy (the bot or the dashboard has it open for writing), the 
 retried a few times and then skipped. Nothing is lost: the Parquet batch stays on disk and
 the next run loads it.
 
+Every run, including one where every source failed, is recorded in `collector_runs`
+(see sitt.ingest.live.runlog), which is what `sitt-health` reads.
+
 Meant to be run every 15 minutes by Windows Task Scheduler; `scripts/collect-once.ps1`
 wraps it, and `scripts/register-collector-task.ps1` creates the task.
 """
@@ -25,8 +28,9 @@ import logging
 import os
 import sys
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -36,7 +40,7 @@ from dotenv import find_dotenv, load_dotenv
 
 from sitt.config import load_settings
 from sitt.db import init_db
-from sitt.ingest.live import mobond, ntes
+from sitt.ingest.live import mobond, ntes, runlog
 from sitt.ingest.live.__main__ import summarise
 from sitt.ingest.live.collect import CollectResult, collect
 from sitt.ingest.live.common import make_client
@@ -69,6 +73,25 @@ class LocalRun:
         return self.collected.ok and self.load_error is None
 
 
+def with_database[T](
+    db_path: Path,
+    action: Callable[[duckdb.DuckDBPyConnection], T],
+    attempts: int = LOAD_ATTEMPTS,
+    wait_seconds: float = LOAD_RETRY_SECONDS,
+) -> T:
+    """Run `action` on the database, waiting out another process that has it open."""
+    for attempt in range(1, attempts + 1):
+        try:
+            with init_db(db_path) as con:
+                return action(con)
+        except duckdb.IOException as exc:
+            if attempt == attempts:
+                raise
+            logger.warning("database busy (%s); retrying in %ss", exc, wait_seconds)
+            time.sleep(wait_seconds)
+    raise AssertionError("unreachable")
+
+
 def load_with_retry(
     db_path: Path,
     observations_dir: Path,
@@ -76,16 +99,7 @@ def load_with_retry(
     wait_seconds: float = LOAD_RETRY_SECONDS,
 ) -> LoadResult:
     """Load new batches, waiting out another process that has the database open."""
-    for attempt in range(1, attempts + 1):
-        try:
-            with init_db(db_path) as con:
-                return load(con, observations_dir)
-        except duckdb.IOException as exc:
-            if attempt == attempts:
-                raise
-            logger.warning("database busy (%s); retrying in %ss", exc, wait_seconds)
-            time.sleep(wait_seconds)
-    raise AssertionError("unreachable")
+    return with_database(db_path, lambda con: load(con, observations_dir), attempts, wait_seconds)
 
 
 def run_once(
@@ -95,8 +109,10 @@ def run_once(
     client: httpx.Client | None = None,
     wait_seconds: float = LOAD_RETRY_SECONDS,
 ) -> LocalRun:
-    """One collection and one load."""
+    """One collection, one load, and one entry per source in the run log."""
     observations_dir = data_dir / "observations"
+    log_dir = data_dir / "logs"
+    started_at = datetime.now(UTC)
     own = client is None
     client = client or make_client()
     try:
@@ -106,12 +122,24 @@ def run_once(
     finally:
         if own:
             client.close()
-    if not observations_dir.is_dir():
-        return LocalRun(collected, None)
+    finished_at = datetime.now(UTC)
+
+    def records(load_error: str | None = None) -> list[runlog.RunRecord]:
+        return runlog.build_records(
+            collected, started_at=started_at, finished_at=finished_at, load_error=load_error
+        )
+
+    def load_and_record(con: duckdb.DuckDBPyConnection) -> LoadResult | None:
+        loaded = load(con, observations_dir) if observations_dir.is_dir() else None
+        runlog.record_run(con, records(), log_dir)
+        return loaded
+
     try:
-        loaded = load_with_retry(db_path, observations_dir, wait_seconds=wait_seconds)
+        loaded = with_database(db_path, load_and_record, wait_seconds=wait_seconds)
     except duckdb.Error as exc:
-        return LocalRun(collected, None, f"{type(exc).__name__}: {exc}")
+        error = f"{type(exc).__name__}: {exc}"
+        runlog.save_for_later(records(error), log_dir)
+        return LocalRun(collected, None, error)
     return LocalRun(collected, loaded)
 
 

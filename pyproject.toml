@@ -20,6 +20,7 @@ sitt-bot = "sitt.bot.app:main"
 sitt-block = "sitt.ingest.blocks:main"
 sitt-dashboard = "sitt.dashboard.run:main"
 sitt-collect = "sitt.ingest.live.local:main"
+sitt-health = "sitt.health:main"
 
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13"]

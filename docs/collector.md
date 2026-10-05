@@ -102,7 +102,7 @@ Later, update the worktree with `git -C ../sitt-data pull` and run the loader ag
 GitHub-hosted runners have IP addresses outside India, and Indian Railways sites sometimes
 block those. Before relying on the scheduled collector, check that the sources answer:
 
-1. On GitHub, open **Actions → Probe live sources → Run workflow**.
+1. On GitHub, open **Actions â†’ Probe live sources â†’ Run workflow**.
 2. Leave `sources` as `mobond ntes`, or enter just `ntes` to leave Mobond alone.
 3. Read the **Probe** step's log. For each source it prints every request with its status code
    and size, the content type, a 400-character sample of the response, and how many
@@ -122,9 +122,9 @@ only be started by hand until you do the following.
 
 1. **Get Mobond's agreement**, or decide to collect NTES only.
 2. **Run the probe** (above) and confirm the sources you want answer from a runner.
-3. **Run the collector once by hand:** Actions → Collect live data → Run workflow. The first
+3. **Run the collector once by hand:** Actions â†’ Collect live data â†’ Run workflow. The first
    run creates the `data` branch. Check that it contains a Parquet file.
-4. **Switch Mobond on, if agreed:** Settings → Secrets and variables → Actions → Variables →
+4. **Switch Mobond on, if agreed:** Settings â†’ Secrets and variables â†’ Actions â†’ Variables â†’
    New repository variable, with name `SITT_MOBOND_ENABLED` and value `true`. Without it, the
    workflow fetches NTES only, even if you choose `mobond` or `all` by hand. Delete the
    variable or set it to anything else to switch Mobond off again.
@@ -261,7 +261,7 @@ under 15. To stop collecting:
 Unregister-ScheduledTask -TaskName "SITT live collector" -Confirm:$false
 ```
 
-If you would rather click through it: open **Task Scheduler → Create Task**. On **Triggers**,
+If you would rather click through it: open **Task Scheduler â†’ Create Task**. On **Triggers**,
 add one that starts today and repeats every 15 minutes indefinitely. On **Actions**, start the
 program `powershell.exe` with the arguments
 `-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "C:\path\to\repo\scripts\collect-once.ps1"`.
@@ -281,7 +281,173 @@ Things to know:
 - Raw responses pile up under `data/raw/` (about 30 KB per NTES run). Delete old days when
   they are no longer useful.
 
-## 7. Tests
+## 7. The run log
+
+Every `sitt-collect` run writes one row per source to the `collector_runs` table, whether or
+not anything was fetched:
+
+| Column | Meaning |
+| --- | --- |
+| `run_id` | The batch ID, e.g. `20261005T144504Z-a0f215`. Equal to `observations.batch_id` for the run's readings |
+| `source` | `ntes` or `mobond` |
+| `started_at`, `finished_at` | When the run started and when fetching ended |
+| `status` | `ok`: fetched, parsed and loaded. `partial`: fetched, but nothing was parsed, or the readings couldn't be loaded into the database yet. `failed`: the source couldn't be fetched or parsed. `skipped_disabled`: the source is switched off (Mobond, by default) |
+| `readings` | Rows the source produced |
+| `trains_matched`, `trains_unmatched` | Distinct train numbers in the run that are, or aren't, in the timetable |
+| `error` | One short line about what went wrong. Query strings are removed and it is never a response body |
+| `host` | The machine that ran it |
+| `backfilled` | True for rows rebuilt from `observations` for runs made before this table existed. Their start time is the one in the batch ID |
+
+Two things follow from this:
+
+- **No row means no run.** The machine was off or asleep, or Task Scheduler didn't start the
+  task. A `failed` row means the run happened and the source didn't answer.
+- **Writing the log never stops collection.** If the database is busy, the rows are appended
+  to `data/logs/collector_runs.pending.jsonl` and moved into the table by the next run that
+  can open the database.
+
+## 8. The health report
+
+```bash
+uv run sitt-health
+```
+
+It prints, for the last 24 hours:
+
+```
+Collector health, 05 Oct 21:00 to 06 Oct 21:00 IST (24 h)
+Runs: 66 recorded, about 96 expected at one every 15 min
+Gaps: 1, about 29 run(s) missed. No run was recorded in these stretches (machine off or asleep, or the task didn't start):
+  05 Oct 23:30 to 06 Oct 07:00: 7 h 30 min, about 29 run(s)
+Sources:
+  mobond: DISABLED (switched off in 66 run(s))
+  ntes: UP; runs ok 64, partial 0, failed 2; 6,120 readings; trains matched 71, unmatched 38
+    failed 06 Oct 10:15 to 10:30 (2 run(s)): POST https://enquiry.indianrail.gov.in/mntes/q returned HTTP 503
+Newest observation: 06 Oct 20:45 IST (15 min ago)
+Data quality:
+  ...
+```
+
+| Option | Meaning |
+| --- | --- |
+| `--hours N` | Look back `N` hours instead of 24 |
+| `--date YYYY-MM-DD` | Report on one Mumbai calendar day (today so far, if it isn't over) |
+| `--db PATH` | A database other than `SITT_DB_PATH` |
+| `--telegram` | Also send a compact summary to the users in `ALLOWED_USER_IDS` |
+| `--alert-only` | Send a message only if something is wrong, or has just recovered |
+| `--dry-run` | Print what would be sent. Send nothing and store nothing |
+
+All times are Asia/Kolkata. The report opens the database read-only. If the collector has the
+file at that moment it waits and retries a few times, then says the database is busy and
+exits with code 2.
+
+How to read it:
+
+- **Runs** counts distinct runs against the number the cadence predicts. The time before the
+  collector's first-ever run isn't counted.
+- **Gaps** are stretches longer than the cadence plus a tolerance (15 + 10 minutes) with no
+  run at all.
+- A source is **UP** if its most recent run answered and **DOWN** if it failed. Each run of
+  consecutive failures is listed with the last error.
+- **Trains matched / unmatched** counts distinct train numbers seen in the window. NTES lists
+  long-distance trains at Kalyan, which aren't in the suburban timetable, so a steady number
+  of unmatched trains is normal. See [`data-quality.md`](data-quality.md) for which they are.
+- **Data quality** is the headline from `sitt-dq` ([`data-quality.md`](data-quality.md)).
+
+### Sending it to Telegram
+
+`sitt-health` talks to the Bot API directly, so the polling bot doesn't need to be running.
+It uses `TELEGRAM_BOT_TOKEN` and `ALLOWED_USER_IDS` from `.env`
+([`bot-setup.md`](bot-setup.md)).
+
+**Nothing is really sent until `.env` has `SITT_TELEGRAM_SEND=true`.** Without it, `--telegram`
+and `--alert-only` print the message under a `[dry run]` line. Try that first:
+
+```bash
+uv run sitt-health --telegram --dry-run
+```
+
+Then add `SITT_TELEGRAM_SEND=true` to `.env` and run `uv run sitt-health --telegram` once by
+hand to see the message arrive.
+
+### Alerts
+
+```bash
+uv run sitt-health --alert-only
+```
+
+This checks three things and sends one message if any is true:
+
+| Alert | Fires when | Setting (default) |
+| --- | --- | --- |
+| No successful run | No source has had an `ok` run for this long | `SITT_ALERT_NO_RUN_HOURS` (3) |
+| Source down | A source failed in this many runs in a row | `SITT_ALERT_SOURCE_DOWN_RUNS` (4) |
+| Readings dropped | A source's mean readings per run, over its last `SITT_ALERT_READINGS_RUNS` (4) answered runs, is below this | `SITT_ALERT_MIN_READINGS` (10) |
+
+To avoid repeating itself, it remembers what it said in the `alert_state` table:
+
+- a new problem is sent once, as `ALERT:`;
+- a problem that is still there is repeated as `STILL:` only every `SITT_ALERT_REPEAT_HOURS`
+  (12);
+- when it goes away, one `RECOVERED:` message is sent.
+
+A dry run stores nothing, so the first real run still sends. If sending fails, nothing is
+stored and the next check tries again.
+
+The alert check can't tell you the machine is asleep, because it is asleep too. The first
+check after it wakes reports the missed hours if they exceed `SITT_ALERT_NO_RUN_HOURS`; if the
+collector's catch-up run finishes first, it says nothing. The daily summary shows the gap
+either way.
+
+Other settings, all optional:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `SITT_COLLECT_CADENCE_MINUTES` | 15 | How often the collector is scheduled |
+| `SITT_HEALTH_GAP_TOLERANCE_MINUTES` | 10 | Lateness allowed before two runs count as having a gap between them |
+| `SITT_TELEGRAM_SEND` | false | Really send Telegram messages |
+
+### Scheduling the summary and the alert check
+
+[`scripts/health-check.ps1`](../scripts/health-check.ps1) runs `sitt-health` from the
+repository folder and appends what it printed to `data/logs/health.log`. Register two tasks
+with it. Replace the path if the repository is somewhere else, and keep the inner `\"` quotes
+if the path contains spaces.
+
+A daily summary at 21:00 (the PC's clock, which should be IST):
+
+```powershell
+schtasks /Create /TN "SITT health summary" /SC DAILY /ST 21:00 /F /TR "powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"C:\Users\vinay\Documents\should_i_take_this_train\scripts\health-check.ps1\" -Mode summary"
+```
+
+An alert check every hour, at five past:
+
+```powershell
+schtasks /Create /TN "SITT health alerts" /SC HOURLY /MO 1 /ST 00:05 /F /TR "powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File \"C:\Users\vinay\Documents\should_i_take_this_train\scripts\health-check.ps1\" -Mode alert"
+```
+
+Both run under your account while you are signed in and need no administrator rights. Test
+one without waiting:
+
+```powershell
+schtasks /Run /TN "SITT health alerts"
+```
+
+```powershell
+Get-Content data\logs\health.log -Tail 20
+```
+
+Remove them with:
+
+```powershell
+schtasks /Delete /TN "SITT health summary" /F
+```
+
+```powershell
+schtasks /Delete /TN "SITT health alerts" /F
+```
+
+## 9. Tests
 
 ```bash
 uv run pytest tests/live
