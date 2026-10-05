@@ -80,6 +80,43 @@ class HealthSettings:
 
 
 @dataclass(frozen=True)
+class DQSettings:
+    """Bounds for the data-quality checks on observations (see sitt.dq, docs/data-quality.md).
+
+    Each can be set with the environment variable named beside it. All are in minutes.
+    "Suburban" means a train matched to the timetable; anything else is treated as a
+    long-distance train, which can honestly run hours late.
+    """
+
+    # SITT_DQ_NEAR_DUPLICATE_MINUTES: the same train, station and event read again within
+    # this long by a different batch is a near duplicate (two collectors running at once).
+    near_duplicate_minutes: float = 5.0
+    # SITT_DQ_MAX_EARLY_MINUTES / SITT_DQ_MAX_DELAY_MINUTES: suburban trains outside
+    # [-early, +delay] are implausible.
+    max_early_minutes: float = 15.0
+    max_delay_minutes: float = 180.0
+    # SITT_DQ_MAX_EARLY_MINUTES_LONG_DISTANCE / SITT_DQ_MAX_DELAY_MINUTES_LONG_DISTANCE
+    max_early_minutes_long_distance: float = 120.0
+    max_delay_minutes_long_distance: float = 1440.0
+    # SITT_DQ_JUMP_WINDOW_MINUTES / SITT_DQ_JUMP_SLACK_MINUTES: between two readings of the
+    # same train at the same station no more than the window apart, the delay can't
+    # honestly change by more than the time that passed plus the slack.
+    jump_window_minutes: float = 60.0
+    jump_slack_minutes: float = 15.0
+    # SITT_DQ_SCHEDULE_MISMATCH_MINUTES: the source's delay and the delay implied by our
+    # timetable disagree by more than this.
+    schedule_mismatch_minutes: float = 20.0
+    # SITT_DQ_FAR_FROM_SCHEDULE_MINUTES: a reading taken further than this from when the
+    # train was due at the station (allowing for its delay): possibly matched to the wrong day.
+    far_from_schedule_minutes: float = 240.0
+    # SITT_DQ_FUTURE_TOLERANCE_MINUTES: a reading stamped later than "now" by more than this.
+    future_tolerance_minutes: float = 5.0
+    # SITT_DQ_BATCH_TIME_TOLERANCE_MINUTES: a reading stamped this far from its batch's
+    # own time. About 330 minutes points at a UTC/IST mix-up.
+    batch_time_tolerance_minutes: float = 90.0
+
+
+@dataclass(frozen=True)
 class Settings:
     db_path: Path
     log_level: str
@@ -167,6 +204,26 @@ def load_health_settings() -> HealthSettings:
         ),
         alert_repeat_hours=_number("SITT_ALERT_REPEAT_HOURS", defaults.alert_repeat_hours),
         telegram_send=_flag("SITT_TELEGRAM_SEND"),
+    )
+
+
+def load_dq_settings() -> DQSettings:
+    defaults = DQSettings()
+    names = {
+        "near_duplicate_minutes": "SITT_DQ_NEAR_DUPLICATE_MINUTES",
+        "max_early_minutes": "SITT_DQ_MAX_EARLY_MINUTES",
+        "max_delay_minutes": "SITT_DQ_MAX_DELAY_MINUTES",
+        "max_early_minutes_long_distance": "SITT_DQ_MAX_EARLY_MINUTES_LONG_DISTANCE",
+        "max_delay_minutes_long_distance": "SITT_DQ_MAX_DELAY_MINUTES_LONG_DISTANCE",
+        "jump_window_minutes": "SITT_DQ_JUMP_WINDOW_MINUTES",
+        "jump_slack_minutes": "SITT_DQ_JUMP_SLACK_MINUTES",
+        "schedule_mismatch_minutes": "SITT_DQ_SCHEDULE_MISMATCH_MINUTES",
+        "far_from_schedule_minutes": "SITT_DQ_FAR_FROM_SCHEDULE_MINUTES",
+        "future_tolerance_minutes": "SITT_DQ_FUTURE_TOLERANCE_MINUTES",
+        "batch_time_tolerance_minutes": "SITT_DQ_BATCH_TIME_TOLERANCE_MINUTES",
+    }
+    return DQSettings(
+        **{field: _number(name, getattr(defaults, field)) for field, name in names.items()}
     )
 
 

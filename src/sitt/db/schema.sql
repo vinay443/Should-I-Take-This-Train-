@@ -119,6 +119,23 @@ ALTER TABLE observations ADD COLUMN IF NOT EXISTS raw_status VARCHAR;
 ALTER TABLE observations ADD COLUMN IF NOT EXISTS batch_id VARCHAR;
 
 
+-- Suspect observations, as marked by `sitt-dq --write-flags` (sitt.dq, docs/data-quality.md).
+-- Nothing is ever deleted from `observations`; a doubtful reading gets a row here instead,
+-- and the feature builder leaves flagged readings out by default. This table is derived:
+-- it is recomputed from `observations` each time flags are written.
+--   `flag`    'exact_duplicate' | 'near_duplicate' | 'implausible_delay' | 'delay_jump' |
+--             'schedule_mismatch' | 'far_from_schedule' | 'future_timestamp' |
+--             'batch_time_mismatch'
+--   `detail`  the numbers behind the flag, e.g. 'delay 412 min, limit 180'.
+CREATE TABLE IF NOT EXISTS dq_flags (
+    observation_id  BIGINT NOT NULL,
+    flag            VARCHAR NOT NULL,
+    detail          VARCHAR,
+    flagged_at      TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (observation_id, flag)
+);
+
+
 -- One row per collector run per source, written by `sitt-collect` (sitt.ingest.live.runlog).
 -- A run that fetched nothing, or failed outright, still gets its rows, so a hole in the
 -- data can be told apart: no row at all means no run happened (machine off or asleep),

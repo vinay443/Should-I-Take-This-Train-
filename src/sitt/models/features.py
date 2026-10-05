@@ -105,13 +105,28 @@ def local_naive(moment: datetime) -> datetime:
     return moment.astimezone(IST).replace(tzinfo=None)
 
 
-def prepare(con: duckdb.DuckDBPyConnection, blocks: BlockSettings | None = None) -> None:
+def prepare(
+    con: duckdb.DuckDBPyConnection,
+    blocks: BlockSettings | None = None,
+    exclude_flagged: bool = True,
+) -> None:
     """Create the temporary tables the feature query reads. Call again after loading data.
 
     `blocks` says which hours a megablock without times is assumed to cover; by default
     it is read from the environment (`sitt.config.load_block_settings`).
+
+    Observations with a row in `dq_flags` (suspect readings; see sitt.dq) are left out
+    unless `exclude_flagged` is false. A database without that table has nothing flagged.
     """
     blocks = blocks or load_block_settings()
+    has_flags = con.execute(
+        "SELECT count(*) FROM information_schema.tables WHERE table_name = 'dq_flags'"
+    ).fetchone()[0]
+    not_flagged = (
+        "AND o.id NOT IN (SELECT observation_id FROM dq_flags)"
+        if exclude_flagged and has_flags
+        else ""
+    )
     stage_route_points(con)
     con.execute(
         """
@@ -143,6 +158,7 @@ def prepare(con: duckdb.DuckDBPyConnection, blocks: BlockSettings | None = None)
             JOIN route_points p ON p.train_id = o.train_id AND p.station_code = o.station_code
             WHERE o.delay_minutes IS NOT NULL AND NOT coalesce(o.cancelled, false)
               AND coalesce(o.event, '') NOT IN ('cancelled', 'rake_at', 'unknown')
+              {not_flagged}
         ), timed AS (
             SELECT *, ((hour(local_ts) * 60 + minute(local_ts) - run_start_min) % 1440 + 1440)
                       % 1440 AS since

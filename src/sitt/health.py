@@ -278,6 +278,13 @@ def build_report(
     else:
         newest = None
 
+    dq_lines: list[str] = []
+    if data_quality and has_observations:
+        try:
+            dq_lines = data_quality(con, start, end)
+        except Exception as exc:  # the health report must survive a data-quality bug
+            dq_lines = [f"could not be checked ({type(exc).__name__}); run `sitt-dq` to see why"]
+
     cadence = timedelta(minutes=settings.cadence_minutes)
     return HealthReport(
         start=start,
@@ -296,7 +303,7 @@ def build_report(
         sources=sources,
         newest_observation_at=newest,
         has_run_log=has_run_log,
-        data_quality=data_quality(con, start, end) if data_quality and has_observations else [],
+        data_quality=dq_lines,
     )
 
 
