@@ -11,12 +11,14 @@ dependencies = [
     "pdfplumber>=0.11.10",
     "python-dotenv>=1.2.3",
     "python-telegram-bot>=22.8",
+    "streamlit>=1.65.0",
 ]
 
 [project.scripts]
 sitt-init-db = "sitt.db.database:main"
 sitt-bot = "sitt.bot.app:main"
 sitt-block = "sitt.ingest.blocks:main"
+sitt-dashboard = "sitt.dashboard.run:main"
 
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13"]
