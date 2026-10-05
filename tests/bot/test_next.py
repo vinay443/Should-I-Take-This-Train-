@@ -10,7 +10,8 @@ from types import SimpleNamespace
 import pytest
 
 from sitt.bot import formatting, handlers
-from sitt.bot.schedule import Departures, ScheduleError, upcoming_trains
+from sitt.bot.schedule import ScheduleError, recommend_trains, upcoming_trains
+from sitt.config import RecommendSettings
 from sitt.db import init_db
 from sitt.ingest.cr_pdf import SourceInfo, Word, grid_trains, parse_grid, write_csv
 from sitt.ingest.timetable import load_timetable, read_timetable
@@ -78,19 +79,23 @@ def test_errors(sample_db, tmp_path):
         upcoming_trains(empty, "KYN", "CSMT", MONDAY_7AM)
 
 
-def test_format_departures(sample_db):
+def test_format_recommendation_without_delay_data(sample_db):
+    """With no model and no observations, /next shows timetable times and says so."""
     late = datetime(2026, 9, 28, 23, 0)
-    departures = upcoming_trains(sample_db, "TNA", "CSMT", late, n=2)
-    assert formatting.format_departures(departures, late) == (
-        "Next trains Thane → Chhatrapati Shivaji Maharaj Terminus:\n"
-        "• Tue 04:44 slow to CSMT, arrives 05:36 (52 min)\n"
-        "• Tue 07:32 slow to CSMT, arrives 08:24 (52 min)\n"
-        "\n"
-        "Timetable times only. Delay and crowd predictions are coming later."
-    )
-    none = Departures("Kalyan", "Thane", [])
-    assert formatting.format_departures(none, late).startswith(
-        "No scheduled trains Kalyan → Thane today or tomorrow."
+    recommendation = recommend_trains(sample_db, "TNA", "CSMT", late)
+    assert (recommendation.level, recommendation.synthetic) == ("timetable", False)
+    lines = formatting.format_recommendation(recommendation).splitlines()
+    assert lines[:5] == [
+        "Thane → Chhatrapati Shivaji Maharaj Terminus",
+        "",
+        "Take the 04:44 slow: arrives 05:36, earliest arrival, likely empty.",
+        "",
+        "➜ Tue 04:44 slow to CSMT · arr 05:36 · empty",
+    ]
+    assert lines[5] == "• Tue 07:32 slow to CSMT · arr 08:24 · standing"
+    assert lines[-1] == (
+        "Timetable times only: there is no delay data yet. "
+        "Crowding is a rule-of-thumb estimate. /why for details."
     )
 
 
@@ -102,18 +107,56 @@ class _Message:
         self.replies.append(text)
 
 
-def _run_next(db_path, args):
+def _context(db_path, args, **bot_data):
+    return SimpleNamespace(
+        args=args, bot_data={handlers.DB_PATH_KEY: db_path, **bot_data}, user_data={}
+    )
+
+
+def _run_next(db_path, args, **bot_data):
     message = _Message()
     update = SimpleNamespace(effective_message=message)
-    context = SimpleNamespace(args=args, bot_data={handlers.DB_PATH_KEY: db_path})
-    asyncio.run(handlers.next_command(update, context))
+    asyncio.run(handlers.next_command(update, _context(db_path, args, **bot_data)))
     return message.replies
 
 
 def test_next_command(sample_db):
     [reply] = _run_next(sample_db, ["KYN", "CSMT"])
-    assert reply.startswith("Next trains Kalyan → Chhatrapati Shivaji Maharaj Terminus:")
-    assert reply.endswith("Delay and crowd predictions are coming later.")
+    lines = reply.splitlines()
+    assert lines[0] == "Kalyan → Chhatrapati Shivaji Maharaj Terminus"
+    assert lines[2].startswith(("Take the ", "Wait for the "))
+    assert sum(line.startswith("➜ ") for line in lines) == 1
+    assert sum(line.startswith(("➜ ", "• ")) for line in lines) == 5
+    assert "Timetable times only: there is no delay data yet." in lines[-1]
+
+
+def test_why_explains_the_last_recommendation(sample_db):
+    context = _context(sample_db, ["KYN", "CSMT"])
+    first = _Message()
+    asyncio.run(handlers.why_command(SimpleNamespace(effective_message=first), context))
+    assert first.replies == [formatting.NO_RECOMMENDATION_YET]
+
+    asked = _Message()
+    asyncio.run(handlers.next_command(SimpleNamespace(effective_message=asked), context))
+    why = _Message()
+    asyncio.run(handlers.why_command(SimpleNamespace(effective_message=why), context))
+    [text] = why.replies
+    assert asked.replies[0].splitlines()[2] in text  # the same one-line recommendation
+    assert "Predictions used: timetable only, no delay data." in text
+    assert "every train is assumed to run on time" in text
+    assert "crowding " in text and "Rules: take the earliest predicted arrival" in text
+    assert len(text) < 4096  # fits in one Telegram message
+
+
+def test_next_uses_the_configured_thresholds(pdf_db, monkeypatch):
+    # 08:05 on Monday from Kalyan: the 08:09 ladies' special is listed but not recommended...
+    monday = datetime(2026, 9, 28, 8, 5)
+    default = recommend_trains(pdf_db, "KYN", "CSMT", monday)
+    assert default.chosen.trip.number != "97032"
+    assert any(o.trip.number == "97032" for o in default.options)
+    # ...unless the settings say the rider can board one and is happy to wait a long time.
+    relaxed = RecommendSettings(wait_max_extra_minutes=60, ladies_special_ok=True)
+    assert recommend_trains(pdf_db, "KYN", "CSMT", monday, relaxed).chosen.trip.number == "97032"
 
 
 def test_next_command_needs_two_stations(sample_db):
@@ -127,26 +170,26 @@ def test_now_is_mumbai_time():
     assert datetime.now(IST).utcoffset().total_seconds() == 5.5 * 3600
 
 
-def test_departures_mark_ac_15_car_and_ladies_specials(pdf_db):
+def test_recommendation_lists_mark_ac_15_car_and_ladies_specials(pdf_db):
     # UP page 6 of the PDF: 97032 is a ladies' special and 95712 a 15-car rake.
     morning = datetime(2026, 9, 28, 8, 5)
-    text = formatting.format_departures(
-        upcoming_trains(pdf_db, "KYN", "CSMT", morning, n=6), morning
-    )
-    lines = text.splitlines()
-    assert "• 08:09 slow to CSMT, arrives 09:38 (89 min) · LADIES SPECIAL (women only)" in lines
-    assert "• 08:33 fast to CSMT, arrives 09:37 (64 min) · 15-car" in lines
-    assert "• 08:14 fast to CSMT, arrives 09:18 (64 min)" in lines  # nothing to mark
+    settings = RecommendSettings(candidates=6)
+    lines = formatting.format_recommendation(
+        recommend_trains(pdf_db, "KYN", "CSMT", morning, settings)
+    ).splitlines()
+    assert "• 08:09 slow to CSMT · arr 09:38 · seats free · LADIES SPECIAL (women only)" in lines
+    # Starts at Kalyan (-1) with 15 cars (-0.5): standing rather than packed.
+    assert "• 08:33 fast to CSMT · arr 09:37 · standing · 15-car" in lines
+    assert "➜ 08:14 fast to CSMT · arr 09:18 · packed" in lines  # nothing to mark
 
     # DOWN page 1: 95701 (K 3, CSMT 05:20) is an AC local.
     early = datetime(2026, 9, 28, 5, 18)
     trips = upcoming_trains(pdf_db, "CSMT", "KYN", early, n=1).trips
     assert (trips[0].number, trips[0].service_code, trips[0].is_ac) == ("95701", "K 3", True)
-    assert (
-        formatting.format_departures(Departures("CSMT", "Kalyan", trips), early)
-        .splitlines()[1]
-        .endswith("· AC")
-    )
+    first = formatting.format_recommendation(
+        recommend_trains(pdf_db, "CSMT", "KYN", early)
+    ).splitlines()[4]
+    assert first == "➜ 05:20 fast to Kalyan · arr 06:24 · empty · AC"
 
 
 def test_trains_without_attributes_show_no_tags(sample_db):
@@ -157,9 +200,9 @@ def test_trains_without_attributes_show_no_tags(sample_db):
 
 def test_next_accepts_two_word_station_names(pdf_db):
     [reply] = _run_next(pdf_db, ["Kanjur", "Marg", "Ulhas", "Nagar"])
-    assert reply.startswith("Next trains Kanjur Marg → Ulhasnagar:")
+    assert reply.startswith("Kanjur Marg → Ulhasnagar\n")
     [reply] = _run_next(pdf_db, ["kalwa", "ambarnath"])
-    assert reply.startswith("Next trains Kalva → Ambernath:")
+    assert reply.startswith("Kalva → Ambernath\n")
     [reply] = _run_next(pdf_db, ["KYN", "Bhivpuri", "Rd"])
     assert reply.startswith("I don't know a station called 'Bhivpuri Rd'.")
 

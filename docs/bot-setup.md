@@ -38,6 +38,7 @@ Then edit `.env`:
 | `ALLOWED_USER_IDS`   | `123456789`          | Comma-separated for more than one person. Required. |
 | `SITT_DB_PATH`       | `data/sitt.duckdb`   | Optional. Default shown.                           |
 | `SITT_LOG_LEVEL`     | `INFO`               | Optional.                                          |
+| `SITT_MODEL_DIR`     | `models/delay`       | Optional. Where the trained delay model is.        |
 
 `.env` is gitignored. Variables already set in your shell take precedence over it.
 
@@ -63,11 +64,30 @@ Try it from your phone:
   station or the time instead of tapping. If a quick log is missing something, the bot asks
   only for the missing parts.
 - `/mylogs`: your last 10 reports.
-- `/next KYN CSMT`: the next five scheduled trains between two stations, with departure and
-  arrival times. Ladies' specials, AC trains and 15-car trains are marked. It needs a
-  timetable in the database (see the [README](../README.md#setup)) and shows timetable times
-  only, not live delays.
+- `/next KYN CSMT`: which of the next five trains to take. It gives a one-line recommendation
+  ("Take the 08:12 fast: arrives 08:58 ±4 min, …"), then each train with its predicted
+  arrival, an estimated crowding level, and tags for ladies' specials, AC and 15-car trains.
+  It needs a timetable in the database (see the [README](../README.md#setup)).
+- `/why`: explains the last `/next` recommendation: the predicted delay and crowding reasons
+  for every train, and the rule that decided it.
 - `/cancel`: abandon a log in progress.
+
+## How much to trust `/next`
+
+Every `/next` reply ends by saying what its times are based on:
+
+- **"Timetable times only"**: there is no delay model and no collected data. The times are
+  the scheduled ones.
+- **"…the typical past delay of each train"**: medians from observations in the database.
+- **"…the delay model"**: a model trained with `python -m sitt.models train`.
+
+If the reply says **SYNTHETIC**, the delay figures come from invented data and say nothing
+about real trains. That is the case for any model trained before real observations have been
+collected. Only the timetable times are real then.
+
+Crowding is always a rule-of-thumb estimate, sharpened by your own `/log` reports. See
+[`recommender.md`](recommender.md) for the decision rule and its thresholds, and
+[`crowding.md`](crowding.md) for the crowding rules.
 
 ## Stations
 

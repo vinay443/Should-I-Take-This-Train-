@@ -1,13 +1,12 @@
 """User-facing text. No Telegram imports here."""
 
 from collections.abc import Sequence
-from datetime import datetime
 
 from sitt.bot.flow import LogDraft
 from sitt.bot.parsing import CROWD_LEVELS
-from sitt.bot.schedule import Departures
 from sitt.bot.stations import FALLBACK_DIRECTORY, StationDirectory
 from sitt.bot.storage import StoredReport
+from sitt.recommend import LEVEL_TIMETABLE, Recommendation
 from sitt.timetable import ScheduledTrip
 from sitt.tz import IST
 
@@ -19,12 +18,15 @@ which train is worth taking.
 Crowd can be 1-5 or empty / seats / standing / packed / can't board.
 /log: log a trip step by step with buttons.
 /mylogs: your last 10 reports.
-/next KYN CSMT: the next scheduled trains between two stations.
+/next KYN CSMT: which of the next trains to take, with predicted arrival and \
+crowding for each.
+/why: explain the last /next recommendation.
 /cancel: abandon a log in progress.
 /help: show this message."""
 
 NEXT_USAGE = "Tell me where from and to, e.g. /next KYN CSMT or /next Kanjur Marg Thane."
-NEXT_FOOTER = "Timetable times only. Delay and crowd predictions are coming later."
+NO_RECOMMENDATION_YET = "Nothing to explain yet. Ask with /next first, e.g. /next KYN CSMT."
+CROWDING_CAVEAT = "Crowding is a rule-of-thumb estimate."
 
 
 def crowd_label(level: int) -> str:
@@ -72,21 +74,37 @@ def trip_tags(trip: ScheduledTrip) -> list[str]:
     return tags
 
 
-def format_departures(departures: Departures, now: datetime) -> str:
-    """Scheduled trains for `/next`. Trains on a later day than `now` show the weekday."""
-    route = f"{departures.origin} → {departures.destination}"
-    if not departures.trips:
-        return f"No scheduled trains {route} today or tomorrow.\n\n{NEXT_FOOTER}"
-    lines = [f"Next trains {route}:"]
-    for trip in departures.trips:
-        day = "" if trip.departure.date() == now.date() else f"{trip.departure:%a} "
-        minutes = round(trip.duration.total_seconds() / 60)
-        line = (
-            f"• {day}{trip.departure:%H:%M} {trip.train_type} to {trip.label}, "
-            f"arrives {trip.arrival:%H:%M} ({minutes} min)"
-        )
+def prediction_footer(recommendation: Recommendation) -> str:
+    """Says what the times are based on. Always names synthetic data when it was used."""
+    if recommendation.level == LEVEL_TIMETABLE:
+        basis = "Timetable times only: there is no delay data yet."
+    else:
+        basis = f"Arrival times use the {recommendation.level_text}."
+    return f"{basis} {CROWDING_CAVEAT} /why for details."
+
+
+def format_recommendation(recommendation: Recommendation) -> str:
+    """The `/next` reply: the recommendation, then each train with its prediction."""
+    rec = recommendation
+    lines = [f"{rec.origin} → {rec.destination}", "", rec.reason, ""]
+    for i, option in enumerate(rec.options):
+        trip = option.trip
+        day = "" if trip.departure.date() == rec.asked_at.date() else f"{trip.departure:%a} "
+        marker = "➜" if i == rec.choice else "•"
+        line = f"{marker} {day}{trip.departure:%H:%M} {trip.train_type} to {trip.label}"
+        if option.cancelled:
+            line += " · CANCELLED"
+        else:
+            line += f" · arr {option.predicted_arrival:%H:%M}"
+            late = round(option.arrival_delay)
+            if late:
+                line += f" ({abs(late)} min {'late' if late > 0 else 'early'})"
+            if option.crowding:
+                line += f" · {option.crowding.label}"
         if tags := trip_tags(trip):
             line += f" · {' · '.join(tags)}"
         lines.append(line)
-    lines += ["", NEXT_FOOTER]
+    if rec.options:
+        lines.append("")
+    lines += [*rec.notes, prediction_footer(rec)]
     return "\n".join(lines)

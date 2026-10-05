@@ -1,4 +1,4 @@
-"""Timetable lookups for `/next`. No Telegram imports here."""
+"""Timetable lookups and recommendations for `/next`. No Telegram imports here."""
 
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -6,7 +6,9 @@ from datetime import datetime
 from pathlib import Path
 
 from sitt.bot.stations import Station, StationDirectory, directory_from
+from sitt.config import RecommendSettings
 from sitt.db import connect
+from sitt.recommend import Recommendation, recommend
 from sitt.timetable import ScheduledTrip, next_trains
 
 
@@ -37,6 +39,29 @@ def upcoming_trains(
             raise ScheduleError("Those are the same station.")
         trips = next_trains(con, start.code, end.code, now, n=n)
         return Departures(origin=start.name, destination=end.name, trips=trips)
+
+
+def recommend_trains(
+    db_path: Path | str,
+    origin: str,
+    destination: str,
+    now: datetime,
+    settings: RecommendSettings | None = None,
+    model_dir: Path | str | None = None,
+) -> Recommendation:
+    """Compare the next trains and recommend one (see `sitt.recommend`).
+
+    Stations are whatever the rider typed. `model_dir` is where a trained delay model
+    may be; None means don't use one.
+    """
+    with connect(db_path) as con:
+        if con.execute("SELECT count(*) FROM scheduled_stops").fetchone()[0] == 0:
+            raise ScheduleError("The timetable isn't loaded yet, so I can't list trains.")
+        stations = directory_from(con)
+        start, end = _station(stations, origin), _station(stations, destination)
+        if start == end:
+            raise ScheduleError("Those are the same station.")
+        return recommend(con, start.code, end.code, now, settings, model_dir=model_dir)
 
 
 def split_stations(words: Sequence[str], stations: StationDirectory) -> tuple[str, str] | None:

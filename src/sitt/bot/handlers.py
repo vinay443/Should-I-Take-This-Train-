@@ -20,12 +20,16 @@ from sitt.bot.flow import (
 )
 from sitt.bot.parsing import CROWD_LEVELS, SERVICES, parse_log_text, parse_time
 from sitt.bot.stations import StationDirectory, load_directory
+from sitt.recommend import explain
 from sitt.tz import IST
 
 logger = logging.getLogger(__name__)
 
 DRAFT_KEY = "log_draft"
 DB_PATH_KEY = "db_path"
+MODEL_DIR_KEY = "model_dir"  # bot_data: where a trained delay model may be, or None
+RECOMMEND_SETTINGS_KEY = "recommend_settings"  # bot_data: thresholds for /next
+LAST_RECOMMENDATION_KEY = "last_recommendation"  # user_data: what /why explains
 
 _PROMPTS: dict[Step, str] = {
     "station": "Where did you board? Tap a station or type its name.",
@@ -68,7 +72,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def next_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    # Timetable only for now; delay and crowd predictions will be added here.
     message = update.effective_message
     pair = schedule.split_stations(context.args or [], _stations(context))
     if pair is None:
@@ -76,11 +79,27 @@ async def next_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
     now = datetime.now(IST)
     try:
-        departures = schedule.upcoming_trains(context.bot_data[DB_PATH_KEY], *pair, now)
+        recommendation = schedule.recommend_trains(
+            context.bot_data[DB_PATH_KEY],
+            *pair,
+            now,
+            settings=context.bot_data.get(RECOMMEND_SETTINGS_KEY),
+            model_dir=context.bot_data.get(MODEL_DIR_KEY),
+        )
     except schedule.ScheduleError as exc:
         await message.reply_text(f"{exc}\n{formatting.NEXT_USAGE}")
         return
-    await message.reply_text(formatting.format_departures(departures, now))
+    context.user_data[LAST_RECOMMENDATION_KEY] = recommendation
+    await message.reply_text(formatting.format_recommendation(recommendation))
+
+
+async def why_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Explain the last `/next` recommendation in more detail."""
+    recommendation = context.user_data.get(LAST_RECOMMENDATION_KEY)
+    if recommendation is None:
+        await update.effective_message.reply_text(formatting.NO_RECOMMENDATION_YET)
+        return
+    await update.effective_message.reply_text(explain(recommendation))
 
 
 async def mylogs_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

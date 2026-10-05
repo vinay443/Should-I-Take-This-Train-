@@ -23,7 +23,8 @@ logger = logging.getLogger(__name__)
 COMMANDS = [
     BotCommand("log", "Log how crowded a train was"),
     BotCommand("mylogs", "Your last 10 reports"),
-    BotCommand("next", "Next scheduled trains, e.g. /next KYN CSMT"),
+    BotCommand("next", "Which train to take, e.g. /next KYN CSMT"),
+    BotCommand("why", "Explain the last /next recommendation"),
     BotCommand("cancel", "Abandon a log in progress"),
     BotCommand("help", "What this bot does"),
 ]
@@ -49,6 +50,8 @@ def build_application(settings: Settings) -> Application:
         Application.builder().token(settings.telegram_bot_token).post_init(_post_init).build()
     )
     application.bot_data[handlers.DB_PATH_KEY] = settings.db_path
+    application.bot_data[handlers.MODEL_DIR_KEY] = settings.model_dir
+    application.bot_data[handlers.RECOMMEND_SETTINGS_KEY] = settings.recommend
 
     # Group -1 runs first; the gate stops every update from users not on the list.
     gate = handlers.make_access_gate(settings.allowed_user_ids)
@@ -59,6 +62,7 @@ def build_application(settings: Settings) -> Application:
             CommandHandler("log", handlers.log_command),
             CommandHandler("mylogs", handlers.mylogs_command),
             CommandHandler("next", handlers.next_command),
+            CommandHandler("why", handlers.why_command),
             CommandHandler("cancel", handlers.cancel_command),
             CallbackQueryHandler(handlers.log_callback, pattern=rf"^{CALLBACK_PREFIX}:"),
             MessageHandler(filters.TEXT & ~filters.COMMAND, handlers.text_message),
