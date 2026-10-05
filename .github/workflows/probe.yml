@@ -1,0 +1,34 @@
+name: Probe live sources
+
+# Manual only. Fetches each live source once from a GitHub-hosted runner (US/Azure IPs)
+# and prints status codes, response sizes and a sample, to check whether Indian
+# Railways (NTES) or Mobond block non-Indian IPs. Stores nothing. See docs/collector.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sources:
+        description: "Sources to probe, space-separated (mobond ntes)"
+        type: string
+        default: "mobond ntes"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        run: uv sync --locked --no-dev
+
+      - name: Probe
+        env:
+          SOURCES: ${{ inputs.sources }}
+        # $SOURCES is split into words on purpose; the probe rejects unknown names.
+        run: uv run python -m sitt.ingest.live.probe $SOURCES

@@ -1,0 +1,123 @@
+name: Collect live data
+
+# Fetches Mobond and NTES once per run and appends one Parquet file to
+# data/observations/ on the `data` branch. See docs/collector.md.
+#
+# The schedule stays commented out until (1) Mobond has agreed to being polled and
+# (2) the "Probe live sources" workflow shows the sources answer GitHub's runners.
+# Mobond is also gated separately by the SITT_MOBOND_ENABLED repository variable.
+
+on:
+  # schedule:
+  #   - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      source:
+        description: Which source to fetch
+        type: choice
+        options: [all, mobond, ntes]
+        default: all
+
+permissions:
+  contents: write # push to the data branch
+
+# Never run two collectors at once; a queued run waits rather than being cancelled.
+concurrency:
+  group: collect-live-data
+  cancel-in-progress: false
+
+env:
+  DATA_BRANCH: data
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        run: uv sync --locked --no-dev
+
+      - name: Choose sources
+        id: sources
+        env:
+          REQUESTED: ${{ inputs.source || 'all' }}
+          MOBOND_ENABLED: ${{ vars.SITT_MOBOND_ENABLED }}
+        run: |
+          source="$REQUESTED"
+          if [ "$MOBOND_ENABLED" != "true" ]; then
+            echo "::notice::Mobond is off. Set the repository variable SITT_MOBOND_ENABLED=true to enable it."
+            case "$source" in
+              all) source=ntes ;;
+              mobond) source="" ;;
+            esac
+          fi
+          echo "source=$source" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the data branch
+        if: steps.sources.outputs.source != ''
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch --depth=1 origin "$DATA_BRANCH"; then
+            git worktree add -B "$DATA_BRANCH" datastore FETCH_HEAD
+          else
+            echo "No $DATA_BRANCH branch yet; starting an empty (orphan) one."
+            git worktree add --orphan -b "$DATA_BRANCH" datastore
+          fi
+
+      - name: Collect
+        id: collect
+        if: steps.sources.outputs.source != ''
+        env:
+          SOURCE: ${{ steps.sources.outputs.source }}
+          COMMIT_RAW: ${{ vars.SITT_COMMIT_RAW }}
+        run: |
+          # Raw responses go to the data branch only if SITT_COMMIT_RAW=true (don't do that
+          # in a public repo: it would republish the Mobond feed). Otherwise they're kept as
+          # a workflow artifact.
+          raw_dir=raw-artifact
+          if [ "$COMMIT_RAW" = "true" ]; then raw_dir=datastore/data/raw; fi
+          set +e
+          uv run python -m sitt.ingest.live --source "$SOURCE" --data-dir datastore/data --raw-dir "$raw_dir"
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Keep raw responses as an artifact
+        if: steps.collect.outcome == 'success' && vars.SITT_COMMIT_RAW != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-${{ github.run_id }}
+          path: raw-artifact/
+          if-no-files-found: ignore
+          retention-days: 90
+
+      - name: Commit and push
+        if: steps.collect.outcome == 'success'
+        working-directory: datastore
+        run: |
+          if [ ! -d data ]; then
+            echo "Nothing was collected."
+            exit 0
+          fi
+          git add data
+          if git diff --cached --quiet; then
+            echo "Nothing new to commit."
+            exit 0
+          fi
+          git commit -q -m "Live observations $(date -u +%Y-%m-%dT%H:%MZ)"
+          # Files are new and uniquely named, so a rebase onto a concurrent push can't conflict.
+          for attempt in 1 2 3; do
+            git push origin "HEAD:$DATA_BRANCH" && exit 0
+            sleep $((attempt * 10))
+            git pull --rebase --depth=1 origin "$DATA_BRANCH" || true
+          done
+          exit 1
+
+      - name: Report source failures
+        if: steps.collect.outputs.exit_code != '' && steps.collect.outputs.exit_code != '0'
+        run: |
+          echo "::error::At least one source failed (see the Collect step). Whatever the other sources returned was still saved."
+          exit 1
