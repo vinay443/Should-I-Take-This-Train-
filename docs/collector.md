@@ -102,6 +102,12 @@ Later, update the worktree with `git -C ../sitt-data pull` and run the loader ag
 GitHub-hosted runners have IP addresses outside India, and Indian Railways sites sometimes
 block those. Before relying on the scheduled collector, check that the sources answer:
 
+**Neither `probe.yml` nor `collect.yml` has ever been run on a GitHub runner.** They were
+written and tested locally, against a fake HTTP transport. Indian Railways sites may well
+refuse GitHub's addresses, in which case the probe fails and the local collector
+([section 6](#6-running-it-on-this-windows-machine)) is the way to collect. Running the probe
+is a step for you to take by hand:
+
 1. On GitHub, open **Actions → Probe live sources → Run workflow**.
 2. Leave `sources` as `mobond ntes`, or enter just `ntes` to leave Mobond alone.
 3. Read the **Probe** step's log. For each source it prints every request with its status code
@@ -161,8 +167,8 @@ are never modified after they are written, so two runs can never conflict.
 | DuckDB reads the files directly, with no import step needed for ad-hoc queries | Anyone who can see the repository can see the data |
 
 A batch of about 290 rows is roughly 9 KB, so a year of 15-minute runs is on the order of
-300 MB across 35,000 files. Before it gets that far, compact old days into one file per day or
-month and rewrite the branch.
+300 MB across 35,000 files. Before it gets that far, compact finished months into one file
+each with `sitt-export compact` ([Export and compaction](#9-export-and-compaction)).
 
 ### What is and isn't published
 
@@ -447,7 +453,144 @@ schtasks /Delete /TN "SITT health summary" /F
 schtasks /Delete /TN "SITT health alerts" /F
 ```
 
-## 9. Tests
+## 9. Export and compaction
+
+The local collector keeps everything in `data/sitt.duckdb`, which lives on one PC and isn't
+in git. `sitt-export` turns it into Parquet files that can be backed up or published, and
+tidies folders of the collector's small files. It never touches git itself.
+
+### Export
+
+```bash
+uv run sitt-export export
+```
+
+This writes the real observations in the local database as one file per month:
+
+```
+scratch/export/observations/2026-10.parquet
+scratch/export/observations/2026-11.parquet
+```
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--db PATH` | `SITT_DB_PATH` | The database to export |
+| `--out DIR` | `scratch/export` | Where to write. `scratch/` is gitignored |
+
+- **`raw_status` is never written.** The files have exactly the collector's published
+  columns (see [What is and isn't published](#what-is-and-isnt-published)), and a test fails
+  if that ever changes.
+- Synthetic observations are left out.
+- Exact duplicate rows are written once.
+- Months are **UTC** months, like the dates in the collector's folder names. A reading taken
+  at 02:00 IST on 1 November is in October's file.
+- It is safe to run again. A month whose file already has exactly the right rows is left
+  alone, and a changed month is rewritten whole.
+- The database is opened read-only. If the collector has it at that moment, the command
+  waits, retries, and otherwise says the database is busy (exit code 2).
+
+### Compaction
+
+```bash
+uv run sitt-export compact ../sitt-data/data/observations
+```
+
+This is for a folder of the collector's per-run files (`2026-10-05/<batch>.parquet`, about a
+hundred a day). Each **finished** month is merged into one `2026-10.parquet` at the top of
+the folder: duplicates dropped, rows in a fixed order, only the published columns kept even
+if an input file has more.
+
+| Option | Meaning |
+| --- | --- |
+| `--delete-merged` | Remove the small files once the monthly file has been written and read back with every one of their rows in it. Without this, they are kept and the command says how many |
+| `--include-current` | Also compact the current month. Don't, while a collector is still writing to it |
+
+Running it again changes nothing. Files that arrive late for a month already compacted are
+folded into its monthly file on the next run. The loader
+(`python -m sitt.ingest.live.load`) reads monthly and per-run files alike and never loads a
+batch twice, so a folder can be compacted at any time.
+
+### Putting an export on the `data` branch (by hand)
+
+Nothing in this project creates or pushes the `data` branch from your PC. These are the
+steps, for when you want the locally collected data on GitHub. **The repository is public, so
+the branch is too.** Look at what you are about to push.
+
+The branch is an orphan: it shares no history with `main`. Working on it in a second folder
+beside the repository keeps it from ever being mixed up with your code checkout.
+
+1. Export:
+
+   ```powershell
+   uv run sitt-export export --out scratch\export
+   ```
+
+2. Open the branch in a folder beside the repository. **The first time**, when the branch
+   doesn't exist yet (this needs git 2.42 or newer):
+
+   ```powershell
+   git worktree add --orphan -b data ..\sitt-data
+   ```
+
+   **Every later time**, or if the GitHub workflow has already created the branch:
+
+   ```powershell
+   git fetch origin data
+   ```
+
+   ```powershell
+   git worktree add ..\sitt-data data
+   ```
+
+   If `..\sitt-data` is already there from last time, update it instead:
+
+   ```powershell
+   git -C ..\sitt-data pull
+   ```
+
+3. Copy the monthly files in:
+
+   ```powershell
+   New-Item -ItemType Directory -Force ..\sitt-data\data\observations | Out-Null
+   ```
+
+   ```powershell
+   Copy-Item scratch\export\observations\*.parquet ..\sitt-data\data\observations\ -Force
+   ```
+
+4. Check what changed, then commit and push from that folder:
+
+   ```powershell
+   git -C ..\sitt-data add data/observations
+   ```
+
+   ```powershell
+   git -C ..\sitt-data status --short
+   ```
+
+   ```powershell
+   git -C ..\sitt-data commit -m "Observations export"
+   ```
+
+   ```powershell
+   git -C ..\sitt-data push -u origin data
+   ```
+
+Things to know:
+
+- **Only `data/observations/*.parquet` should be in that commit.** If `status` shows anything
+  else, stop and look.
+- The current month's file is rewritten by every export, and git keeps each version. Export
+  weekly or monthly rather than daily, or the branch grows by the size of that file each
+  time.
+- **Don't mix this with the GitHub collector for the same source.** If `collect.yml` is
+  running on a schedule it writes per-run files to the same branch, from different runs than
+  your PC's. Loading both gives two overlapping records of the same trains. Use one or the
+  other.
+- To remove the second folder afterwards: `git worktree remove ..\sitt-data`. The branch
+  stays.
+
+## 10. Tests
 
 ```bash
 uv run pytest tests/live

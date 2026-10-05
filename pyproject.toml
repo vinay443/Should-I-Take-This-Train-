@@ -24,6 +24,7 @@ sitt-health = "sitt.health:main"
 sitt-dq = "sitt.dq:main"
 sitt-match-logs = "sitt.matching:main"
 sitt-retrain = "sitt.models.retrain:main"
+sitt-export = "sitt.export:main"
 
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13"]
