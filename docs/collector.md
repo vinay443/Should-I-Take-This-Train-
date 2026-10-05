@@ -112,9 +112,8 @@ The probe makes one fetch per source and stores nothing. The job fails if a sour
 fetched or parsed. The same check runs locally with
 `uv run python -m sitt.ingest.live.probe ntes`.
 
-If NTES is blocked from the runners, the options are in the "Fallback" section of
-[`data-sources.md`](data-sources.md): the simplest is to run the collector from a machine with
-an Indian IP instead.
+If NTES is blocked from the runners, run the collector from this machine instead: see
+[Running it on this Windows machine](#6-running-it-on-this-windows-machine).
 
 ## 4. Turning on the schedule
 
@@ -193,7 +192,96 @@ Setting the repository variable `SITT_COMMIT_RAW=true` also commits raw response
 `data` branch, **except Mobond's**, which the workflow always leaves out. In practice that
 means the NTES board pages.
 
-## 6. Tests
+## 6. Running it on this Windows machine
+
+Use this if the probe shows GitHub's runners can't reach the sources, or if you simply want
+the data in your local database without the `data` branch.
+
+`sitt-collect` does one whole round: it fetches each enabled source once, writes the raw
+responses and a Parquet batch under `data/`, and loads every batch not yet in
+`data/sitt.duckdb`. Try it by hand first:
+
+```bash
+uv run sitt-collect
+```
+
+It prints what it fetched and loaded, and appends the same lines to
+`data/logs/collector.log`. The exit code is 1 if a source failed or the load didn't happen.
+
+**Mobond is off by default**, exactly as in the workflow. `sitt-collect` fetches NTES only
+unless `.env` (or the environment) has:
+
+```
+SITT_MOBOND_ENABLED=true
+```
+
+Only the word `true` switches it on. Leave it off until Mobond has agreed.
+
+### Every 15 minutes with Task Scheduler
+
+The repository has two PowerShell scripts for this:
+
+- [`scripts/collect-once.ps1`](../scripts/collect-once.ps1) changes to the repository folder
+  and runs `uv run sitt-collect`. This is what the scheduled task calls.
+- [`scripts/register-collector-task.ps1`](../scripts/register-collector-task.ps1) creates the
+  scheduled task.
+
+To set it up, open PowerShell in the repository folder and run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\register-collector-task.ps1
+```
+
+That creates a task named **SITT live collector** which runs every 15 minutes while you are
+signed in. It needs no administrator rights. `-ExecutionPolicy Bypass` applies to that one
+command only; it lets PowerShell run a script from this repository without changing your
+system's policy.
+
+The task:
+
+- runs under your account, hidden, and only while you are signed in;
+- catches up once if the PC was asleep at the scheduled time;
+- never starts a second run while one is still going;
+- is stopped if a run takes more than 5 minutes.
+
+Check that it works:
+
+```powershell
+Start-ScheduledTask -TaskName "SITT live collector"
+```
+
+```powershell
+Get-Content data\logs\collector.log -Tail 10
+```
+
+To poll less often, add `-Minutes 30` to the registration command. The script refuses anything
+under 15. To stop collecting:
+
+```powershell
+Unregister-ScheduledTask -TaskName "SITT live collector" -Confirm:$false
+```
+
+If you would rather click through it: open **Task Scheduler → Create Task**. On **Triggers**,
+add one that starts today and repeats every 15 minutes indefinitely. On **Actions**, start the
+program `powershell.exe` with the arguments
+`-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "C:\path\to\repo\scripts\collect-once.ps1"`.
+On **Settings**, choose "Do not start a new instance" if the task is already running.
+
+Things to know:
+
+- **`uv` must be on your PATH**, since the task runs `uv run`. If the log stays empty, run
+  `scripts\collect-once.ps1` by hand to see the error.
+- **The database is shared with the bot and the dashboard.** DuckDB lets one process write at
+  a time. If the bot is in the middle of a command, `sitt-collect` retries for about 15
+  seconds, then gives up on loading for that run. Nothing is lost: the Parquet batch stays in
+  `data/observations/` and the next run loads it.
+- **The PC must be on.** Runs missed while it is off or asleep are simply gaps.
+- **Don't run this and the GitHub schedule together** against the same source: that would
+  double the polling rate.
+- Raw responses pile up under `data/raw/` (about 30 KB per NTES run). Delete old days when
+  they are no longer useful.
+
+## 7. Tests
 
 ```bash
 uv run pytest tests/live

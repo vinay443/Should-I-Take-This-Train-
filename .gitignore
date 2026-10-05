@@ -20,6 +20,7 @@ dist/
 # Collector output from local runs. Collected data lives on the `data` branch, not here.
 data/raw/
 data/observations/
+data/logs/
 
 # Throwaway exploration scripts and samples
 scratch/
