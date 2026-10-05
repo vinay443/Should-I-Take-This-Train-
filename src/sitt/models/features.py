@@ -28,6 +28,8 @@ A target's features use only observations made at or before its cutoff:
   `hist_count`, how many readings that is). Never the same day, so a row can't see its
   own answer;
 - whether a megablock from the `blocks` table covers the station at the scheduled time.
+  A block recorded without times is assumed to run during `BlockSettings`' default
+  hours (10:00-16:00 unless configured), not all day.
 
 Training makes several rows per observation: one for each earlier reading of the same
 trip (cutoff = that reading's time), and one "cold" row with the cutoff ten minutes
@@ -44,6 +46,7 @@ from datetime import date, datetime
 import duckdb
 import numpy as np
 
+from sitt.config import BlockSettings, load_block_settings
 from sitt.holidays import FIXED_HOLIDAYS, MOVABLE_HOLIDAYS
 from sitt.ingest.timetable import _stage
 from sitt.routes import stage_route_points
@@ -102,8 +105,13 @@ def local_naive(moment: datetime) -> datetime:
     return moment.astimezone(IST).replace(tzinfo=None)
 
 
-def prepare(con: duckdb.DuckDBPyConnection) -> None:
-    """Create the temporary tables the feature query reads. Call again after loading data."""
+def prepare(con: duckdb.DuckDBPyConnection, blocks: BlockSettings | None = None) -> None:
+    """Create the temporary tables the feature query reads. Call again after loading data.
+
+    `blocks` says which hours a megablock without times is assumed to cover; by default
+    it is read from the environment (`sitt.config.load_block_settings`).
+    """
+    blocks = blocks or load_block_settings()
     stage_route_points(con)
     con.execute(
         """
@@ -165,7 +173,12 @@ def prepare(con: duckdb.DuckDBPyConnection) -> None:
     ).fetchone()[0]
     blocks_from = "blocks" if has_blocks else "(SELECT NULL::DATE AS block_date WHERE false)"
     columns = (
-        "b.block_date, b.line, b.tracks, b.start_time, b.end_time, "
+        "b.block_date, b.line, b.tracks, "
+        # A block announced without times: assume the usual megablock hours, not all day.
+        "CASE WHEN b.start_time IS NULL AND b.end_time IS NULL THEN $start "
+        "ELSE b.start_time END AS start_time, "
+        "CASE WHEN b.start_time IS NULL AND b.end_time IS NULL THEN $end "
+        "ELSE b.end_time END AS end_time, "
         "f.seq AS from_seq, t.seq AS to_seq"
         if has_blocks
         else "NULL::DATE AS block_date, NULL::VARCHAR AS line, NULL::VARCHAR AS tracks, "
@@ -179,7 +192,9 @@ def prepare(con: duckdb.DuckDBPyConnection) -> None:
         else ""
     )
     con.execute(
-        f"CREATE OR REPLACE TEMP TABLE block_spans AS SELECT {columns} FROM {blocks_from} b {joins}"
+        f"CREATE OR REPLACE TEMP TABLE block_spans AS "
+        f"SELECT {columns} FROM {blocks_from} b {joins}",
+        {"start": blocks.default_start, "end": blocks.default_end} if has_blocks else None,
     )
     (low, high) = con.execute("SELECT min(service_day), max(service_day) FROM obs").fetchone()
     today = date.today()

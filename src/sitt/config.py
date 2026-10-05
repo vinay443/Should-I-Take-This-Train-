@@ -3,6 +3,7 @@
 import os
 import re
 from dataclasses import dataclass, field
+from datetime import time
 from pathlib import Path
 
 from dotenv import find_dotenv, load_dotenv
@@ -32,6 +33,23 @@ class RecommendSettings:
     # SITT_LADIES_SPECIAL_OK: set to true if the rider can board ladies' specials.
     # Otherwise they are listed but never recommended.
     ladies_special_ok: bool = False
+    # SITT_ALLOW_SYNTHETIC_MODEL: use a delay model even if it was trained on synthetic
+    # (invented) data. For testing only. Off by default, so such a model is ignored and
+    # predictions fall back to past observations or the timetable.
+    allow_synthetic_model: bool = False
+
+
+@dataclass(frozen=True)
+class BlockSettings:
+    """How megablocks are interpreted (see sitt.models.features and docs/megablocks.md).
+
+    A block announced without times is assumed to run between these hours, Mumbai time,
+    which is when Sunday megablocks usually are. Set with SITT_BLOCK_DEFAULT_START and
+    SITT_BLOCK_DEFAULT_END, as HH:MM.
+    """
+
+    default_start: time = time(10, 0)
+    default_end: time = time(16, 0)
 
 
 @dataclass(frozen=True)
@@ -66,6 +84,10 @@ def _number(name: str, default: float, kind: type = float):
     return value
 
 
+def _flag(name: str) -> bool:
+    return (os.environ.get(name) or "").strip().lower() in ("1", "true", "yes")
+
+
 def load_recommend_settings() -> RecommendSettings:
     defaults = RecommendSettings()
     return RecommendSettings(
@@ -78,8 +100,26 @@ def load_recommend_settings() -> RecommendSettings:
         very_late_slack_minutes=_number(
             "SITT_VERY_LATE_SLACK_MINUTES", defaults.very_late_slack_minutes
         ),
-        ladies_special_ok=(os.environ.get("SITT_LADIES_SPECIAL_OK") or "").strip().lower()
-        in ("1", "true", "yes"),
+        ladies_special_ok=_flag("SITT_LADIES_SPECIAL_OK"),
+        allow_synthetic_model=_flag("SITT_ALLOW_SYNTHETIC_MODEL"),
+    )
+
+
+def _clock(name: str, default: time) -> time:
+    raw = (os.environ.get(name) or "").strip()
+    if not raw:
+        return default
+    try:
+        return time.fromisoformat(raw if len(raw) > 4 else f"0{raw}")
+    except ValueError:
+        raise ValueError(f"{name} is {raw!r}, which is not a time like 10:00") from None
+
+
+def load_block_settings() -> BlockSettings:
+    defaults = BlockSettings()
+    return BlockSettings(
+        default_start=_clock("SITT_BLOCK_DEFAULT_START", defaults.default_start),
+        default_end=_clock("SITT_BLOCK_DEFAULT_END", defaults.default_end),
     )
 
 

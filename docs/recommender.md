@@ -16,15 +16,25 @@ The recommender uses the best source it has, and every reply says which:
 
 | Level | Used when | What it does |
 | --- | --- | --- |
-| **model** | A trained delay model is saved in `models/delay` | Predicts each train's delay at your station and at your destination, with a rough range (the "±4 min") |
-| **baseline** | No model, but the database has observations | Uses the median delay seen on earlier days for that train at that station |
+| **model** | A delay model **trained on real observations** is saved in `models/delay` | Predicts each train's delay at your station and at your destination, with a rough range (the "±4 min") |
+| **baseline** | No usable model, but the database has observations | Uses the median delay seen on earlier days for that train at that station |
 | **timetable** | Neither | Scheduled times as they stand |
 
-**If the model was trained on synthetic data, or the observations behind a baseline are
-synthetic, every reply says so.** Until real observations have been collected, that is the
-case for any model you train: the delay figures are then invented and only the timetable
-times are real. To run without a model, delete `models/delay` or point `SITT_MODEL_DIR` at
-an empty folder.
+**A model trained on synthetic data is not used.** Until real observations have been
+collected, any model you train comes from invented delays, so by default the recommender
+ignores it and falls back to the timetable (or to past observations, if there are any). The
+reply then notes that a model exists but is not used. This is the state of the project today:
+`/next` gives timetable times.
+
+To try a synthetic model anyway, for testing, set this in `.env`:
+
+```
+SITT_ALLOW_SYNTHETIC_MODEL=true
+```
+
+Every reply then says the predictions were built from synthetic data, and `/why` says the
+delay figures tell you nothing about real trains. The same warning appears if the observations
+behind a baseline are synthetic.
 
 Crowding always comes from the rule-of-thumb estimate in [`crowding.md`](crowding.md).
 
@@ -57,6 +67,7 @@ Set these in `.env` (see [`.env.example`](../.env.example)). They are read by
 | `SITT_VERY_LATE_SLACK_MINUTES` | 10 | How soon after it another train must arrive to be preferred |
 | `SITT_LADIES_SPECIAL_OK` | false | Whether ladies' specials may be recommended |
 | `SITT_MODEL_DIR` | `models/delay` | Where the trained delay model is |
+| `SITT_ALLOW_SYNTHETIC_MODEL` | false | Use a model even if it was trained on synthetic data. For testing only |
 
 ## What it can't do yet
 

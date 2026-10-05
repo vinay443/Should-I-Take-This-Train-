@@ -17,8 +17,9 @@ reliably. Checked in October 2026:
 | X, news sites, third-party timetable sites | The full notice, as prose | Not fetched: paid API, or someone else's writing |
 
 So fetching gives a **date-only block**: "there is a megablock somewhere on this line today".
-The model treats every train on that line that day as affected. To record where and when,
-enter the details by hand.
+The model treats trains on that line as affected only **between 10:00 and 16:00**, which is
+when Sunday megablocks usually run, not all day. To record where and when it really is, enter
+the details by hand.
 
 Only facts are stored: date, line, section, times, tracks, and a summary in this project's own
 words. An announcement's text is never kept.
@@ -97,6 +98,17 @@ A train is marked as affected (`megablock = 1`) at a station when a block:
 - is on the train's service day and line,
 - has no tracks recorded, or `both`, or the train's own type (fast or slow),
 - has no section recorded, or the station lies within it,
-- has no times recorded, or the train is scheduled at the station within them.
+- covers the time the train is scheduled at the station. A block with no times recorded is
+  assumed to run from 10:00 to 16:00.
 
-So the less a block says, the more trains it covers.
+So a block with no section covers the whole line, but only during those hours.
+
+The assumed hours are settings, read from `.env`:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `SITT_BLOCK_DEFAULT_START` | `10:00` | When a block without times is assumed to start |
+| `SITT_BLOCK_DEFAULT_END` | `16:00` | When it is assumed to end. Earlier than the start means past midnight |
+
+They apply when features are built, so set them the same way when training a model and when
+using it.

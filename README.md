@@ -17,13 +17,14 @@ Read this before trusting any number the project shows you.
 | **Timetable** | **Real.** Converted from Central Railway's official timetable PDFs: 894 main-line trains, with AC, 15-car and ladies' special markers. The base edition is from October 2024, with the 2025 AC and 2026 15-car supplements applied. |
 | **Live observations** | **None collected yet.** The collector is built and tested, but its schedule is not switched on. |
 | **Delay data used for development** | **Synthetic.** Invented by a generator from guesses about how delays behave. |
-| **Delay model and its accuracy figures** | **Trained and tested on that synthetic data.** They show the pipeline works. They say nothing about real trains. |
+| **Delay model and its accuracy figures** | **Trained and tested on that synthetic data.** They show the pipeline works. They say nothing about real trains, and such a model is not used for recommendations. |
 | **Crowding** | **A rule-of-thumb estimate**, not a measurement and not a trained model. It is adjusted by your own crowd reports as you log them. |
 | **Crowd reports** | **Real**, whatever you log through the bot. |
 | **Megablocks** | **Real but partial.** Only the date and line can be fetched; the section and times are entered by hand. |
+| **`/next` today** | **Timetable times** and the crowding estimate. No delay predictions until real observations exist. |
 
 Everything synthetic is labelled where it appears: `source = 'synthetic'` in the data, a
-banner in the dashboard, and a line in every bot reply that uses it. Once real observations
+banner in the dashboard, and a line in any bot reply that uses it. Once real observations
 have been collected, the same commands run on them with no code changes.
 
 ## Setup
@@ -134,8 +135,13 @@ uv run python -m sitt.models report --write docs/model-results.md
 ```
 
 The current results are in [`docs/model-results.md`](docs/model-results.md), headed as
-synthetic. When a model is saved, `/next` and the dashboard use it and say that it was trained
-on synthetic data. To go back to timetable times only, delete the `models/delay` folder.
+synthetic.
+
+**A model trained on synthetic data is not used for recommendations.** `/next` and the
+dashboard ignore it and give timetable times, so real trains never get predictions learned
+from invented delays. To try such a model anyway, for testing, set
+`SITT_ALLOW_SYNTHETIC_MODEL=true` in `.env`; every reply then says the predictions are
+synthetic.
 
 To train on real observations later, pass the real database:
 

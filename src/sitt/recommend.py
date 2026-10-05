@@ -11,8 +11,12 @@ which one was used:
                database has observations
     timetable  else the scheduled times as they stand
 
-If the model was trained on synthetic data, or the observations behind a baseline are
-synthetic, the recommendation is flagged `synthetic` and every reply must say so.
+A model trained on synthetic (invented) data is **not used** unless
+`RecommendSettings.allow_synthetic_model` is set (`SITT_ALLOW_SYNTHETIC_MODEL=true`),
+which is for testing. Without it such a model is ignored and the next level down is
+used, so by default real trains never get predictions learned from invented delays.
+When a synthetic model is allowed, or the observations behind a baseline are synthetic,
+the recommendation is flagged `synthetic` and every reply must say so.
 
 The decision rule (`choose`), with thresholds from `sitt.config.RecommendSettings`:
 
@@ -297,8 +301,9 @@ def recommend(
 
     Stations are codes or names in the timetable. `model` is the delay model to use;
     if it is None, the one saved in `model_dir` is loaded when there is one (pass
-    `model_dir=None` to use no model). Raises what `next_trains` raises for unknown
-    stations.
+    `model_dir=None` to use no model). Either way, a model trained on synthetic data is
+    ignored unless `settings.allow_synthetic_model` is set. Raises what `next_trains`
+    raises for unknown stations.
     """
     settings = settings or RecommendSettings()
     local_now = local_naive(now)
@@ -322,6 +327,10 @@ def recommend(
     has_observations, observations_synthetic = _has_observations(con)
     if model is None and model_dir is not None:
         model = load_if_present(Path(model_dir))
+    notes: list[str] = []
+    if model is not None and model.synthetic and not settings.allow_synthetic_model:
+        model = None
+        notes.append("A delay model exists but was trained on synthetic data, so it is not used.")
 
     # The train just ahead of the first candidate matters for crowding, so predict it too.
     ahead_of_first = earlier[-1] if earlier else None
@@ -332,7 +341,6 @@ def recommend(
         targets.append(Target(trip.train_id, day, origin_code, local_now))
         targets.append(Target(trip.train_id, day, destination_code, local_now))
 
-    notes: list[str] = []
     if model is not None:
         level, synthetic = LEVEL_MODEL, model.synthetic
         predictions = predict_targets(con, model, targets)

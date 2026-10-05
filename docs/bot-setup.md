@@ -79,11 +79,13 @@ Every `/next` reply ends by saying what its times are based on:
 - **"Timetable times only"**: there is no delay model and no collected data. The times are
   the scheduled ones.
 - **"…the typical past delay of each train"**: medians from observations in the database.
-- **"…the delay model"**: a model trained with `python -m sitt.models train`.
+- **"…the delay model"**: a model trained on real observations with
+  `python -m sitt.models train --db data/sitt.duckdb`.
 
-If the reply says **SYNTHETIC**, the delay figures come from invented data and say nothing
-about real trains. That is the case for any model trained before real observations have been
-collected. Only the timetable times are real then.
+Today the first applies: no real observations have been collected, so `/next` gives
+timetable times. A model trained on synthetic data is ignored unless you set
+`SITT_ALLOW_SYNTHETIC_MODEL=true` for testing. If you do, every reply says **SYNTHETIC**: the
+delay figures then come from invented data and say nothing about real trains.
 
 Crowding is always a rule-of-thumb estimate, sharpened by your own `/log` reports. See
 [`recommender.md`](recommender.md) for the decision rule and its thresholds, and

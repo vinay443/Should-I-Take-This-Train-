@@ -82,7 +82,8 @@ What the deployed app will and won't have:
   machine or the `data` branch, not in the app.
 - **Crowd reports:** none. They are in your local database.
 - **Recommender:** timetable times and the rule-of-thumb crowding. There is no trained model
-  in the repository (`models/` is gitignored), so it never shows model predictions there.
+  in the repository (`models/` is gitignored), and a model trained on synthetic data is
+  ignored anyway unless `SITT_ALLOW_SYNTHETIC_MODEL=true`.
 - **Model metrics:** the results page from the repository.
 
 Three files at the repository root exist for Community Cloud:

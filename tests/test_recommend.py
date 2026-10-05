@@ -11,7 +11,7 @@ from sitt.config import RecommendSettings, load_recommend_settings
 from sitt.db import init_db
 from sitt.ingest.timetable import load_timetable, read_timetable
 from sitt.models.crowding import CROWD_LABELS, CrowdingEstimate
-from sitt.models.delay import TrainConfig, train
+from sitt.models.delay import DelayModel, TrainConfig, train
 from sitt.recommend import Option, choose, explain, recommend
 from sitt.synth import build_database
 from sitt.timetable import ScheduledTrip
@@ -254,7 +254,10 @@ def test_settings_from_the_environment(monkeypatch):
     monkeypatch.setenv("SITT_VERY_LATE_MINUTES", "12.5")
     monkeypatch.setenv("SITT_RECOMMEND_CANDIDATES", "7")
     monkeypatch.setenv("SITT_LADIES_SPECIAL_OK", "true")
+    assert load_recommend_settings().allow_synthetic_model is False
+    monkeypatch.setenv("SITT_ALLOW_SYNTHETIC_MODEL", "true")
     settings = load_recommend_settings()
+    assert settings.allow_synthetic_model is True
     assert (settings.wait_max_extra_minutes, settings.crowd_gain_levels) == (8, 2)
     assert (settings.very_late_minutes, settings.candidates) == (12.5, 7)
     assert settings.ladies_special_ok is True
@@ -391,11 +394,45 @@ def synthetic_setup(tmp_path_factory):
     return timetable, db, folder / "model"
 
 
-def test_model_level_and_synthetic_flag_everywhere(synthetic_setup):
+def test_a_synthetic_model_is_ignored_by_default(synthetic_setup):
     timetable, _, model_dir = synthetic_setup
     with duckdb.connect(str(timetable), read_only=True) as con:  # the "real" DB: no observations
         rec = recommend(con, "KYN", "CSMT", MONDAY_7, model_dir=model_dir)
-        without = recommend(con, "KYN", "CSMT", MONDAY_7, model_dir=model_dir.parent / "none")
+        # Passing the model in directly doesn't get round it either.
+        handed = recommend(con, "KYN", "CSMT", MONDAY_7, model=DelayModel.load(model_dir))
+    for result in (rec, handed):
+        assert (result.level, result.synthetic) == ("timetable", False)
+        assert all(o.arrival_delay == 0 and o.arrival_margin is None for o in result.options)
+        assert result.notes == [
+            "A delay model exists but was trained on synthetic data, so it is not used."
+        ]
+    reply = formatting.format_recommendation(rec)
+    assert "Timetable times only: there is no delay data yet." in reply
+    assert "SYNTHETIC" not in reply
+    assert "trained on synthetic data, so it is not used" in reply
+
+
+def test_a_model_trained_on_real_data_is_used(synthetic_setup, tmp_path):
+    timetable, _, model_dir = synthetic_setup
+    model = DelayModel.load(model_dir)
+    model.metadata["synthetic"] = False  # as if the same model had come from real observations
+    model.metadata["sources"] = ["ntes"]
+    model.save(tmp_path / "real-model")
+    with duckdb.connect(str(timetable), read_only=True) as con:
+        rec = recommend(con, "KYN", "CSMT", MONDAY_7, model_dir=tmp_path / "real-model")
+    assert (rec.level, rec.synthetic, rec.notes) == ("model", False, [])
+    assert "SYNTHETIC" not in formatting.format_recommendation(rec) + explain(rec)
+    assert "Arrival times use the delay model." in formatting.prediction_footer(rec)
+
+
+def test_synthetic_model_can_be_allowed_for_testing(synthetic_setup):
+    timetable, _, model_dir = synthetic_setup
+    allowed = RecommendSettings(allow_synthetic_model=True)
+    with duckdb.connect(str(timetable), read_only=True) as con:  # the "real" DB: no observations
+        rec = recommend(con, "KYN", "CSMT", MONDAY_7, allowed, model_dir=model_dir)
+        without = recommend(
+            con, "KYN", "CSMT", MONDAY_7, allowed, model_dir=model_dir.parent / "none"
+        )
     assert (rec.level, rec.synthetic) == ("model", True)
     assert without.level == "timetable"
     assert all(o.arrival_margin is not None for o in rec.options)

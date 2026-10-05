@@ -5,11 +5,12 @@ Uses the sample timetable. 90104 is a slow up train (Kalyan 07:03, Kalwa 07:27, 
 Kalwa 08:12, CSMT 09:09).
 """
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 import numpy as np
 import pytest
 
+from sitt.config import BlockSettings, load_block_settings
 from sitt.models import features
 from sitt.models.features import Target
 from sitt.tz import IST
@@ -181,3 +182,42 @@ def test_works_without_a_blocks_table(con):
     features.prepare(con)
     features.training_targets(con)
     assert features.build_features(con)["megablock"].sum() == 0
+
+
+def test_a_block_without_times_covers_the_default_hours_not_the_whole_day(con):
+    """A date-and-line block (all Yatri's page gives) counts only from 10:00 to 16:00."""
+    con.execute("DELETE FROM blocks")
+    con.execute(
+        "INSERT INTO blocks (block_id, block_date, line, source) VALUES "
+        "('b2', ?, 'central', 'yatri')",
+        [MONDAY],
+    )
+    # 90104 is at Kurla at 07:58; 90113 runs Thane 08:55 -> ... in the sample, both before 10:00.
+    morning = Target("central-90104", MONDAY, "CLA", at(MONDAY, "07:00"))
+
+    def megablock(settings=None):
+        features.prepare(con, settings)
+        features.set_targets(con, [morning])
+        return features.build_features(con)["megablock"][0]
+
+    assert megablock() == 0  # 07:58 is outside 10:00-16:00
+    assert megablock(BlockSettings(time(7, 0), time(9, 0))) == 1  # the hours are configurable
+    assert megablock(BlockSettings(time(22, 0), time(8, 0))) == 1  # and may run past midnight
+
+    # A block with its own times keeps them, whatever the default hours are.
+    con.execute("UPDATE blocks SET start_time = '07:30', end_time = '08:30'")
+    assert megablock() == 1
+    assert megablock(BlockSettings(time(12, 0), time(13, 0))) == 1
+    # A date-only block on another line or day never applies.
+    con.execute("UPDATE blocks SET start_time = NULL, end_time = NULL, line = 'harbour'")
+    assert megablock(BlockSettings(time(0, 0), time(23, 59))) == 0
+
+
+def test_block_hours_from_the_environment(monkeypatch):
+    assert load_block_settings() == BlockSettings(time(10, 0), time(16, 0))
+    monkeypatch.setenv("SITT_BLOCK_DEFAULT_START", "9:30")
+    monkeypatch.setenv("SITT_BLOCK_DEFAULT_END", "17:00")
+    assert load_block_settings() == BlockSettings(time(9, 30), time(17, 0))
+    monkeypatch.setenv("SITT_BLOCK_DEFAULT_END", "teatime")
+    with pytest.raises(ValueError, match="SITT_BLOCK_DEFAULT_END"):
+        load_block_settings()
