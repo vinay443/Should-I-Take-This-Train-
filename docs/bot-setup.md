@@ -56,16 +56,35 @@ Telegram until you press Ctrl+C.
 
 Try it from your phone:
 
-- `/log 8:12 fast KYN packed`: quick log. Words can be in any order. Stations accept codes or
-  names (`KYN`, `kalyan`, `Thane`). Crowd accepts `1`–`5` or
-  `empty` / `seats` / `standing` / `packed` / `can't board`.
-- `/log`: guided flow with buttons for station, time (or type one), fast/slow and crowd.
-  If a quick log is missing something, the bot asks only for the missing parts.
+- `/log 8:12 fast KYN packed`: quick log. Words can be in any order. Crowd accepts `1`–`5` or
+  `empty` / `seats` / `standing` / `packed` / `can't board`. For stations, see
+  [Stations](#stations) below.
+- `/log`: guided flow with buttons for station, time, fast/slow and crowd. You can type the
+  station or the time instead of tapping. If a quick log is missing something, the bot asks
+  only for the missing parts.
 - `/mylogs`: your last 10 reports.
 - `/next KYN CSMT`: the next five scheduled trains between two stations, with departure and
-  arrival times. Stations accept codes or names. It needs a timetable in the database (see
-  the [README](../README.md#setup)) and shows timetable times only, not live delays.
+  arrival times. Ladies' specials, AC trains and 15-car trains are marked. It needs a
+  timetable in the database (see the [README](../README.md#setup)) and shows timetable times
+  only, not live delays.
 - `/cancel`: abandon a log in progress.
+
+## Stations
+
+The bot reads its stations from the `stations` table, which the timetable loader fills. With
+the real Central line timetable loaded, every station from CSMT to Kasara and Khopoli works in
+both `/log` and `/next`. Before any timetable is loaded, the bot falls back to a built-in list
+covering CSMT to Kalyan, so `/log` works straight away.
+
+A station can be typed as:
+
+- its code: `KYN`, `TNA`, `ULNR`
+- its name, in any case, with or without spaces: `kalyan`, `Kanjur Marg`, `ulhasnagar`
+- an alias: `vt` or `cst` for CSMT, `dombivali`, `kanjur`, `kalwa`, `diwa`, `sin` for Sion,
+  `ambarnath`, `titvala` and a few more
+
+Aliases live in `ALIASES` in [`src/sitt/bot/stations.py`](../src/sitt/bot/stations.py) and are
+checked before codes and names. Add to that map when a spelling you use isn't recognised.
 
 ## What gets stored
 

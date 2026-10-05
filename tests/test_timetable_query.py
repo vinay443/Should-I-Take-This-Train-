@@ -2,7 +2,8 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from sitt.timetable import IST, UnknownStationError, next_trains, resolve_station
+from sitt.timetable import UnknownStationError, next_trains, resolve_station
+from sitt.tz import IST
 
 # 2026-09-28 is a Monday. Timings come from the invented sample timetable.
 MONDAY = datetime(2026, 9, 28)

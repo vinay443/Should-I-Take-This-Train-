@@ -10,11 +10,11 @@ from types import SimpleNamespace
 import pytest
 
 from sitt.bot import formatting, handlers
-from sitt.bot.flow import IST
 from sitt.bot.schedule import Departures, ScheduleError, upcoming_trains
 from sitt.db import init_db
 from sitt.ingest.cr_pdf import SourceInfo, Word, grid_trains, parse_grid, write_csv
 from sitt.ingest.timetable import load_timetable, read_timetable
+from sitt.tz import IST
 
 FIXTURES = Path(__file__).parent.parent / "fixtures"
 MONDAY_7AM = datetime(2026, 9, 28, 7, 0)  # sample timetable trains are invented
@@ -153,3 +153,78 @@ def test_trains_without_attributes_show_no_tags(sample_db):
     trip = upcoming_trains(sample_db, "KYN", "CSMT", MONDAY_7AM, n=1).trips[0]
     assert (trip.is_ac, trip.car_count, trip.is_ladies_special) == (None, None, None)
     assert formatting.trip_tags(trip) == []
+
+
+def test_next_accepts_two_word_station_names(pdf_db):
+    [reply] = _run_next(pdf_db, ["Kanjur", "Marg", "Ulhas", "Nagar"])
+    assert reply.startswith("Next trains Kanjur Marg → Ulhasnagar:")
+    [reply] = _run_next(pdf_db, ["kalwa", "ambarnath"])
+    assert reply.startswith("Next trains Kalva → Ambernath:")
+    [reply] = _run_next(pdf_db, ["KYN", "Bhivpuri", "Rd"])
+    assert reply.startswith("I don't know a station called 'Bhivpuri Rd'.")
+
+
+class _LogMessage(_Message):
+    def __init__(self, text):
+        super().__init__()
+        self.text = text
+        self.chat_id = 1
+        self.keyboards = []
+
+    async def reply_text(self, text, reply_markup=None, **kwargs):
+        self.replies.append(text)
+        self.keyboards.append(reply_markup)
+        return SimpleNamespace(message_id=len(self.replies))
+
+
+def _log_context(db_path, args):
+    return SimpleNamespace(
+        args=args, bot_data={handlers.DB_PATH_KEY: db_path}, user_data={}, bot=SimpleNamespace()
+    )
+
+
+def _update(message):
+    return SimpleNamespace(effective_message=message, effective_user=SimpleNamespace(id=7))
+
+
+def test_log_uses_the_stations_table(pdf_db):
+    """/log knows stations beyond Kalyan once a timetable is loaded."""
+    message = _LogMessage("/log 18:40 fast Ulhas Nagar standing")
+    context = _log_context(pdf_db, ["18:40", "fast", "Ulhas", "Nagar", "standing"])
+    asyncio.run(handlers.log_command(_update(message), context))
+    assert message.replies == ["Logged #1: 18:40 fast from Ulhasnagar (ULNR) · 3/5 standing"]
+
+
+def test_log_station_buttons_and_typed_station(pdf_db, tmp_path):
+    message = _LogMessage("/log 8:12 fast packed")
+    context = _log_context(pdf_db, ["8:12", "fast", "packed"])
+    asyncio.run(handlers.log_command(_update(message), context))
+    buttons = [b.text for row in message.keyboards[0].inline_keyboard for b in row]
+    assert buttons[:2] == ["CSMT", "Masjid"]
+    assert {"Kasara", "Khopoli", "Kalva"} <= set(buttons)
+
+    # Typing the station instead of tapping one finishes the log.
+    async def no_edit(**kwargs):
+        return None
+
+    context.bot.edit_message_reply_markup = no_edit
+    typed = _LogMessage("titvala")
+    asyncio.run(handlers.text_message(_update(typed), context))
+    assert typed.replies == ["Logged #1: 08:12 fast from Titwala (TLA) · 4/5 packed"]
+
+    unknown = _LogMessage("Atlantis")
+    context.user_data[handlers.DRAFT_KEY] = handlers.LogDraft(raw_text="/log")
+    asyncio.run(handlers.text_message(_update(unknown), context))
+    assert unknown.replies[0].startswith("I don't know that station.")
+
+
+def test_log_falls_back_to_the_built_in_list_without_a_timetable(tmp_path):
+    empty = tmp_path / "empty.duckdb"
+    init_db(empty).close()
+    message = _LogMessage("/log 8:12 fast vt packed")
+    asyncio.run(
+        handlers.log_command(
+            _update(message), _log_context(empty, ["8:12", "fast", "vt", "packed"])
+        )
+    )
+    assert message.replies == ["Logged #1: 08:12 fast from CSMT · 4/5 packed"]

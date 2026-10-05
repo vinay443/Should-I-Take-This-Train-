@@ -3,12 +3,13 @@
 from collections.abc import Sequence
 from datetime import datetime
 
-from sitt.bot.flow import IST, LogDraft
+from sitt.bot.flow import LogDraft
 from sitt.bot.parsing import CROWD_LEVELS
 from sitt.bot.schedule import Departures
-from sitt.bot.stations import STATIONS_BY_CODE
+from sitt.bot.stations import FALLBACK_DIRECTORY, StationDirectory
 from sitt.bot.storage import StoredReport
 from sitt.timetable import ScheduledTrip
+from sitt.tz import IST
 
 HELP_TEXT = """\
 I log how crowded your Central line trains are, so we can later predict \
@@ -22,7 +23,7 @@ Crowd can be 1-5 or empty / seats / standing / packed / can't board.
 /cancel: abandon a log in progress.
 /help: show this message."""
 
-NEXT_USAGE = "Tell me where from and to, e.g. /next KYN CSMT or /next Thane Dadar."
+NEXT_USAGE = "Tell me where from and to, e.g. /next KYN CSMT or /next Kanjur Marg Thane."
 NEXT_FOOTER = "Timetable times only. Delay and crowd predictions are coming later."
 
 
@@ -30,14 +31,7 @@ def crowd_label(level: int) -> str:
     return f"{level}/5 {CROWD_LEVELS[level]}"
 
 
-def station_label(code: str) -> str:
-    station = STATIONS_BY_CODE.get(code)
-    if station is None or station.name == code:
-        return code
-    return f"{station.name} ({code})"
-
-
-def describe_draft(draft: LogDraft) -> str:
+def describe_draft(draft: LogDraft, stations: StationDirectory = FALLBACK_DIRECTORY) -> str:
     """One-line summary of the fields filled in so far."""
     parts = []
     if draft.departure_time is not None:
@@ -45,7 +39,7 @@ def describe_draft(draft: LogDraft) -> str:
     if draft.service is not None:
         parts.append(draft.service)
     if draft.station_code is not None:
-        parts.append(f"from {station_label(draft.station_code)}")
+        parts.append(f"from {stations.label(draft.station_code)}")
     summary = " ".join(parts)
     if draft.crowd_level is None:
         return summary

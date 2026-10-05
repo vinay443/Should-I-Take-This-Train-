@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import time
 from typing import Literal
 
-from sitt.bot.stations import lookup_station
+from sitt.bot.stations import FALLBACK_DIRECTORY, StationDirectory
 
 Service = Literal["fast", "slow"]
 SERVICES: tuple[Service, ...] = ("fast", "slow")
@@ -92,12 +92,13 @@ def _tokenise(text: str) -> list[str]:
     return [t for t in tokens if t]
 
 
-def parse_log_text(text: str) -> ParsedLog:
+def parse_log_text(text: str, stations: StationDirectory = FALLBACK_DIRECTORY) -> ParsedLog:
     """Parse the arguments of a quick log, e.g. `8:12 fast KYN packed`.
 
     Tokens can come in any order. Unknown words are collected rather than
     rejected (the raw text is kept as the report's note anyway); two different
-    values for the same field are reported as conflicts.
+    values for the same field are reported as conflicts. Station names of two
+    words, such as `Kanjur Marg`, are recognised.
     """
     found: dict[str, list] = {"station": [], "time": [], "service": [], "crowd": []}
     unrecognised: list[str] = []
@@ -106,17 +107,25 @@ def parse_log_text(text: str) -> ParsedLog:
         if value not in found[field]:
             found[field].append(value)
 
-    for token in _tokenise(text):
-        if (parsed_time := parse_time(token)) is not None:
+    tokens = _tokenise(text)
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+        pair = stations.lookup(token + tokens[i + 1]) if i + 1 < len(tokens) else None
+        if pair is not None:
+            add("station", pair.code)
+            i += 1
+        elif (parsed_time := parse_time(token)) is not None:
             add("time", parsed_time)
         elif (level := parse_crowd_level(token)) is not None:
             add("crowd", level)
         elif (service := parse_service(token)) is not None:
             add("service", service)
-        elif (station := lookup_station(token)) is not None:
+        elif (station := stations.lookup(token)) is not None:
             add("station", station.code)
         else:
             unrecognised.append(token)
+        i += 1
 
     conflicts = []
     if len(found["station"]) > 1:

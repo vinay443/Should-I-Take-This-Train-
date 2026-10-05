@@ -12,7 +12,6 @@ from telegram.ext import ApplicationHandlerStop, ContextTypes
 from sitt.bot import formatting, schedule, storage
 from sitt.bot.flow import (
     CANCEL_DATA,
-    IST,
     LogDraft,
     Step,
     callback_data,
@@ -20,7 +19,8 @@ from sitt.bot.flow import (
     time_choices,
 )
 from sitt.bot.parsing import CROWD_LEVELS, SERVICES, parse_log_text, parse_time
-from sitt.bot.stations import STATIONS
+from sitt.bot.stations import StationDirectory, load_directory
+from sitt.tz import IST
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ DRAFT_KEY = "log_draft"
 DB_PATH_KEY = "db_path"
 
 _PROMPTS: dict[Step, str] = {
-    "station": "Where did you board?",
+    "station": "Where did you board? Tap a station or type its name.",
     "time": "Roughly when did it leave? Tap a time or type one (e.g. 8:12).",
     "service": "Fast or slow?",
     "crowd": "How crowded was it?",
@@ -70,13 +70,13 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 async def next_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Timetable only for now; delay and crowd predictions will be added here.
     message = update.effective_message
-    args = context.args or []
-    if len(args) != 2:
+    pair = schedule.split_stations(context.args or [], _stations(context))
+    if pair is None:
         await message.reply_text(formatting.NEXT_USAGE)
         return
     now = datetime.now(IST)
     try:
-        departures = schedule.upcoming_trains(context.bot_data[DB_PATH_KEY], *args, now)
+        departures = schedule.upcoming_trains(context.bot_data[DB_PATH_KEY], *pair, now)
     except schedule.ScheduleError as exc:
         await message.reply_text(f"{exc}\n{formatting.NEXT_USAGE}")
         return
@@ -92,7 +92,8 @@ async def mylogs_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def log_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.effective_message
-    parsed = parse_log_text(" ".join(context.args or []))
+    stations = _stations(context)
+    parsed = parse_log_text(" ".join(context.args or []), stations)
     if parsed.conflicts:
         await message.reply_text(
             f"Couldn't log that: {'; '.join(parsed.conflicts)}.\n"
@@ -106,9 +107,9 @@ async def log_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         f"\n(Didn't understand: {' '.join(parsed.unrecognised)})" if parsed.unrecognised else ""
     )
     if draft.is_complete:
-        await message.reply_text(_save(draft, update, context) + ignored)
+        await message.reply_text(_save(draft, update, context, stations) + ignored)
     else:
-        await _send_prompt(message, draft, context, extra=ignored)
+        await _send_prompt(message, draft, context, stations, extra=ignored)
 
 
 async def log_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -125,11 +126,12 @@ async def log_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await query.edit_message_text("Cancelled.")
         return
 
+    stations = _stations(context)
     try:
         step, value = parse_callback_data(query.data)
         if step != draft.next_step():
             raise ValueError(f"expected {draft.next_step()}, got {step}")  # e.g. a double tap
-        draft.apply(step, value)
+        draft.apply(step, value, stations)
     except ValueError as exc:
         logger.info("Ignoring callback %r: %s", query.data, exc)
         await query.answer()
@@ -138,34 +140,48 @@ async def log_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await query.answer()
     if draft.is_complete:
         context.user_data.pop(DRAFT_KEY, None)
-        await query.edit_message_text(_save(draft, update, context))
+        await query.edit_message_text(_save(draft, update, context, stations))
     else:
-        await query.edit_message_text(_prompt_text(draft), reply_markup=_keyboard(draft))
+        await query.edit_message_text(
+            _prompt_text(draft, stations), reply_markup=_keyboard(draft, stations)
+        )
 
 
 async def text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Plain text: only meaningful as a typed departure time during /log."""
+    """Plain text: only meaningful as a typed station or departure time during /log."""
     message = update.effective_message
     draft: LogDraft | None = context.user_data.get(DRAFT_KEY)
     if draft is None:
         await message.reply_text("Not sure what to do with that. Send /help to see what I can do.")
         return
-    if draft.next_step() != "time":
+    stations = _stations(context)
+    step = draft.next_step()
+    if step == "station":
+        station = stations.lookup(message.text)
+        if station is None:
+            await message.reply_text(
+                "I don't know that station. Tap one above, or type its name or code (e.g. KYN)."
+            )
+            return
+        draft.station_code = station.code
+    elif step == "time":
+        departure_time = parse_time(message.text)
+        if departure_time is None:
+            await message.reply_text(
+                "Couldn't read that as a time. Try something like 8:12 or 20:12."
+            )
+            return
+        draft.departure_time = departure_time
+    else:
         await message.reply_text("Tap one of the buttons above, or /cancel.")
         return
 
-    departure_time = parse_time(message.text)
-    if departure_time is None:
-        await message.reply_text("Couldn't read that as a time. Try something like 8:12 or 20:12.")
-        return
-
-    draft.departure_time = departure_time
     await _retire_keyboard(context, message.chat_id, draft)
     if draft.is_complete:
         context.user_data.pop(DRAFT_KEY, None)
-        await message.reply_text(_save(draft, update, context))
+        await message.reply_text(_save(draft, update, context, stations))
     else:
-        await _send_prompt(message, draft, context)
+        await _send_prompt(message, draft, context, stations)
 
 
 async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -187,7 +203,17 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
             logger.exception("Failed to send error reply")
 
 
-def _save(draft: LogDraft, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+def _stations(context: ContextTypes.DEFAULT_TYPE) -> StationDirectory:
+    """The station directory, read fresh so a newly loaded timetable is picked up."""
+    return load_directory(context.bot_data[DB_PATH_KEY])
+
+
+def _save(
+    draft: LogDraft,
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    stations: StationDirectory,
+) -> str:
     """Store a complete draft and return the confirmation text."""
     report = storage.NewReport(
         telegram_user_id=update.effective_user.id,
@@ -198,13 +224,19 @@ def _save(draft: LogDraft, update: Update, context: ContextTypes.DEFAULT_TYPE) -
         note=draft.raw_text,
     )
     report_id = storage.insert_report(context.bot_data[DB_PATH_KEY], report)
-    return f"Logged #{report_id}: {formatting.describe_draft(draft)}"
+    return f"Logged #{report_id}: {formatting.describe_draft(draft, stations)}"
 
 
 async def _send_prompt(
-    message: Message, draft: LogDraft, context: ContextTypes.DEFAULT_TYPE, extra: str = ""
+    message: Message,
+    draft: LogDraft,
+    context: ContextTypes.DEFAULT_TYPE,
+    stations: StationDirectory,
+    extra: str = "",
 ) -> None:
-    sent = await message.reply_text(_prompt_text(draft) + extra, reply_markup=_keyboard(draft))
+    sent = await message.reply_text(
+        _prompt_text(draft, stations) + extra, reply_markup=_keyboard(draft, stations)
+    )
     draft.message_id = sent.message_id
     context.user_data[DRAFT_KEY] = draft
 
@@ -222,18 +254,18 @@ async def _retire_keyboard(
         )
 
 
-def _prompt_text(draft: LogDraft) -> str:
-    so_far = formatting.describe_draft(draft)
+def _prompt_text(draft: LogDraft, stations: StationDirectory) -> str:
+    so_far = formatting.describe_draft(draft, stations)
     prompt = _PROMPTS[draft.next_step()]
     return f"{so_far}\n\n{prompt}" if so_far else prompt
 
 
-def _keyboard(draft: LogDraft) -> InlineKeyboardMarkup:
+def _keyboard(draft: LogDraft, stations: StationDirectory) -> InlineKeyboardMarkup:
     step = draft.next_step()
     if step == "station":
         buttons = [
             InlineKeyboardButton(s.name, callback_data=callback_data("station", s.code))
-            for s in STATIONS
+            for s in stations.stations
         ]
         rows = _chunk(buttons, 3)
     elif step == "time":

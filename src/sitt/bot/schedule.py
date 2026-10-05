@@ -1,14 +1,13 @@
 """Timetable lookups for `/next`. No Telegram imports here."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-import duckdb
-
-from sitt.bot.stations import lookup_station
+from sitt.bot.stations import Station, StationDirectory, directory_from
 from sitt.db import connect
-from sitt.timetable import ScheduledTrip, UnknownStationError, next_trains, resolve_station
+from sitt.timetable import ScheduledTrip, next_trains
 
 
 class ScheduleError(ValueError):
@@ -25,36 +24,39 @@ class Departures:
 def upcoming_trains(
     db_path: Path | str, origin: str, destination: str, now: datetime, n: int = 5
 ) -> Departures:
-    """The next `n` scheduled trains from `origin` to `destination` after `now`."""
+    """The next `n` scheduled trains from `origin` to `destination` after `now`.
+
+    Stations are whatever the rider typed: an alias, a code or a name.
+    """
     with connect(db_path) as con:
         if con.execute("SELECT count(*) FROM scheduled_stops").fetchone()[0] == 0:
             raise ScheduleError("The timetable isn't loaded yet, so I can't list trains.")
-        origin_code = _station_code(con, origin)
-        destination_code = _station_code(con, destination)
-        if origin_code == destination_code:
+        stations = directory_from(con)
+        start, end = _station(stations, origin), _station(stations, destination)
+        if start == end:
             raise ScheduleError("Those are the same station.")
-        trips = next_trains(con, origin_code, destination_code, now, n=n)
-        return Departures(
-            origin=_station_name(con, origin_code),
-            destination=_station_name(con, destination_code),
-            trips=trips,
-        )
+        trips = next_trains(con, start.code, end.code, now, n=n)
+        return Departures(origin=start.name, destination=end.name, trips=trips)
 
 
-def _station_code(con: duckdb.DuckDBPyConnection, token: str) -> str:
-    """Resolve what the user typed: a code or name in the timetable, or a bot alias."""
-    candidates = [token]
-    if (station := lookup_station(token)) is not None:
-        # Aliases such as "cst" or "sin", and stations whose code differs in the
-        # loaded timetable, resolve through the bot's own code and name.
-        candidates += [station.code, station.name]
-    for candidate in candidates:
-        try:
-            return resolve_station(con, candidate)
-        except UnknownStationError:
-            continue
-    raise ScheduleError(f"I don't know a station called {token!r}.")
+def split_stations(words: Sequence[str], stations: StationDirectory) -> tuple[str, str] | None:
+    """Split `/next` arguments into two stations, e.g. ["Kanjur", "Marg", "CSMT"].
+
+    Returns None unless there are at least two words. Prefers a split where both halves
+    are known stations; otherwise the first word is the origin and the rest the destination,
+    so the error names the part that wasn't understood.
+    """
+    if len(words) < 2:
+        return None
+    halves = [(" ".join(words[:i]), " ".join(words[i:])) for i in range(1, len(words))]
+    for origin, destination in halves:
+        if stations.lookup(origin) and stations.lookup(destination):
+            return origin, destination
+    return halves[0]
 
 
-def _station_name(con: duckdb.DuckDBPyConnection, code: str) -> str:
-    return con.execute("SELECT name FROM stations WHERE code = ?", [code]).fetchone()[0]
+def _station(stations: StationDirectory, text: str) -> Station:
+    station = stations.lookup(text)
+    if station is None:
+        raise ScheduleError(f"I don't know a station called {text!r}.")
+    return station

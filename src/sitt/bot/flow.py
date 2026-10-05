@@ -1,14 +1,11 @@
 """State for the guided `/log` flow. No Telegram imports here."""
 
 from dataclasses import dataclass
-from datetime import datetime, time, timedelta, timezone
+from datetime import datetime, time, timedelta
 from typing import Literal
 
 from sitt.bot.parsing import ParsedLog, Service, parse_crowd_level, parse_service, parse_time
-from sitt.bot.stations import lookup_station
-
-# India has no DST, so a fixed offset avoids needing tzdata on Windows.
-IST = timezone(timedelta(hours=5, minutes=30), "IST")
+from sitt.bot.stations import FALLBACK_DIRECTORY, StationDirectory
 
 Step = Literal["station", "time", "service", "crowd"]
 STEPS: tuple[Step, ...] = ("station", "time", "service", "crowd")
@@ -59,10 +56,12 @@ class LogDraft:
         """`crowd_reports.train_description` for a complete draft, e.g. "08:12 fast from KYN"."""
         return f"{self.departure_time:%H:%M} {self.service} from {self.station_code}"
 
-    def apply(self, step: Step, value: str) -> None:
+    def apply(
+        self, step: Step, value: str, stations: StationDirectory = FALLBACK_DIRECTORY
+    ) -> None:
         """Set one field from a button or typed value. Raises ValueError if invalid."""
         if step == "station":
-            station = lookup_station(value)
+            station = stations.lookup(value)
             if station is None:
                 raise ValueError(f"unknown station {value!r}")
             self.station_code = station.code

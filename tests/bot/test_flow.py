@@ -4,13 +4,13 @@ import pytest
 
 from sitt.bot.flow import (
     CANCEL_DATA,
-    IST,
     LogDraft,
     callback_data,
     parse_callback_data,
     time_choices,
 )
 from sitt.bot.parsing import parse_log_text
+from sitt.tz import IST
 
 
 def test_draft_from_complete_parse_is_complete():

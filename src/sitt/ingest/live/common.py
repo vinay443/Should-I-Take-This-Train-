@@ -2,12 +2,9 @@
 
 import os
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
 
 import httpx
-
-# India has no DST, so a fixed offset is exact and avoids needing tzdata on Windows.
-IST = timezone(timedelta(hours=5, minutes=30), "IST")
 
 # One attempt per request, no retries: a failed source simply waits for the next run.
 TIMEOUT = httpx.Timeout(20.0, connect=10.0)

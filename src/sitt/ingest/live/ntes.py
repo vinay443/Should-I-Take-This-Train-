@@ -13,7 +13,8 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 
-from sitt.ingest.live.common import IST, Observation, RawResponse, SourceError, request
+from sitt.ingest.live.common import Observation, RawResponse, SourceError, request
+from sitt.tz import IST
 
 logger = logging.getLogger(__name__)
 

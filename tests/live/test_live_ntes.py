@@ -3,13 +3,14 @@ from pathlib import Path
 
 import pytest
 
-from sitt.ingest.live.common import IST, SourceError
+from sitt.ingest.live.common import SourceError
 from sitt.ingest.live.ntes import (
     parse_board,
     parse_csrf_token,
     parse_delay_badge,
     resolve_clock,
 )
+from sitt.tz import IST
 
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "live" / "ntes_live_station_kyn.html"
 FETCHED = datetime(2026, 9, 27, 15, 51, tzinfo=IST)

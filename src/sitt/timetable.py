@@ -1,11 +1,11 @@
 """Queries over the static timetable (loaded by sitt.ingest.timetable)."""
 
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta
 
 import duckdb
 
-IST = timezone(timedelta(hours=5, minutes=30), "IST")
+from sitt.tz import IST
 
 
 class UnknownStationError(LookupError):

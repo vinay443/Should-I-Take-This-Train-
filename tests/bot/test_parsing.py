@@ -3,6 +3,10 @@ from datetime import time
 import pytest
 
 from sitt.bot.parsing import ParsedLog, parse_crowd_level, parse_log_text, parse_time
+from sitt.bot.stations import Station, StationDirectory
+from sitt.ingest.cr_pdf import _STATIONS as PDF_STATIONS
+
+FULL_LINE = StationDirectory([Station(s.code, s.name) for s in PDF_STATIONS])
 
 
 def test_spec_example():
@@ -114,3 +118,21 @@ def test_repeated_same_value_is_not_a_conflict():
 def test_conflicts(text, fragment):
     parsed = parse_log_text(text)
     assert fragment in parsed.conflicts
+
+
+def test_two_word_station_names():
+    parsed = parse_log_text("8:12 slow Kanjur Marg packed")
+    assert (parsed.station_code, parsed.unrecognised) == ("KJRD", ())
+    assert parse_log_text("currey road 8:12").station_code == "CRD"
+    # One word of the name still works where it's an alias, and the rest is reported.
+    assert parse_log_text("kanjur 8:12").station_code == "KJRD"
+
+
+def test_stations_beyond_kalyan_need_the_timetable_directory():
+    text = "18:40 fast Ulhas Nagar standing"
+    assert parse_log_text(text).station_code is None
+    assert parse_log_text(text).unrecognised == ("ulhas", "nagar")
+    parsed = parse_log_text(text, FULL_LINE)
+    assert (parsed.station_code, parsed.unrecognised) == ("ULNR", ())
+    assert parse_log_text("badlapur 7:05 fast 5", FULL_LINE).station_code == "BUD"
+    assert parse_log_text("kalwa 7:05", FULL_LINE).station_code == "KLVA"
