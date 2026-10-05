@@ -330,7 +330,7 @@ def record(
 
 
 def registry_rows(con: duckdb.DuckDBPyConnection, limit: int = 10) -> list[tuple]:
-    """Newest first: (version, status, model MAE, best baseline MAE, coverage, test rows, reason)."""
+    """Newest first: (version, status, model MAE, baseline MAE, coverage, test rows, reason)."""
     has_table = con.execute(
         "SELECT count(*) FROM information_schema.tables WHERE table_name = 'model_registry'"
     ).fetchone()[0]
