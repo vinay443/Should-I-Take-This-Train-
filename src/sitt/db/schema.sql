@@ -76,6 +76,29 @@ CREATE TABLE IF NOT EXISTS observations (
     source                  VARCHAR NOT NULL
 );
 
+-- Columns added for the live collector (src/sitt/ingest/live/). ADD COLUMN IF NOT EXISTS
+-- keeps this re-runnable on databases created before they existed.
+--   `train_number`  the number exactly as the source gave it. `train_id` holds the matched
+--                   trains.train_id, or this raw number until a unique match is found
+--                   (`python -m sitt.ingest.live.load` re-matches after each load).
+--   `event`         what the reading describes at `station_code`:
+--                   NTES: 'arrival' | 'departure'.
+--                   Mobond: 'at' | 'arriving' | 'crossed' | 'between' (station_code is the
+--                   station last passed) | 'rake_at' (rake waiting, not yet running) |
+--                   'cancelled' | 'unknown' (status text not understood; see raw_status).
+--                   station_code is an IR code where known, else the source's station name,
+--                   or '' when the source gives no station (cancellations).
+--   `cancelled`     the source reports this service as cancelled.
+--   `less_accurate` Mobond's "(Less Accurate)" marker, on roughly 40% of its readings.
+--   `raw_status`    the source's text for this train, e.g. Mobond's status string.
+--   `batch_id`      the collector run that produced the row, which is also its Parquet file name.
+ALTER TABLE observations ADD COLUMN IF NOT EXISTS train_number VARCHAR;
+ALTER TABLE observations ADD COLUMN IF NOT EXISTS event VARCHAR;
+ALTER TABLE observations ADD COLUMN IF NOT EXISTS cancelled BOOLEAN DEFAULT false;
+ALTER TABLE observations ADD COLUMN IF NOT EXISTS less_accurate BOOLEAN DEFAULT false;
+ALTER TABLE observations ADD COLUMN IF NOT EXISTS raw_status VARCHAR;
+ALTER TABLE observations ADD COLUMN IF NOT EXISTS batch_id VARCHAR;
+
 
 -- How crowded a train was, as reported by riders (e.g. through the Telegram bot).
 -- Riders often don't know the train_id, so a report may carry only a free-text

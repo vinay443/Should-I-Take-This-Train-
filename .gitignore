@@ -17,5 +17,9 @@ dist/
 *.duckdb
 *.duckdb.wal
 
+# Collector output from local runs. Collected data lives on the `data` branch, not here.
+data/raw/
+data/observations/
+
 # Throwaway exploration scripts and samples
 scratch/
