@@ -1,6 +1,7 @@
 from datetime import time
 from textwrap import dedent
 
+import duckdb
 import pytest
 from conftest import SAMPLE_CSV
 
@@ -57,6 +58,10 @@ def test_load_sample(loaded):
         "slow",
         "central",
         "down",
+        None,  # service_code, is_ac, car_count, is_ladies_special: not in the sample CSV
+        None,
+        None,
+        None,
     )
 
     stops = loaded.execute(
@@ -239,6 +244,73 @@ def test_explicit_train_id_keeps_same_number_apart(con, tmp_path):
         ("5-sunday", "5"),
         ("5-weekday", "5"),
     ]
+
+
+ATTRIBUTES = dedent(
+    f"""    {HEADER},service_code,ac,cars,notes
+    1,Kalyan,slow,down,TNA,Thane,,08:00,daily,K 1,yes,15,ladies_coaches
+    1,Kalyan,slow,down,KYN,Kalyan,08:28,,daily,K 1,yes,15,ladies_coaches
+    2,Thane,fast,up,KYN,Kalyan,,09:00,mon-sat,T 2,no,,ladies_special|ladies_coaches
+    2,Thane,fast,up,TNA,Thane,09:25,,mon-sat,T 2,no,,ladies_special|ladies_coaches
+    3,Thane,slow,up,KYN,Kalyan,,10:00,daily,,,,
+    3,Thane,slow,up,TNA,Thane,10:30,,daily,,,,
+    """
+)
+ATTRIBUTE_QUERY = (
+    "SELECT number, service_code, is_ac, car_count, is_ladies_special FROM trains ORDER BY number"
+)
+
+
+def test_optional_train_attributes_are_stored(con, tmp_path):
+    load_timetable(con, read_timetable(write(tmp_path, ATTRIBUTES)))
+    assert con.execute(ATTRIBUTE_QUERY).fetchall() == [
+        ("1", "K 1", True, 15, False),
+        ("2", "T 2", False, None, True),
+        ("3", None, None, None, False),  # blank ac/cars mean "not stated"
+    ]
+
+
+def test_reloading_without_attribute_columns_clears_them(con, tmp_path):
+    load_timetable(con, read_timetable(write(tmp_path, ATTRIBUTES)))
+    load_timetable(con, read_timetable(write(tmp_path, SMALL)))
+    assert con.execute(ATTRIBUTE_QUERY).fetchall() == [
+        ("1", None, None, None, None),
+        ("2", None, None, None, None),
+        ("3", None, None, None, False),  # not in SMALL, so left as loaded
+    ]
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "message"),
+    [
+        ("K 1,yes,15", "K 1,maybe,15", "ac: invalid value 'maybe'"),
+        ("K 1,yes,15", "K 1,yes,many", "cars: invalid car count 'many'"),
+        ("08:28,,daily,K 1,yes", "08:28,,daily,K 1,no", "is_ac False here but True"),
+        ("08:28,,daily,K 1", "08:28,,daily,K 9", "service_code 'K 9' here but 'K 1'"),
+    ],
+)
+def test_attribute_validation_errors(tmp_path, old, new, message):
+    assert old in ATTRIBUTES
+    with pytest.raises(TimetableError) as e:
+        read_timetable(write(tmp_path, ATTRIBUTES.replace(old, new, 1)))
+    assert any(message in err for err in e.value.errors), e.value.errors
+
+
+def test_schema_adds_train_attribute_columns_to_an_older_database(tmp_path):
+    path = tmp_path / "old.duckdb"
+    with duckdb.connect(str(path)) as old:  # `trains` as first released
+        old.execute(
+            "CREATE TABLE trains (train_id VARCHAR PRIMARY KEY, number VARCHAR, "
+            "label VARCHAR NOT NULL, train_type VARCHAR NOT NULL, line VARCHAR NOT NULL, "
+            "direction VARCHAR NOT NULL)"
+        )
+        old.execute("INSERT INTO trains VALUES ('central-9', '9', 'CSMT', 'slow', 'central', 'up')")
+    init_db(path).close()
+    with init_db(path) as con:  # applying the schema twice must be harmless
+        load_timetable(con, read_timetable(write(tmp_path, ATTRIBUTES)))
+        rows = con.execute(ATTRIBUTE_QUERY + " NULLS LAST").fetchall()
+    assert rows[0] == ("1", "K 1", True, 15, False)
+    assert rows[-1] == ("9", None, None, None, None)
 
 
 @pytest.mark.parametrize(

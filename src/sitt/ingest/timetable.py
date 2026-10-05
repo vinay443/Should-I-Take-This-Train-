@@ -42,6 +42,15 @@ REQUIRED_COLUMNS = (
 )
 # Optional: overrides the default train_id of "<line>-<train_number>".
 TRAIN_ID_COLUMN = "train_id"
+# Optional train attributes (see docs/timetable-format.md). A file without a column
+# leaves the attribute NULL.
+SERVICE_CODE_COLUMN = "service_code"
+AC_COLUMN = "ac"
+CARS_COLUMN = "cars"
+NOTES_COLUMN = "notes"
+LADIES_SPECIAL_NOTE = "ladies_special"
+_TRUE_VALUES = frozenset({"yes", "y", "true", "1"})
+_FALSE_VALUES = frozenset({"no", "n", "false", "0"})
 
 SERVICE_TYPES = ("fast", "slow")
 DIRECTIONS = ("up", "down")
@@ -89,6 +98,10 @@ class Train:
     train_type: str
     direction: str
     stops: list[Stop] = field(default_factory=list)
+    service_code: str | None = None
+    is_ac: bool | None = None
+    car_count: int | None = None
+    is_ladies_special: bool | None = None
 
 
 @dataclass
@@ -153,6 +166,48 @@ def parse_days(text: str) -> str:
     return mask
 
 
+def parse_yes_no(text: str) -> bool | None:
+    """Parse 'yes'/'no' (also y/n, true/false, 1/0). Blank means unknown."""
+    value = text.strip().lower()
+    if not value:
+        return None
+    if value in _TRUE_VALUES:
+        return True
+    if value in _FALSE_VALUES:
+        return False
+    raise ValueError(f"invalid value {text!r}, expected 'yes' or 'no'")
+
+
+def parse_cars(text: str) -> int | None:
+    """Parse a car count such as '15'. Blank means unknown."""
+    value = text.strip()
+    if not value:
+        return None
+    if value.isdecimal() and 1 <= int(value) <= 30:
+        return int(value)
+    raise ValueError(f"invalid car count {text!r}, expected a number such as 12 or 15")
+
+
+def _train_attributes(row: dict[str, str], errors: list[str]) -> dict:
+    """The optional train attributes on a row. Columns the file lacks are left out."""
+    attributes: dict = {}
+    if SERVICE_CODE_COLUMN in row:
+        attributes["service_code"] = row[SERVICE_CODE_COLUMN] or None
+    for column, name, parse in (
+        (AC_COLUMN, "is_ac", parse_yes_no),
+        (CARS_COLUMN, "car_count", parse_cars),
+    ):
+        if column in row:
+            try:
+                attributes[name] = parse(row[column])
+            except ValueError as e:
+                errors.append(f"{column}: {e}")
+    if NOTES_COLUMN in row:
+        notes = {note.strip().lower() for note in row[NOTES_COLUMN].split("|")}
+        attributes["is_ladies_special"] = LADIES_SPECIAL_NOTE in notes
+    return attributes
+
+
 def _data_lines(path: Path) -> Iterator[tuple[int, str]]:
     """Yield (line number, text) for each line that is not blank or a '#' comment."""
     with path.open(encoding="utf-8-sig", newline="") as f:
@@ -211,6 +266,7 @@ def read_timetable(path: str | Path, *, line: str = DEFAULT_LINE) -> Timetable:
                 parsed[name] = parse(row[name])
             except ValueError as e:
                 row_errors.append(f"{name}: {e}")
+        attributes = _train_attributes(row, row_errors)
         code, number = row["station_code"].upper(), row["train_number"]
         train_id = row.get(TRAIN_ID_COLUMN) or f"{line}-{number}"
         if row_errors:
@@ -237,7 +293,7 @@ def read_timetable(path: str | Path, *, line: str = DEFAULT_LINE) -> Timetable:
         train = trains.get(train_id)
         if train is None:
             train = trains[train_id] = Train(
-                train_id, number, row["destination"], service_type, direction
+                train_id, number, row["destination"], service_type, direction, **attributes
             )
         else:
             for name, expected, actual in (
@@ -245,6 +301,7 @@ def read_timetable(path: str | Path, *, line: str = DEFAULT_LINE) -> Timetable:
                 ("destination", train.label, row["destination"]),
                 ("service_type", train.train_type, service_type),
                 ("direction", train.direction, direction),
+                *((name, getattr(train, name), value) for name, value in attributes.items()),
             ):
                 if expected != actual:
                     errors.append(
@@ -369,8 +426,8 @@ def station_order(routes: Iterable[tuple[str, str, Sequence[str]]]) -> list[str]
 # Column types of the temporary tables a load is staged in (see _stage).
 _STATION_COLUMNS = {"code": "VARCHAR", "name": "VARCHAR"}
 _TRAIN_COLUMNS = dict.fromkeys(
-    ("train_id", "number", "label", "train_type", "direction"), "VARCHAR"
-)
+    ("train_id", "number", "label", "train_type", "direction", "service_code"), "VARCHAR"
+) | {"is_ac": "BOOLEAN", "car_count": "INTEGER", "is_ladies_special": "BOOLEAN"}
 _STOP_COLUMNS = {
     "train_id": "VARCHAR",
     "station_code": "VARCHAR",
@@ -452,12 +509,17 @@ def load_timetable(
         )
         con.execute(
             """
-            INSERT INTO trains (train_id, number, label, train_type, line, direction)
-            SELECT train_id, number, label, train_type, ?, direction FROM load_trains
+            INSERT INTO trains (train_id, number, label, train_type, line, direction,
+                                service_code, is_ac, car_count, is_ladies_special)
+            SELECT train_id, number, label, train_type, ?, direction,
+                   service_code, is_ac, car_count, is_ladies_special
+            FROM load_trains
             ON CONFLICT (train_id) DO UPDATE SET
                 number = excluded.number, label = excluded.label,
                 train_type = excluded.train_type, line = excluded.line,
-                direction = excluded.direction
+                direction = excluded.direction, service_code = excluded.service_code,
+                is_ac = excluded.is_ac, car_count = excluded.car_count,
+                is_ladies_special = excluded.is_ladies_special
             """,
             [line],
         )

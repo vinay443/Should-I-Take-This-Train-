@@ -38,6 +38,18 @@ CREATE TABLE IF NOT EXISTS trains (
     direction   VARCHAR NOT NULL CHECK (direction IN ('up', 'down'))
 );
 
+-- Optional train attributes, filled by the timetable loader when the CSV has them
+-- (see docs/timetable-format.md). NULL means the source didn't say.
+--   `service_code`       the timetable's own code for the service, e.g. 'A 1' (the first
+--                        Ambernath local) or 'K 28'.
+--   `is_ac`              an air-conditioned rake.
+--   `car_count`          rake length in cars (12 or 15), where the source gives it.
+--   `is_ladies_special`  a train reserved for women.
+ALTER TABLE trains ADD COLUMN IF NOT EXISTS service_code VARCHAR;
+ALTER TABLE trains ADD COLUMN IF NOT EXISTS is_ac BOOLEAN;
+ALTER TABLE trains ADD COLUMN IF NOT EXISTS car_count INTEGER;
+ALTER TABLE trains ADD COLUMN IF NOT EXISTS is_ladies_special BOOLEAN;
+
 
 -- The timetable: where and when each train is meant to stop.
 -- `stop_seq` orders the stops within a trip. Use it rather than sorting by time,

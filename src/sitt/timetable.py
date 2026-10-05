@@ -23,6 +23,11 @@ class ScheduledTrip:
     direction: str  # "up" (towards CSMT) or "down"
     departure: datetime  # from the origin
     arrival: datetime  # at the destination
+    # Optional attributes; None when the timetable source didn't give them.
+    service_code: str | None = None  # e.g. "A 1"
+    is_ac: bool | None = None
+    car_count: int | None = None
+    is_ladies_special: bool | None = None
 
     @property
     def duration(self) -> timedelta:
@@ -85,7 +90,8 @@ def next_trains(
         SELECT t.train_id, t.number, t.label, t.train_type, t.direction, o.run_start,
                coalesce(o.scheduled_departure, o.scheduled_arrival),
                coalesce(d.scheduled_arrival, d.scheduled_departure),
-               o.days_of_operation, d.days_of_operation
+               o.days_of_operation, d.days_of_operation,
+               t.service_code, t.is_ac, t.car_count, t.is_ladies_special
         FROM trains t
         JOIN stops o ON o.train_id = t.train_id AND o.station_code = $origin
         JOIN stops d ON d.train_id = t.train_id AND d.station_code = $destination
@@ -98,7 +104,11 @@ def next_trains(
     for day_offset in (-1, 0, 1):
         service_day = when.date() + timedelta(days=day_offset)
         weekday = service_day.weekday()
-        for train_id, number, label, train_type, direction, start, dep, arr, o_days, d_days in rows:
+        for row in rows:
+            train_id, number, label, train_type, direction, start, dep, arr, o_days, d_days = row[
+                :10
+            ]
+            service_code, is_ac, car_count, is_ladies_special = row[10:]
             if o_days[weekday] != "Y" or d_days[weekday] != "Y":
                 continue
             departure = _on_service_day(service_day, start, dep)
@@ -113,6 +123,10 @@ def next_trains(
                     direction=direction,
                     departure=departure.replace(tzinfo=tz),
                     arrival=_on_service_day(service_day, start, arr).replace(tzinfo=tz),
+                    service_code=service_code,
+                    is_ac=is_ac,
+                    car_count=car_count,
+                    is_ladies_special=is_ladies_special,
                 )
             )
     trips.sort(key=lambda trip: (trip.departure, trip.arrival, trip.train_id))

@@ -125,3 +125,31 @@ def test_next_command_needs_two_stations(sample_db):
 def test_now_is_mumbai_time():
     # The handler passes an aware IST datetime, which next_trains accepts.
     assert datetime.now(IST).utcoffset().total_seconds() == 5.5 * 3600
+
+
+def test_departures_mark_ac_15_car_and_ladies_specials(pdf_db):
+    # UP page 6 of the PDF: 97032 is a ladies' special and 95712 a 15-car rake.
+    morning = datetime(2026, 9, 28, 8, 5)
+    text = formatting.format_departures(
+        upcoming_trains(pdf_db, "KYN", "CSMT", morning, n=6), morning
+    )
+    lines = text.splitlines()
+    assert "• 08:09 slow to CSMT, arrives 09:38 (89 min) · LADIES SPECIAL (women only)" in lines
+    assert "• 08:33 fast to CSMT, arrives 09:37 (64 min) · 15-car" in lines
+    assert "• 08:14 fast to CSMT, arrives 09:18 (64 min)" in lines  # nothing to mark
+
+    # DOWN page 1: 95701 (K 3, CSMT 05:20) is an AC local.
+    early = datetime(2026, 9, 28, 5, 18)
+    trips = upcoming_trains(pdf_db, "CSMT", "KYN", early, n=1).trips
+    assert (trips[0].number, trips[0].service_code, trips[0].is_ac) == ("95701", "K 3", True)
+    assert (
+        formatting.format_departures(Departures("CSMT", "Kalyan", trips), early)
+        .splitlines()[1]
+        .endswith("· AC")
+    )
+
+
+def test_trains_without_attributes_show_no_tags(sample_db):
+    trip = upcoming_trains(sample_db, "KYN", "CSMT", MONDAY_7AM, n=1).trips[0]
+    assert (trip.is_ac, trip.car_count, trip.is_ladies_special) == (None, None, None)
+    assert formatting.trip_tags(trip) == []

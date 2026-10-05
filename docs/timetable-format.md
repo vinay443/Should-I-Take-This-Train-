@@ -20,9 +20,9 @@ train_number,destination,service_type,direction,station_code,station_name,schedu
 
 ## Columns
 
-Column names are case-insensitive and may be in any order. Extra columns are ignored, so
-converters can keep source fields such as notes or platform numbers alongside the
-required ones.
+Column names are case-insensitive and may be in any order. Columns not listed here are
+ignored, so converters can keep other source fields, such as platform numbers, alongside
+them.
 
 | Column | Required | Meaning | Stored as |
 |---|---|---|---|
@@ -36,6 +36,10 @@ required ones.
 | `scheduled_departure` | see below | Same format. | `scheduled_stops.scheduled_departure` |
 | `days` | yes (may be blank) | Days the train runs; see [Running days](#running-days). | `scheduled_stops.days_of_operation` |
 | `train_id` | no | Stable internal ID; defaults to `<line>-<train_number>`, e.g. `central-96301`. | `trains.train_id` |
+| `service_code` | no | The timetable's own code for the service, e.g. `A 1`. | `trains.service_code` |
+| `ac` | no | `yes` or `no`: an air-conditioned rake. | `trains.is_ac` |
+| `cars` | no | Rake length in cars, e.g. `15`. | `trains.car_count` |
+| `notes` | no | Flags joined by `\|`. `ladies_special` marks a train reserved for women; other flags are ignored. | `trains.is_ladies_special` |
 
 Every value is trimmed of surrounding whitespace.
 
@@ -59,7 +63,15 @@ easier to read.
   whole run of 12 hours or more.
 
 **Train attributes are per train.** `train_number`, `destination`, `service_type` and
-`direction` must be the same on every row of a train.
+`direction` must be the same on every row of a train, and so must the optional
+`service_code`, `ac`, `cars` and `notes`.
+
+**Optional attributes may be unknown.** A file without one of the optional columns leaves
+that attribute NULL in the database, and so does a blank `service_code`, `ac` or `cars`
+value: NULL means the source didn't say. `notes` is different: when the column is present,
+a train without the `ladies_special` flag is stored as not a ladies' special. Loading a
+train again replaces its attributes along with everything else, so reloading from a file
+without these columns clears them.
 
 **Stations.**
 - A station can appear only once per train.
@@ -149,6 +161,9 @@ from sitt.timetable import next_trains
 for trip in next_trains(con, "Kalyan", "CSMT", datetime.now(), n=5):
     print(trip.number, trip.train_type, trip.departure, trip.arrival)
 ```
+
+Each trip also carries `service_code`, `is_ac`, `car_count` and `is_ladies_special`, which
+are `None` when the timetable didn't give them.
 
 Stations can be given by code or name, in any case. Naive datetimes are treated as
 Mumbai time, and aware ones are converted to IST. Running days and trains crossing

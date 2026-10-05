@@ -8,6 +8,7 @@ from sitt.bot.parsing import CROWD_LEVELS
 from sitt.bot.schedule import Departures
 from sitt.bot.stations import STATIONS_BY_CODE
 from sitt.bot.storage import StoredReport
+from sitt.timetable import ScheduledTrip
 
 HELP_TEXT = """\
 I log how crowded your Central line trains are, so we can later predict \
@@ -65,20 +66,33 @@ def format_report_list(reports: Sequence[StoredReport]) -> str:
     return "\n".join(lines)
 
 
+def trip_tags(trip: ScheduledTrip) -> list[str]:
+    """What a rider should know before boarding: who may board, AC fare, rake length."""
+    tags = []
+    if trip.is_ladies_special:
+        tags.append("LADIES SPECIAL (women only)")
+    if trip.is_ac:
+        tags.append("AC")
+    if trip.car_count == 15:
+        tags.append("15-car")
+    return tags
+
+
 def format_departures(departures: Departures, now: datetime) -> str:
     """Scheduled trains for `/next`. Trains on a later day than `now` show the weekday."""
     route = f"{departures.origin} → {departures.destination}"
     if not departures.trips:
         return f"No scheduled trains {route} today or tomorrow.\n\n{NEXT_FOOTER}"
     lines = [f"Next trains {route}:"]
-    # TODO: Mark ladies' specials. sitt.ingest.cr_pdf writes "ladies_special" to the CSV's
-    # `notes` column, but the loader ignores that column and `trains` has nowhere to keep it.
     for trip in departures.trips:
         day = "" if trip.departure.date() == now.date() else f"{trip.departure:%a} "
         minutes = round(trip.duration.total_seconds() / 60)
-        lines.append(
+        line = (
             f"• {day}{trip.departure:%H:%M} {trip.train_type} to {trip.label}, "
             f"arrives {trip.arrival:%H:%M} ({minutes} min)"
         )
+        if tags := trip_tags(trip):
+            line += f" · {' · '.join(tags)}"
+        lines.append(line)
     lines += ["", NEXT_FOOTER]
     return "\n".join(lines)
