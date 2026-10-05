@@ -253,7 +253,10 @@ def test_log_station_buttons_and_typed_station(pdf_db, tmp_path):
     context.bot.edit_message_reply_markup = no_edit
     typed = _LogMessage("titvala")
     asyncio.run(handlers.text_message(_update(typed), context))
-    assert typed.replies == ["Logged #1: 08:12 fast from Titwala (TLA) · 4/5 packed"]
+    # The log is saved; which train it was is a separate line (see test_matching.py).
+    assert typed.replies[0].splitlines()[0] == (
+        "Logged #1: 08:12 fast from Titwala (TLA) · 4/5 packed"
+    )
 
     unknown = _LogMessage("Atlantis")
     context.user_data[handlers.DRAFT_KEY] = handlers.LogDraft(raw_text="/log")

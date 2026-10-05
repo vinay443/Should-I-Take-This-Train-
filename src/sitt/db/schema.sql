@@ -205,6 +205,23 @@ CREATE TABLE IF NOT EXISTS crowd_reports (
     CHECK (train_id IS NOT NULL OR train_description IS NOT NULL)
 );
 
+-- Which scheduled train a report is about, as worked out by sitt.matching (see
+-- docs/crowding.md). `train_id` above is left for reports that arrive already knowing it.
+--   `matched_train_id`  trains.train_id, or NULL when no train could be picked with confidence.
+--   `match_confidence`  0-1. NULL when nothing was matched.
+--   `match_method`      'auto'      matched when the report was logged;
+--                       'backfill'  matched later by `sitt-match-logs`;
+--                       'user'      the rider picked the train from the bot's buttons;
+--                       'user_none' the rider said it was none of the trains offered;
+--                       'nudge'     logged from the bot's after-commute prompt, which
+--                                   already knew the train.
+--                       NULL means matching hasn't been tried yet.
+--   `matched_at`        when the above was last set.
+ALTER TABLE crowd_reports ADD COLUMN IF NOT EXISTS matched_train_id VARCHAR;
+ALTER TABLE crowd_reports ADD COLUMN IF NOT EXISTS match_confidence DOUBLE;
+ALTER TABLE crowd_reports ADD COLUMN IF NOT EXISTS match_method VARCHAR;
+ALTER TABLE crowd_reports ADD COLUMN IF NOT EXISTS matched_at TIMESTAMPTZ;
+
 
 -- Planned engineering blocks ("megablocks"): a section of line closed for maintenance
 -- for a few hours, usually on a Sunday, which delays, diverts or cancels trains.

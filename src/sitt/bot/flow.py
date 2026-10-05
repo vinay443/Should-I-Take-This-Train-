@@ -28,6 +28,11 @@ class LogDraft:
     service: Service | None = None
     crowd_level: int | None = None
     message_id: int | None = None  # message carrying the current keyboard
+    # Optional details from a quick log, used only to find the exact train.
+    destination_code: str | None = None
+    is_ac: bool | None = None
+    car_count: int | None = None
+    ladies: bool | None = None
 
     @classmethod
     def from_parsed(cls, parsed: ParsedLog, raw_text: str) -> "LogDraft":
@@ -37,6 +42,10 @@ class LogDraft:
             departure_time=parsed.departure_time,
             service=parsed.service,
             crowd_level=parsed.crowd_level,
+            destination_code=parsed.destination_code,
+            is_ac=parsed.is_ac,
+            car_count=parsed.car_count,
+            ladies=parsed.ladies,
         )
 
     def next_step(self) -> Step | None:

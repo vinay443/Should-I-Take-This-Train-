@@ -117,6 +117,28 @@ class DQSettings:
 
 
 @dataclass(frozen=True)
+class MatchSettings:
+    """How a crowd report is matched to a scheduled train (see sitt.matching, docs/crowding.md).
+
+    Each can be set with the environment variable named beside it.
+    """
+
+    # SITT_MATCH_WINDOW_MINUTES: a train this far or further from the reported time scores
+    # nothing. Closer trains score more, up to 1 for the exact minute.
+    window_minutes: float = 10.0
+    # SITT_MATCH_MIN_CONFIDENCE: below this, the report is left unmatched.
+    min_confidence: float = 0.6
+    # SITT_MATCH_FUTURE_MINUTES: a report may be about a train leaving up to this long
+    # after it was logged (logging from the platform); otherwise the time is in the past.
+    future_minutes: float = 60.0
+    # SITT_MATCH_CHOICE_WINDOW_MINUTES: trains within this of the reported time are
+    # offered as buttons when the rider wants to pick the train.
+    choice_window_minutes: float = 20.0
+    # SITT_MATCH_CHOICES: how many trains to offer.
+    choices: int = 4
+
+
+@dataclass(frozen=True)
 class Settings:
     db_path: Path
     log_level: str
@@ -124,6 +146,7 @@ class Settings:
     allowed_user_ids: frozenset[int]
     model_dir: Path = Path(DEFAULT_MODEL_DIR)
     recommend: RecommendSettings = field(default_factory=RecommendSettings)
+    match: MatchSettings = field(default_factory=MatchSettings)
 
 
 def parse_allowed_user_ids(raw: str | None) -> frozenset[int]:
@@ -227,6 +250,19 @@ def load_dq_settings() -> DQSettings:
     )
 
 
+def load_match_settings() -> MatchSettings:
+    defaults = MatchSettings()
+    return MatchSettings(
+        window_minutes=max(1.0, _number("SITT_MATCH_WINDOW_MINUTES", defaults.window_minutes)),
+        min_confidence=min(1.0, _number("SITT_MATCH_MIN_CONFIDENCE", defaults.min_confidence)),
+        future_minutes=_number("SITT_MATCH_FUTURE_MINUTES", defaults.future_minutes),
+        choice_window_minutes=_number(
+            "SITT_MATCH_CHOICE_WINDOW_MINUTES", defaults.choice_window_minutes
+        ),
+        choices=max(1, _number("SITT_MATCH_CHOICES", defaults.choices, int)),
+    )
+
+
 def load_settings() -> Settings:
     # Variables already set in the environment take precedence over `.env`.
     load_dotenv(find_dotenv(usecwd=True))
@@ -237,4 +273,5 @@ def load_settings() -> Settings:
         allowed_user_ids=parse_allowed_user_ids(os.environ.get("ALLOWED_USER_IDS")),
         model_dir=Path(os.environ.get("SITT_MODEL_DIR") or DEFAULT_MODEL_DIR),
         recommend=load_recommend_settings(),
+        match=load_match_settings(),
     )

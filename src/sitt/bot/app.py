@@ -15,6 +15,7 @@ from telegram.ext import (
 
 from sitt.bot import handlers
 from sitt.bot.flow import CALLBACK_PREFIX
+from sitt.bot.matchflow import CALLBACK_PREFIX as MATCH_CALLBACK_PREFIX
 from sitt.config import Settings, load_settings
 from sitt.db import init_db
 
@@ -52,6 +53,7 @@ def build_application(settings: Settings) -> Application:
     application.bot_data[handlers.DB_PATH_KEY] = settings.db_path
     application.bot_data[handlers.MODEL_DIR_KEY] = settings.model_dir
     application.bot_data[handlers.RECOMMEND_SETTINGS_KEY] = settings.recommend
+    application.bot_data[handlers.MATCH_SETTINGS_KEY] = settings.match
 
     # Group -1 runs first; the gate stops every update from users not on the list.
     gate = handlers.make_access_gate(settings.allowed_user_ids)
@@ -65,6 +67,7 @@ def build_application(settings: Settings) -> Application:
             CommandHandler("why", handlers.why_command),
             CommandHandler("cancel", handlers.cancel_command),
             CallbackQueryHandler(handlers.log_callback, pattern=rf"^{CALLBACK_PREFIX}:"),
+            CallbackQueryHandler(handlers.match_callback, pattern=rf"^{MATCH_CALLBACK_PREFIX}:"),
             MessageHandler(filters.TEXT & ~filters.COMMAND, handlers.text_message),
         ]
     )

@@ -39,6 +39,14 @@ the estimate becomes
 so one report moves the estimate a quarter of the way to what was seen, three reports
 halfway, and nine reports three-quarters (with the default `report_half_weight` of 3).
 The reports gradually take over from the rules as they accumulate.
+
+Reports matched to this exact train
+-----------------------------------
+A report that `sitt.matching` has tied to a train (`crowd_reports.matched_train_id`)
+says more about that train than a report about a neighbour does. `train_reports` finds
+them. When a train has any, each counts as one report and each merely similar report
+counts as `report_similar_weight` (half) of one, in both `n` and the mean. A train with
+no matched reports is scored exactly as before, from similar reports alone.
 """
 
 import math
@@ -88,6 +96,8 @@ class CrowdingRules:
     report_window_minutes: int = 30
     report_max_age_days: int = 90
     report_half_weight: float = 3.0
+    # What a similar train's report is worth when this train has reports of its own.
+    report_similar_weight: float = 0.5
 
 
 RULES = CrowdingRules()
@@ -117,6 +127,7 @@ class CrowdingEstimate:
     rule_score: float  # before blending in reports, unrounded
     reports_used: int = 0
     reports_mean: float | None = None
+    train_reports_used: int = 0  # how many of `reports_used` were for this exact train
 
 
 def _in_window(hour: float, window: tuple[float, float]) -> bool:
@@ -177,26 +188,43 @@ def rule_score(inp: CrowdingInput, rules: CrowdingRules = RULES) -> tuple[float,
 
 
 def estimate(
-    inp: CrowdingInput, reports: Sequence[int] = (), rules: CrowdingRules = RULES
+    inp: CrowdingInput,
+    reports: Sequence[int] = (),
+    rules: CrowdingRules = RULES,
+    train_reports: Sequence[int] = (),
 ) -> CrowdingEstimate:
-    """Score one train, blending in the levels of any similar crowd `reports`."""
+    """Score one train, blending in crowd reports.
+
+    `reports` are levels logged for similar trains; `train_reports` are levels logged
+    for this very train, which count for more (see the module docstring).
+    """
     from_rules, reasons = rule_score(inp, rules)
     blended = from_rules
     mean = None
-    if reports:
-        mean = sum(reports) / len(reports)
-        weight = len(reports) / (len(reports) + rules.report_half_weight)
+    similar_weight = rules.report_similar_weight if train_reports else 1.0
+    effective = len(train_reports) + similar_weight * len(reports)
+    if effective > 0:
+        mean = (sum(train_reports) + similar_weight * sum(reports)) / effective
+        weight = effective / (effective + rules.report_half_weight)
         blended = (1 - weight) * from_rules + weight * mean
-        plural = "s" if len(reports) != 1 else ""
-        reasons.append(f"your {len(reports)} report{plural} average {mean:.1f}")
+        if train_reports:
+            plural = "s" if len(train_reports) != 1 else ""
+            text = f"your {len(train_reports)} report{plural} for this train"
+            if reports:
+                text += f" and {len(reports)} for similar trains"
+            reasons.append(f"{text} average {mean:.1f}")
+        else:
+            plural = "s" if len(reports) != 1 else ""
+            reasons.append(f"your {len(reports)} report{plural} average {mean:.1f}")
     score = int(min(5, max(1, math.ceil(blended - 0.5))))
     return CrowdingEstimate(
         score=score,
         label=CROWD_LABELS[score],
         reason=", ".join(reasons),
         rule_score=from_rules,
-        reports_used=len(reports),
+        reports_used=len(reports) + len(train_reports),
         reports_mean=mean,
+        train_reports_used=len(train_reports),
     )
 
 
@@ -210,14 +238,22 @@ def similar_reports(
     departure: datetime,
     now: datetime | None = None,
     rules: CrowdingRules = RULES,
+    exclude_train_id: str | None = None,
 ) -> list[int]:
-    """Crowd levels the rider logged for trains like this one. See the module docstring."""
+    """Crowd levels the rider logged for trains like this one. See the module docstring.
+
+    Reports matched to `exclude_train_id` are left out, so that a train's own reports
+    (see `train_reports`) aren't counted twice.
+    """
     now = local_naive(now) if now else datetime.now()
     oldest = now - timedelta(days=rules.report_max_age_days)
+    own = (
+        "AND matched_train_id IS DISTINCT FROM ?" if exclude_train_id and _has_matches(con) else ""
+    )
     rows = con.execute(
         "SELECT crowd_level, train_description, epoch_ms(reported_at) FROM crowd_reports "
-        "WHERE station_code = ? AND train_description IS NOT NULL",
-        [station_code],
+        f"WHERE station_code = ? AND train_description IS NOT NULL {own}",
+        [station_code, exclude_train_id] if own else [station_code],
     ).fetchall()
     wanted = departure.hour * 60 + departure.minute
     levels = []
@@ -232,3 +268,40 @@ def similar_reports(
         if min(gap, 1440 - gap) <= rules.report_window_minutes:
             levels.append(int(level))
     return levels
+
+
+def _has_matches(con: duckdb.DuckDBPyConnection) -> bool:
+    """Whether `crowd_reports` has the matching columns. An old database may not yet."""
+    return (
+        con.execute(
+            "SELECT count(*) FROM information_schema.columns "
+            "WHERE table_name = 'crowd_reports' AND column_name = 'matched_train_id'"
+        ).fetchone()[0]
+        > 0
+    )
+
+
+def train_reports(
+    con: duckdb.DuckDBPyConnection,
+    train_id: str,
+    station_code: str,
+    now: datetime | None = None,
+    rules: CrowdingRules = RULES,
+) -> list[int]:
+    """Crowd levels logged for this exact train, boarded at this station.
+
+    These are the reports `sitt.matching` tied to the train, whichever way: at log time,
+    by backfill, by the rider's own pick, or from the after-commute prompt.
+    """
+    if not _has_matches(con):
+        return []
+    now = local_naive(now) if now else datetime.now()
+    oldest_ms = (
+        now - timedelta(days=rules.report_max_age_days) - datetime(1970, 1, 1)
+    ).total_seconds() * 1000 - 19_800_000
+    rows = con.execute(
+        "SELECT crowd_level FROM crowd_reports WHERE matched_train_id = ? AND station_code = ? "
+        "AND epoch_ms(reported_at) >= ? ORDER BY id",
+        [train_id, station_code, oldest_ms],
+    ).fetchall()
+    return [int(level) for (level,) in rows]

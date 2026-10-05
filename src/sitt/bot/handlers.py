@@ -9,7 +9,7 @@ from telegram.constants import ChatType
 from telegram.error import TelegramError
 from telegram.ext import ApplicationHandlerStop, ContextTypes
 
-from sitt.bot import formatting, schedule, storage
+from sitt.bot import formatting, matchflow, schedule, storage
 from sitt.bot.flow import (
     CANCEL_DATA,
     LogDraft,
@@ -30,6 +30,7 @@ DB_PATH_KEY = "db_path"
 MODEL_DIR_KEY = "model_dir"  # bot_data: where a trained delay model may be, or None
 RECOMMEND_SETTINGS_KEY = "recommend_settings"  # bot_data: thresholds for /next
 LAST_RECOMMENDATION_KEY = "last_recommendation"  # user_data: what /why explains
+MATCH_SETTINGS_KEY = "match_settings"  # bot_data: how reports are matched to trains
 
 _PROMPTS: dict[Step, str] = {
     "station": "Where did you board? Tap a station or type its name.",
@@ -126,7 +127,8 @@ async def log_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         f"\n(Didn't understand: {' '.join(parsed.unrecognised)})" if parsed.unrecognised else ""
     )
     if draft.is_complete:
-        await message.reply_text(_save(draft, update, context, stations) + ignored)
+        text, markup = _save(draft, update, context, stations)
+        await message.reply_text(text + ignored, reply_markup=markup)
     else:
         await _send_prompt(message, draft, context, stations, extra=ignored)
 
@@ -159,7 +161,8 @@ async def log_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await query.answer()
     if draft.is_complete:
         context.user_data.pop(DRAFT_KEY, None)
-        await query.edit_message_text(_save(draft, update, context, stations))
+        text, markup = _save(draft, update, context, stations)
+        await query.edit_message_text(text, reply_markup=markup)
     else:
         await query.edit_message_text(
             _prompt_text(draft, stations), reply_markup=_keyboard(draft, stations)
@@ -198,7 +201,8 @@ async def text_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await _retire_keyboard(context, message.chat_id, draft)
     if draft.is_complete:
         context.user_data.pop(DRAFT_KEY, None)
-        await message.reply_text(_save(draft, update, context, stations))
+        text, markup = _save(draft, update, context, stations)
+        await message.reply_text(text, reply_markup=markup)
     else:
         await _send_prompt(message, draft, context, stations)
 
@@ -232,8 +236,12 @@ def _save(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
     stations: StationDirectory,
-) -> str:
-    """Store a complete draft and return the confirmation text."""
+) -> tuple[str, InlineKeyboardMarkup | None]:
+    """Store a complete draft. Returns the confirmation text and any buttons to go with it.
+
+    The report is then matched to a scheduled train (sitt.matching). Whatever happens
+    there, the report itself is already saved.
+    """
     report = storage.NewReport(
         telegram_user_id=update.effective_user.id,
         reported_at=datetime.now(UTC),
@@ -242,8 +250,99 @@ def _save(
         crowd_level=draft.crowd_level,
         note=draft.raw_text,
     )
-    report_id = storage.insert_report(context.bot_data[DB_PATH_KEY], report)
-    return f"Logged #{report_id}: {formatting.describe_draft(draft, stations)}"
+    db_path = context.bot_data[DB_PATH_KEY]
+    report_id = storage.insert_report(db_path, report)
+    text = f"Logged #{report_id}: {formatting.describe_draft(draft, stations)}"
+    try:
+        result = matchflow.match_report(
+            db_path,
+            report_id,
+            context.bot_data.get(MATCH_SETTINGS_KEY),
+            ladies_special_ok=_ladies_special_ok(context),
+        )
+    except Exception:  # the report is saved; matching can be redone with sitt-match-logs
+        logger.exception("Could not match report %s to a train", report_id)
+        return text, None
+    if result is None:
+        return text, None
+    if result.train is not None:
+        button = InlineKeyboardButton(
+            "Not that train", callback_data=matchflow.callback_data(report_id, matchflow.PICK)
+        )
+        return f"{text}\nMatched to the {result.train.describe()}.", InlineKeyboardMarkup(
+            [[button]]
+        )
+    if result.candidates:
+        return (
+            f"{text}\nI couldn't tell which train that was. Tap it if you know:",
+            _train_buttons(report_id, result.candidates),
+        )
+    return text, None
+
+
+def _ladies_special_ok(context: ContextTypes.DEFAULT_TYPE) -> bool:
+    settings = context.bot_data.get(RECOMMEND_SETTINGS_KEY)
+    return bool(settings and settings.ladies_special_ok)
+
+
+def _train_buttons(report_id: int, candidates) -> InlineKeyboardMarkup:
+    """One button per train, in time order, and a way to say it was none of them."""
+    rows = [
+        [
+            InlineKeyboardButton(
+                candidate.describe(),
+                callback_data=matchflow.callback_data(
+                    report_id, matchflow.TRAIN, candidate.train_id
+                ),
+            )
+        ]
+        for candidate in sorted(candidates, key=lambda c: (c.departure, c.train_id))
+    ]
+    rows.append(
+        [
+            InlineKeyboardButton(
+                "None of these", callback_data=matchflow.callback_data(report_id, matchflow.NONE)
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(rows)
+
+
+async def match_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Buttons under a logged report: pick the train it was, or say it was none of them."""
+    query = update.callback_query
+    try:
+        report_id, action, train_id = matchflow.parse_callback_data(query.data)
+    except ValueError:
+        await query.answer()
+        return
+    db_path = context.bot_data[DB_PATH_KEY]
+    settings = context.bot_data.get(MATCH_SETTINGS_KEY)
+    user_id = update.effective_user.id
+    # The first line is the "Logged #12: ..." confirmation; what follows is about the match.
+    logged_line = (query.message.text or "").split("\n")[0] if query.message else ""
+
+    if action == matchflow.PICK:
+        choices = matchflow.choices_for(db_path, report_id, user_id, settings)
+        if choices.problem:
+            await query.answer(choices.problem, show_alert=True)
+            return
+        await query.answer()
+        await query.edit_message_text(
+            f"{logged_line}\nWhich train was it?",
+            reply_markup=_train_buttons(report_id, choices.candidates),
+        )
+        return
+
+    chosen, problem = matchflow.choose_train(db_path, report_id, user_id, train_id, settings)
+    if problem:
+        await query.answer(problem, show_alert=True)
+        return
+    await query.answer()
+    if chosen is None:
+        await query.edit_message_text(f"{logged_line}\nNot matched to a train.")
+    else:
+        await query.edit_message_text(f"{logged_line}\nTrain: {chosen.describe()} (your pick).")
 
 
 async def _send_prompt(

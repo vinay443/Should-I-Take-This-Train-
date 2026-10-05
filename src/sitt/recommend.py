@@ -43,7 +43,13 @@ import duckdb
 from sitt.config import DEFAULT_MODEL_DIR, RecommendSettings
 from sitt.holidays import is_sunday_schedule
 from sitt.models import features
-from sitt.models.crowding import CrowdingEstimate, CrowdingInput, estimate, similar_reports
+from sitt.models.crowding import (
+    CrowdingEstimate,
+    CrowdingInput,
+    estimate,
+    similar_reports,
+    train_reports,
+)
 from sitt.models.delay import DelayModel, DelayPrediction, load_if_present, predict_targets
 from sitt.models.features import Target, local_naive
 from sitt.timetable import ScheduledTrip, next_trains, resolve_station
@@ -391,7 +397,15 @@ def recommend(
                 # Without delay data nothing is known about the train ahead.
                 ahead_delay=before.departure_delay if before and level != LEVEL_TIMETABLE else None,
             ),
-            similar_reports(con, origin_code, trip.train_type, trip.departure, local_now),
+            similar_reports(
+                con,
+                origin_code,
+                trip.train_type,
+                trip.departure,
+                local_now,
+                exclude_train_id=trip.train_id,
+            ),
+            train_reports=train_reports(con, trip.train_id, origin_code, local_now),
         )
 
     choice, reason, rule = choose(options, settings)

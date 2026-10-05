@@ -32,6 +32,18 @@ _CROWD_WORDS: dict[str, int] = {
     "cantboard": 5,
 }
 
+_AC_WORDS: dict[str, bool] = {"ac": True, "nonac": False, "non-ac": False}
+_CAR_WORDS: dict[str, int] = {
+    "15car": 15,
+    "15-car": 15,
+    "15cars": 15,
+    "12car": 12,
+    "12-car": 12,
+    "12cars": 12,
+}
+# "ladies" alone is not enough: "near the ladies coach" is about a coach, not the train.
+_LADIES_WORDS = frozenset({"ladiesspecial", "ladies-special"})
+
 _TIME_RE = re.compile(r"^(?P<hour>\d{1,2})(?:[:.](?P<minute>\d{2}))?(?P<ampm>am|pm)?$")
 _CANT_BOARD_RE = re.compile(r"\b(?:can'?t|cannot|can not|couldn'?t)\s*board\b")
 _AMPM_RE = re.compile(r"(\d)\s+(am|pm)\b")
@@ -47,6 +59,11 @@ class ParsedLog:
     crowd_level: int | None = None
     unrecognised: tuple[str, ...] = ()
     conflicts: tuple[str, ...] = ()
+    # Optional details that help find the exact train (see sitt.matching).
+    destination_code: str | None = None  # from "to CSMT"
+    is_ac: bool | None = None  # "ac" / "non-ac"
+    car_count: int | None = None  # "15car" / "12car"
+    ladies: bool | None = None  # "ladies"
 
 
 def parse_time(text: str) -> time | None:
@@ -99,8 +116,20 @@ def parse_log_text(text: str, stations: StationDirectory = FALLBACK_DIRECTORY) -
     rejected (the raw text is kept as the report's note anyway); two different
     values for the same field are reported as conflicts. Station names of two
     words, such as `Kanjur Marg`, are recognised.
+
+    Optional extras narrow down which train it was: `to CSMT` (where the train was
+    going), `ac` or `non-ac`, `15car` or `12car`, and `ladies`.
     """
-    found: dict[str, list] = {"station": [], "time": [], "service": [], "crowd": []}
+    found: dict[str, list] = {
+        "station": [],
+        "time": [],
+        "service": [],
+        "crowd": [],
+        "destination": [],
+        "ac": [],
+        "cars": [],
+        "ladies": [],
+    }
     unrecognised: list[str] = []
 
     def add(field: str, value: object) -> None:
@@ -111,8 +140,27 @@ def parse_log_text(text: str, stations: StationDirectory = FALLBACK_DIRECTORY) -
     i = 0
     while i < len(tokens):
         token = tokens[i]
+        if token == "to" and i + 1 < len(tokens):
+            # "to Kanjur Marg" / "to CSMT": where the train was heading.
+            two = stations.lookup(tokens[i + 1] + tokens[i + 2]) if i + 2 < len(tokens) else None
+            heading = two or stations.lookup(tokens[i + 1])
+            if heading is not None:
+                add("destination", heading.code)
+                i += 3 if two else 2
+                continue
         pair = stations.lookup(token + tokens[i + 1]) if i + 1 < len(tokens) else None
-        if pair is not None:
+        if token in _AC_WORDS:
+            add("ac", _AC_WORDS[token])
+        elif token in _CAR_WORDS:
+            add("cars", _CAR_WORDS[token])
+        elif token in _LADIES_WORDS:
+            add("ladies", True)
+        elif token == "ladies" and i + 1 < len(tokens) and tokens[i + 1] == "special":
+            add("ladies", True)
+            i += 1
+        elif token == "from" and i + 1 < len(tokens) and stations.lookup(tokens[i + 1]):
+            pass  # "from KYN": the station itself is read on the next turn
+        elif pair is not None:
             add("station", pair.code)
             i += 1
         elif (parsed_time := parse_time(token)) is not None:
@@ -138,6 +186,14 @@ def parse_log_text(text: str, stations: StationDirectory = FALLBACK_DIRECTORY) -
         conflicts.append("both fast and slow")
     if len(found["crowd"]) > 1:
         conflicts.append(f"more than one crowd level ({', '.join(map(str, found['crowd']))})")
+    if len(found["destination"]) > 1:
+        conflicts.append(f"more than one destination ({', '.join(found['destination'])})")
+    if len(found["ac"]) > 1:
+        conflicts.append("both AC and non-AC")
+    if len(found["cars"]) > 1:
+        conflicts.append("both 12-car and 15-car")
+    if found["destination"] and found["destination"] == found["station"]:
+        conflicts.append("the train can't be going to the station you boarded at")
 
     def single(field: str):
         return found[field][0] if len(found[field]) == 1 else None
@@ -149,4 +205,8 @@ def parse_log_text(text: str, stations: StationDirectory = FALLBACK_DIRECTORY) -
         crowd_level=single("crowd"),
         unrecognised=tuple(unrecognised),
         conflicts=tuple(conflicts),
+        destination_code=single("destination"),
+        is_ac=single("ac"),
+        car_count=single("cars"),
+        ladies=single("ladies"),
     )

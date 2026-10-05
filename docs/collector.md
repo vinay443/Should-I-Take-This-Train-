@@ -102,7 +102,7 @@ Later, update the worktree with `git -C ../sitt-data pull` and run the loader ag
 GitHub-hosted runners have IP addresses outside India, and Indian Railways sites sometimes
 block those. Before relying on the scheduled collector, check that the sources answer:
 
-1. On GitHub, open **Actions â†’ Probe live sources â†’ Run workflow**.
+1. On GitHub, open **Actions → Probe live sources → Run workflow**.
 2. Leave `sources` as `mobond ntes`, or enter just `ntes` to leave Mobond alone.
 3. Read the **Probe** step's log. For each source it prints every request with its status code
    and size, the content type, a 400-character sample of the response, and how many
@@ -122,9 +122,9 @@ only be started by hand until you do the following.
 
 1. **Get Mobond's agreement**, or decide to collect NTES only.
 2. **Run the probe** (above) and confirm the sources you want answer from a runner.
-3. **Run the collector once by hand:** Actions â†’ Collect live data â†’ Run workflow. The first
+3. **Run the collector once by hand:** Actions → Collect live data → Run workflow. The first
    run creates the `data` branch. Check that it contains a Parquet file.
-4. **Switch Mobond on, if agreed:** Settings â†’ Secrets and variables â†’ Actions â†’ Variables â†’
+4. **Switch Mobond on, if agreed:** Settings → Secrets and variables → Actions → Variables →
    New repository variable, with name `SITT_MOBOND_ENABLED` and value `true`. Without it, the
    workflow fetches NTES only, even if you choose `mobond` or `all` by hand. Delete the
    variable or set it to anything else to switch Mobond off again.
@@ -261,7 +261,7 @@ under 15. To stop collecting:
 Unregister-ScheduledTask -TaskName "SITT live collector" -Confirm:$false
 ```
 
-If you would rather click through it: open **Task Scheduler â†’ Create Task**. On **Triggers**,
+If you would rather click through it: open **Task Scheduler → Create Task**. On **Triggers**,
 add one that starts today and repeats every 15 minutes indefinitely. On **Actions**, start the
 program `powershell.exe` with the arguments
 `-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "C:\path\to\repo\scripts\collect-once.ps1"`.

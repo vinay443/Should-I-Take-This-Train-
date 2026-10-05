@@ -22,6 +22,7 @@ sitt-dashboard = "sitt.dashboard.run:main"
 sitt-collect = "sitt.ingest.live.local:main"
 sitt-health = "sitt.health:main"
 sitt-dq = "sitt.dq:main"
+sitt-match-logs = "sitt.matching:main"
 
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13"]

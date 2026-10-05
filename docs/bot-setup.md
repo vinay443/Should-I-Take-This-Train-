@@ -60,6 +60,9 @@ Try it from your phone:
 - `/log 8:12 fast KYN packed`: quick log. Words can be in any order. Crowd accepts `1`–`5` or
   `empty` / `seats` / `standing` / `packed` / `can't board`. For stations, see
   [Stations](#stations) below.
+  Optional extras help find the exact train: `to CSMT`, `ac` or `non-ac`, `15car`, `ladies
+  special`. The reply says which scheduled train it was matched to, with a button to correct
+  it. See [`crowding.md`](crowding.md#matching-a-report-to-a-train).
 - `/log`: guided flow with buttons for station, time, fast/slow and crowd. You can type the
   station or the time instead of tapping. If a quick log is missing something, the bot asks
   only for the missing parts.
@@ -120,6 +123,7 @@ Each report is one row in `crowd_reports`:
 | `crowd_level`       | 1 (empty) to 5 (can't board)                               |
 | `source`            | `telegram:<your user id>`                                  |
 | `note`              | The raw message, e.g. `/log 8:12 fast KYN packed`          |
+| `matched_train_id`, `match_confidence`, `match_method`, `matched_at` | The scheduled train it was matched to, if any. See [`crowding.md`](crowding.md#what-is-stored) |
 
 ## Troubleshooting
 
