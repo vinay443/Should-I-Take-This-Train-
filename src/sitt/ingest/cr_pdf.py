@@ -57,6 +57,22 @@ Trains that can't be converted cleanly (unknown markers, unreadable cells, times
 of order, fewer than two stops, the same number listed twice with different stops)
 are left out and reported as warnings, so the rest of the file still loads.
 
+Stray marks
+-----------
+The PDFs have the odd typing slip: a backtick, quote or similar mark in a cell. Two
+cases are tolerated, and each is reported as a warning so it can be checked:
+
+- A time with stray marks around it ("08:24`") is read as the time.
+- A cell holding nothing but stray marks, between two of the train's stops, is read as
+  a pass mark, but only if the train passes other stations too. That is train 95901
+  (T 15, the 08:04 AC fast from CSMT): its Vidyavihar cell is "`" where every
+  neighbouring cell is "…". In a train with no pass marks at all, such a cell is more
+  likely a lost stop time, so the train is still rejected.
+
+Anything the parser gets wrong beyond that is fixed in the overrides file
+(sitt/ingest/timetable_overrides.toml, format in docs/timetable-format.md), which is
+applied after the PDFs and supplements have been read.
+
 Supplements
 -----------
 Central Railway amends the main edition with smaller PDFs on the same page, which
@@ -160,8 +176,16 @@ class Station:
 
 
 # Station labels as printed in the PDFs, with the spellings seen in either direction.
-# Codes are checked against NTES's station list (2026-09-27) except KLY, DLV, LWJ and
-# KHPI, which NTES doesn't list.
+# Codes are checked against NTES's station list (2026-09-27) except the four on the
+# Khopoli branch beyond Palasdhari: KLY (Kelavli), DLV (Dolavli), LWJ (Lowjee) and KHPI
+# (Khopoli). NTES's list has none of the four under any code or spelling (checked again
+# on 2026-10-05 against the saved station_data.js; neither does the Indian Railways
+# GTFS feed built from NTES). These four are UNVERIFIED against an official source.
+# They are corroborated only by third parties, which all agree: Wikipedia's page for each
+# station, IndiaRailInfo (KLY, DLV, LWJ) and booking sites (KHPI). Nothing matches on
+# these codes except this project's own timetable, so a wrong one would only show up if
+# a live source reported a train at one of these stations under another code. See
+# docs/timetable-format.md, "Station codes".
 # Sion is SION, not SIN: NTES's station list
 # (https://enquiry.indianrail.gov.in/mntes/javascripts/station_data.js, checked
 # 2026-10-05) has {"code":"SION","name":"SION"} and no SIN entry. Wikipedia and some
@@ -250,6 +274,8 @@ _SERVICE_CODE_RE = re.compile(r"[A-Z]{1,4} ?\d{1,3}")
 
 _TIME_RE = re.compile(r"(\d{1,2}):(\d{2})")
 PASS_MARKS = frozenset({"…", "...", "…."})
+# Marks that mean nothing in a cell: typing slips. Never a dot, which pass marks are made of.
+STRAY_MARKS = "`´'‘’\"^~_,;|"
 _HEADER_LABELS = frozenset({"station", "stations"})
 _TRAIN_NUMBER_RE = re.compile(r"\d{5}")
 
@@ -311,6 +337,8 @@ class ConvertedTrain:
     ac: bool = False
     cars: int | None = None
     notes: list[str] = field(default_factory=list)
+    # Things the converter tolerated while reading this train, for the report.
+    remarks: list[str] = field(default_factory=list, compare=False)
 
     @property
     def destination(self) -> str:
@@ -323,6 +351,7 @@ class Conversion:
     warnings: list[str]
     rejected: dict[str, str]  # train number -> reason
     supplements: list["SupplementResult"] = field(default_factory=list)
+    overrides: list[str] = field(default_factory=list)  # one line per override applied
 
 
 def station_for(label: str) -> Station | None:
@@ -514,9 +543,20 @@ def column_train(column: Column, stations: Sequence[Station], direction: Directi
     stops = []
     passes_between = False
     passed_since_last_stop = False
+    remarks: list[str] = []
+    stray_only: list[tuple[Station, str, int]] = []  # (station, text, stops before it)
     for station in stations:
         text = column.cells.get(station, "")
         kind = _classify_cell(text)
+        if kind is None and (cleaned := text.strip(STRAY_MARKS + " ")) != text:
+            if not cleaned:
+                # Nothing but stray marks. What it stands for depends on where it is in
+                # the run, which is only known once every stop has been read.
+                stray_only.append((station, text, len(stops)))
+                continue
+            if _classify_cell(cleaned):
+                remarks.append(f"stray marks in {text!r} at {station.name} ignored")
+                kind = _classify_cell(cleaned)
         if kind is None and (named := _STATION_BY_CODE.get(text)) is not None:
             # A station code in a cell says the train starts or ends there instead
             # ("DR" in the CSMT row). Believe it only if the train has a time there.
@@ -536,19 +576,18 @@ def column_train(column: Column, stations: Sequence[Station], direction: Directi
             passed_since_last_stop = False
             stops.append(StopTime(station, kind))
 
-    if len(stops) < 2:
-        return f"page {column.page}: fewer than two stops"
-    run = 0
-    for prev, cur in zip(stops, stops[1:], strict=False):
-        step = (_minutes(cur.time) - _minutes(prev.time)) % (24 * 60)
-        if step > MAX_STEP_MINUTES:
-            return (
-                f"page {column.page}: {cur.time} at {cur.station.name} doesn't follow "
-                f"{prev.time} at {prev.station.name}"
-            )
-        run += step
-    if run >= MAX_RUN_MINUTES:
-        return f"page {column.page}: runs for 12 hours or more"
+    for station, text, stops_before in stray_only:
+        if 0 < stops_before < len(stops):
+            # Between two stops. Only a train that passes other stations can be passing
+            # this one; otherwise the mark may be all that is left of a stop's time.
+            if not passes_between:
+                return f"page {column.page}: unreadable cell {text!r} at {station.name}"
+            remarks.append(f"stray {text!r} at {station.name} read as a pass mark")
+        else:
+            remarks.append(f"stray {text!r} at {station.name}, outside the run, ignored")
+
+    if problem := check_stops(stops):
+        return f"page {column.page}: {problem}"
 
     return ConvertedTrain(
         number=column.number,
@@ -561,7 +600,26 @@ def column_train(column: Column, stations: Sequence[Station], direction: Directi
         ac=markers.ac,
         cars=markers.cars,
         notes=markers.notes,
+        remarks=[f"page {column.page}: {remark}" for remark in remarks],
     )
+
+
+def check_stops(stops: Sequence[StopTime]) -> str | None:
+    """What is wrong with a train's stops, or None. The same limits as the loader's."""
+    if len(stops) < 2:
+        return "fewer than two stops"
+    run = 0
+    for prev, cur in zip(stops, stops[1:], strict=False):
+        step = (_minutes(cur.time) - _minutes(prev.time)) % (24 * 60)
+        if step > MAX_STEP_MINUTES:
+            return (
+                f"{cur.time} at {cur.station.name} doesn't follow "
+                f"{prev.time} at {prev.station.name}"
+            )
+        run += step
+    if run >= MAX_RUN_MINUTES:
+        return "runs for 12 hours or more"
+    return None
 
 
 def grid_trains(grids: Iterable[PageGrid]) -> Conversion:
@@ -583,6 +641,7 @@ def grid_trains(grids: Iterable[PageGrid]) -> Conversion:
             earlier = converted.get(number)
             if earlier is None:
                 converted[number] = result
+                warnings.extend(f"train {number}: {remark}" for remark in result.remarks)
             elif _same_service(earlier, result):
                 warnings.append(f"train {number} listed on pages {earlier.page} and {result.page}")
             else:
@@ -719,6 +778,7 @@ def apply_supplement(
                 )
                 continue
 
+            result.lines.extend(f"{number}: note: {remark}" for remark in new.remarks)
             if current is None:
                 trains[number] = new
                 result.added += 1
@@ -835,7 +895,9 @@ def source_info(path: str | Path, edition: str | None = None, kind: str = "main"
 _SOURCE_LABELS = {"main": "source", "ac": "AC supplement", "15car": "15-car supplement"}
 
 
-def write_csv(out, trains: Sequence[ConvertedTrain], sources: Sequence[SourceInfo]) -> None:
+def write_csv(
+    out, trains: Sequence[ConvertedTrain], sources: Sequence[SourceInfo], overrides: int = 0
+) -> None:
     out.write("# Central Railway Mumbai suburban timetable, main line.\n")
     out.write(f"# Converted by sitt.ingest.cr_pdf on {date.today().isoformat()}.\n")
     for source in sources:
@@ -846,6 +908,11 @@ def write_csv(out, trains: Sequence[ConvertedTrain], sources: Sequence[SourceInf
         if source.url:
             out.write(f"#   url: {source.url}\n")
         out.write(f"#   sha256: {source.sha256}\n")
+    if overrides:
+        out.write(
+            f"# {overrides} manual override(s) applied from timetable_overrides.toml "
+            "(see docs/timetable-format.md).\n"
+        )
     out.write(
         "# Days: X = mon-sat, XX = mon-fri. Holidays that follow the Sunday schedule are\n"
         "# not represented, so those trains are listed as running on weekday holidays.\n"
@@ -867,8 +934,14 @@ def convert(
     *,
     ac_supplement: str | Path | None = None,
     cars_supplement: str | Path | None = None,
+    overrides: str | Path | None | bool = True,
 ):
-    """Read the main PDFs, apply any supplements, and return (Conversion, [SourceInfo])."""
+    """Read the main PDFs, apply any supplements, and return (Conversion, [SourceInfo]).
+
+    Manual overrides are applied last. `overrides` is True for the file shipped with the
+    package, a path for another file, or False/None for none. A bad overrides file
+    raises `sitt.ingest.overrides.OverrideError` (a ConversionError).
+    """
     sources = [source_info(p, edition) for p in paths]
     conversion = grid_trains(grid for p in paths for grid in read_pdf_grids(p))
     trains = {train.number: train for train in conversion.trains}
@@ -878,6 +951,15 @@ def convert(
             continue
         sources.append(source_info(path, kind=kind))
         conversion.supplements.append(apply_supplement(trains, read_pdf_grids(path), kind))
+    if overrides:
+        from sitt.ingest import overrides as manual  # imports this module's types
+
+        entries = manual.read_overrides(None if overrides is True else overrides)
+        conversion.overrides = manual.apply_overrides(trains, entries)
+        # A train the parser rejected and an override then supplied is no longer missing.
+        conversion.rejected = {
+            number: reason for number, reason in conversion.rejected.items() if number not in trains
+        }
     conversion.trains = list(trains.values())
     return conversion, sources
 
@@ -901,6 +983,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         type=Path,
         help="15-car services PDF to apply over the main edition (after the AC one)",
     )
+    parser.add_argument(
+        "--overrides",
+        type=Path,
+        help="manual overrides file to apply last (default: the one shipped with the "
+        "package, sitt/ingest/timetable_overrides.toml)",
+    )
+    parser.add_argument(
+        "--no-overrides", action="store_true", help="apply no manual overrides at all"
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -909,6 +1000,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.edition,
             ac_supplement=args.ac_supplement,
             cars_supplement=args.cars_supplement,
+            overrides=False if args.no_overrides else (args.overrides or True),
         )
     except (ConversionError, OSError) as e:
         print(f"error: {e}", file=sys.stderr)
@@ -921,13 +1013,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                 file=sys.stderr,
             )
     with args.output.open("w", encoding="utf-8", newline="") as out:
-        write_csv(out, conversion.trains, sources)
+        write_csv(out, conversion.trains, sources, overrides=len(conversion.overrides))
 
     for warning in conversion.warnings:
         print(f"warning: {warning}", file=sys.stderr)
     for supplement in conversion.supplements:
         print(supplement.summary())
         for line in supplement.lines:
+            print(f"  {line}")
+    if conversion.overrides:
+        print(f"Manual overrides: {len(conversion.overrides)} applied.")
+        for line in conversion.overrides:
             print(f"  {line}")
     stops = sum(len(t.stops) for t in conversion.trains)
     print(

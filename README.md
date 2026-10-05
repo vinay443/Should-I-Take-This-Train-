@@ -14,7 +14,7 @@ Read this before trusting any number the project shows you.
 
 | Part | Status |
 | --- | --- |
-| **Timetable** | **Real.** Converted from Central Railway's official timetable PDFs: 894 main-line trains, with AC, 15-car and ladies' special markers. The base edition is from October 2024, with the 2025 AC and 2026 15-car supplements applied. |
+| **Timetable** | **Real.** Converted from Central Railway's official timetable PDFs: 895 main-line trains, with AC, 15-car and ladies' special markers. The base edition is from October 2024, with the 2025 AC and 2026 15-car supplements applied. |
 | **Live observations** | **None collected yet.** The collector is built and tested, but its schedule is not switched on. |
 | **Delay data used for development** | **Synthetic.** Invented by a generator from guesses about how delays behave. |
 | **Delay model and its accuracy figures** | **Trained and tested on that synthetic data.** They show the pipeline works. They say nothing about real trains, and such a model is not used for recommendations. |

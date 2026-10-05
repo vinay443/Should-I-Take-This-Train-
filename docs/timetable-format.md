@@ -170,7 +170,8 @@ at weekends.
 
 Stations can be given by code or name, in any case. Naive datetimes are treated as
 Mumbai time, and aware ones are converted to IST. Running days and trains crossing
-midnight are handled.
+midnight are handled. On a holiday listed in [Holidays](#holidays) the Sunday timetable is
+used, whatever day of the week it is.
 
 ## Writing a converter
 
@@ -183,3 +184,183 @@ A converter for a new source should:
 
 Then run the loader on the output. Its validation reports any rows the converter got
 wrong.
+
+## Manual overrides
+
+The PDF converter ([`sitt.ingest.cr_pdf`](../src/sitt/ingest/cr_pdf.py)) never guesses. A
+train it can't read is left out and reported. When the PDF is wrong, or the converter reads
+it wrongly, the fix goes in one committed, human-editable file:
+
+[`src/sitt/ingest/timetable_overrides.toml`](../src/sitt/ingest/timetable_overrides.toml)
+
+It is applied last, after the main PDFs and the AC and 15-car supplements, every time the
+converter runs (including when the dashboard builds its own timetable). It ships with no
+corrections in it.
+
+### Format
+
+The file is [TOML](https://toml.io). Each correction is one `[[train]]` table:
+
+```toml
+[[train]]
+number = "96415"
+reason = "PTT DN page 7 prints 14:91 at Diva; the UP page and NTES both give 14:19."
+stop_times = { DIVA = "14:19" }
+```
+
+`number` (the 5-digit train number, in quotes) and `reason` are always required. The reason
+should say what is wrong and how you know, because it is printed whenever the override is
+applied. `action` says what kind of correction it is:
+
+**`action = "set"`** (the default) changes a train the converter produced. Give any of:
+
+| Key | Example | Meaning |
+| --- | --- | --- |
+| `days` | `"mon-sat"` | Running days, in any form the CSV accepts: `daily`, `mon-fri`, `sun`, `sat\|sun`, a mask |
+| `service_type` | `"fast"` | `fast` or `slow` |
+| `service_code` | `"T 15"` | The timetable's code for the service |
+| `ac` | `true` | An air-conditioned train |
+| `cars` | `15` | `12` or `15` |
+| `notes` | `["ladies_special"]` | Replaces the train's notes. Also `non_ac_weekends` |
+| `stop_times` | `{ DIVA = "14:19" }` | Changes the time at a stop, or adds a stop. A new stop is placed in line order |
+| `remove_stops` | `["VVH"]` | Drops stops |
+| `stops` | `[["CSMT", "08:04"], ["BY", "08:11"]]` | Replaces every stop. Use this or the two above, not both |
+
+**`action = "add"`** supplies a train the converter doesn't have, for example one it
+rejected. It needs `direction` (`"up"` towards CSMT, or `"down"`), `service_type` and
+`stops`, listed in the order the train calls. `days` defaults to `daily`.
+
+```toml
+[[train]]
+number = "95999"
+action = "add"
+reason = "Listed in the CR notice of 2026-11-01, not yet in any PTT PDF."
+direction = "down"
+service_type = "fast"
+days = "mon-sat"
+service_code = "K 99"
+stops = [["CSMT", "10:00"], ["DR", "10:12"], ["TNA", "10:40"], ["KYN", "11:02"]]
+```
+
+**`action = "remove"`** drops a train. It takes only `number` and `reason`.
+
+Station codes are the ones in `cr_pdf.py` (`KYN`, `TNA`, `DR`, `CSMT`, ...). Times are
+24-hour `HH:MM`, Mumbai time. As in the PDFs, a stop has one time: the converter writes it
+as the departure at the first stop, the arrival at the last, and both in between.
+
+### Validation
+
+The whole file is checked before anything is applied, and every problem is listed at once
+with the entry it is in:
+
+```
+error: timetable_overrides.toml has 2 problem(s):
+  entry 1 (train 96415): '14:91' at DIVA is not a time like 08:04
+  entry 3 (train 95999): action "add" needs direction
+```
+
+Refused: unknown keys, a missing reason, an unknown station code, a time that isn't one, two
+entries for the same train, `set` or `remove` for a train that doesn't exist, `add` for one
+that does, a stop to remove that the train doesn't have, and any change that leaves a train
+with fewer than two stops, times out of order, or a run of 12 hours or more. If any entry
+can't be applied, none is, and the conversion stops.
+
+An entry that changes nothing, because a newer PDF now agrees with it, is not an error. The
+converter says "no change; the timetable already says this", which is your cue to delete it.
+
+### Using it
+
+```bash
+uv run python -m sitt.ingest.cr_pdf dn.pdf up.pdf --ac-supplement ac.pdf --15-car-supplement cars.pdf -o central.csv
+```
+
+The converter prints one line per override applied, and the CSV's header comment records how
+many there were. Then load the CSV as usual.
+
+| Option | Meaning |
+| --- | --- |
+| `--overrides PATH` | Use another overrides file instead of the shipped one |
+| `--no-overrides` | Apply none |
+
+### Stray marks in the PDF
+
+The converter itself tolerates two kinds of typing slip, and reports each as a warning:
+
+- a time with a stray mark beside it (`` 08:24` ``) is read as the time;
+- a cell holding nothing but a stray mark, between two of a train's stops, is read as "passes
+  without stopping", **but only if the train passes other stations too**.
+
+The second is train 95901 (T 15, the 08:04 AC fast from CSMT to Thane). Its Vidyavihar cell
+is a backtick where every neighbouring cell is `…`, and it used to be rejected. In an
+all-stops train a lone stray mark is more likely what is left of a stop's time, so that train
+is still rejected, and needs an override.
+
+## Station codes
+
+The codes come from `_STATIONS` in `cr_pdf.py`. All but four were checked against NTES's
+station list. The four on the Khopoli branch beyond Palasdhari are **not verified against an
+official source**:
+
+| Station | Code | What was found (2026-10-05) |
+| --- | --- | --- |
+| Kelavli | `KLY` | Not in NTES's station list. Wikipedia and IndiaRailInfo give `KLY` |
+| Dolavli | `DLV` | Not in NTES's station list. Wikipedia and IndiaRailInfo give `DLV` |
+| Lowjee | `LWJ` | Not in NTES's station list. Wikipedia and IndiaRailInfo give `LWJ` |
+| Khopoli | `KHPI` | Not in NTES's station list. Wikipedia and booking sites (ixigo, Goibibo) give `KHPI` |
+
+NTES has none of the four under any code or spelling, and neither does the Indian Railways
+GTFS feed built from it. The third-party sources all agree with the codes used here, so they
+are probably right, but none is official. The risk is small: nothing matches on these codes
+except this project's own timetable. A wrong one would only matter if a live source reported
+a train at one of these stations under a different code, and `sitt-dq` would then list it
+under "Station codes not in the timetable".
+
+## Holidays
+
+On some public holidays Central Railway runs the Sunday timetable. Its list has six fixed
+dates and eight movable days a year:
+
+| Fixed | Movable ("as per calendar") |
+| --- | --- |
+| Republic Day (26 Jan), Dr Ambedkar Jayanti (14 Apr), Maharashtra Day (1 May), Independence Day (15 Aug), Gandhi Jayanti (2 Oct), Christmas (25 Dec) | Holi (2nd day), Gudi Padwa, Good Friday, Ramzan-Id, Ganesh Chaturthi, Dassera, Diwali (1st and 2nd day) |
+
+The fixed dates are in [`src/sitt/holidays.py`](../src/sitt/holidays.py). The movable ones
+are in [`src/sitt/holidays.toml`](../src/sitt/holidays.toml), one entry per date:
+
+```toml
+[[holiday]]
+date = 2026-10-20
+name = "Dassera"
+status = "reported"
+source = "Maharashtra public holidays 2026 (GAD notification), ...; checked 2026-10-05"
+```
+
+| Status | Meaning | Used? |
+| --- | --- | --- |
+| `confirmed` | Seen in an official document, or fixed by calculation (Good Friday) | yes |
+| `reported` | Several sources quote the official notification with the same date, but the official document itself wasn't opened | yes |
+| `tentative` | Not officially notified yet. From calendars, and may be a day out | **no**, unless `SITT_HOLIDAYS_INCLUDE_TENTATIVE=true` |
+
+What is in the file today:
+
+- **2026:** all eight days, from the Maharashtra government's 2026 list. They are `reported`,
+  not `confirmed`: on 2026-10-05 the official pages couldn't be opened, so the dates rest on
+  a search-result extract of an official page and on third-party copies of the notification,
+  which agree. Good Friday is `confirmed` by calculation.
+- **2027:** all eight days as `tentative`, except Good Friday. Maharashtra's 2027 list is
+  expected in November or December 2026. Two of them (Gudi Padwa, Dassera) have sources
+  that disagree by a day; each entry's `note` says so.
+
+One reading is this project's own: the railway says "Diwali 1st & 2nd day" and the state
+lists two Diwali holidays, Laxmi Pujan and Bali Pratipada. They are taken to be the same two
+days. The entries' notes flag this.
+
+To correct or add a date, edit `holidays.toml`. A date written wrongly, a missing source or
+a duplicate stops the program at start-up with a message naming the entry.
+
+Holidays affect: which trains `/next` and `/commute` list, how crowd reports are matched to
+trains, the `sunday_schedule` feature of the delay model, the crowding estimate's peak
+scaling, and whether the bot's morning message and crowd prompt are sent.
+
+One limit: the timetable CSV can't say "not on holidays" for a single train. A holiday is
+treated as a Sunday for every train.

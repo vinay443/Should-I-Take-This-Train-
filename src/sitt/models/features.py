@@ -47,7 +47,7 @@ import duckdb
 import numpy as np
 
 from sitt.config import BlockSettings, load_block_settings
-from sitt.holidays import FIXED_HOLIDAYS, MOVABLE_HOLIDAYS
+from sitt.holidays import FIXED_HOLIDAYS, movable_dates
 from sitt.ingest.timetable import _stage
 from sitt.routes import stage_route_points
 from sitt.tz import IST
@@ -216,7 +216,7 @@ def prepare(
     today = date.today()
     years = range((low or today).year, max((high or today).year, today.year) + 2)
     days = {date(year, month, day) for year in years for month, day in FIXED_HOLIDAYS}
-    days |= set(MOVABLE_HOLIDAYS)
+    days |= set(movable_dates())
     _stage(con, "holiday_dates", {"day": "DATE"}, [{"day": d.isoformat()} for d in sorted(days)])
 
 

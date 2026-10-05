@@ -1,0 +1,142 @@
+# Movable holidays on which Mumbai suburban trains run to the Sunday timetable.
+#
+# Central Railway's list ("LIST OF HOLIDAYS ON WHICH TRAINS WILL RUN AS PER SUNDAY SCHEDULE",
+# a PDF beside the timetables on cr.indianrailways.gov.in) names six fixed dates, which
+# are in sitt/holidays.py, and these movable ones, each "as per calendar":
+#
+#   Holi (2nd day), Gudi Padwa, Good Friday, Ramzan-Id, Ganesh Chaturthi, Dassera,
+#   Diwali (1st and 2nd day)
+#
+# The railway doesn't publish the dates, so they are taken from the Maharashtra
+# government's yearly list of public holidays. Add each new year here when that list
+# comes out (usually November or December of the year before).
+#
+# One [[holiday]] table per date:
+#
+#   date    the date, written 2026-10-20 (no quotes)
+#   name    which holiday in the railway's list
+#   status  "confirmed"  seen in an official document, or fixed by calculation
+#           "reported"   several sources quote the official notification with the same
+#                        date, but the official document itself was not opened
+#           "tentative"  not officially notified yet; from calendars, and may be a day out
+#   source  where the date comes from, and when it was checked
+#   note    optional: anything doubtful
+#
+# "confirmed" and "reported" dates are used. "tentative" dates are NOT used unless
+# SITT_HOLIDAYS_INCLUDE_TENTATIVE=true, so a date that might be a day out can't quietly
+# change which timetable the project thinks is running. To correct an entry, edit its
+# date and status here; nothing else needs to change.
+#
+# Checked on 2026-10-05. The official Maharashtra pages could not be opened that day
+# (one refused the connection's certificate, one had no list on it), so no 2026 date is
+# marked "confirmed" except Good Friday, which follows from the date of Easter.
+
+# --- 2026: Maharashtra General Administration Department notification for 2026 ---
+
+[[holiday]]
+date = 2026-03-03
+name = "Holi (2nd day)"
+status = "reported"
+source = "Maharashtra public holidays 2026 (GAD notification), as listed on mmrda.maharashtra.gov.in/en/public-holidays (search snippet) and omconsultants.in; checked 2026-10-05"
+
+[[holiday]]
+date = 2026-03-19
+name = "Gudi Padwa"
+status = "reported"
+source = "Maharashtra public holidays 2026 (GAD notification), as listed on mmrda.maharashtra.gov.in/en/public-holidays (search snippet) and omconsultants.in; checked 2026-10-05"
+
+[[holiday]]
+date = 2026-03-21
+name = "Ramzan-Id"
+status = "reported"
+source = "Maharashtra public holidays 2026 (GAD notification), as listed on mmrda.maharashtra.gov.in/en/public-holidays (search snippet) and omconsultants.in; checked 2026-10-05"
+note = "Depends on the sighting of the moon. The notified date is what the state observed."
+
+[[holiday]]
+date = 2026-04-03
+name = "Good Friday"
+status = "confirmed"
+source = "Calculated: Easter Sunday 2026 is 5 April. Also in the Maharashtra 2026 list."
+
+[[holiday]]
+date = 2026-09-14
+name = "Ganesh Chaturthi"
+status = "reported"
+source = "Maharashtra public holidays 2026 (GAD notification), as listed on mmrda.maharashtra.gov.in/en/public-holidays (search snippet) and omconsultants.in; checked 2026-10-05"
+
+[[holiday]]
+date = 2026-10-20
+name = "Dassera"
+status = "reported"
+source = "Maharashtra public holidays 2026 (GAD notification), as listed on mmrda.maharashtra.gov.in/en/public-holidays (search snippet) and omconsultants.in; checked 2026-10-05"
+
+[[holiday]]
+date = 2026-11-08
+name = "Diwali (1st day)"
+status = "reported"
+source = "Maharashtra public holidays 2026: Diwali Amavasya (Laxmi Pujan), 8 November; checked 2026-10-05"
+note = "A Sunday anyway. Taking the railway's 'Diwali 1st & 2nd day' to be the state's two Diwali holidays, Laxmi Pujan and Bali Pratipada, is this project's reading, not something the railway states."
+
+[[holiday]]
+date = 2026-11-10
+name = "Diwali (2nd day)"
+status = "reported"
+source = "Maharashtra public holidays 2026: Diwali (Bali Pratipada), 10 November; checked 2026-10-05"
+note = "See the note on the 1st day. Monday 9 November lies between the two and is not a state holiday. If the railway runs the Sunday timetable on a different pair of days, change these two entries."
+
+# --- 2027: NOT YET NOTIFIED. Maharashtra's 2027 list is expected in Nov-Dec 2026. ---
+# Everything below is tentative except Good Friday. Replace the dates and statuses when
+# the official list is out.
+
+[[holiday]]
+date = 2027-03-10
+name = "Ramzan-Id"
+status = "tentative"
+source = "Third-party calendars (calendarlabs.com, holidayapi.com); not officially notified; checked 2026-10-05"
+note = "Depends on the sighting of the moon; could be 9, 10 or 11 March."
+
+[[holiday]]
+date = 2027-03-22
+name = "Holi (2nd day)"
+status = "tentative"
+source = "Third-party calendars (calendarlabs.com, holidayapi.com); not officially notified; checked 2026-10-05"
+note = "Calendars give Holi as 22 March. Whether the state's 'second day' holiday is the 22nd or the 23rd needs the official list."
+
+[[holiday]]
+date = 2027-03-26
+name = "Good Friday"
+status = "confirmed"
+source = "Calculated: Easter Sunday 2027 is 28 March."
+
+[[holiday]]
+date = 2027-04-07
+name = "Gudi Padwa"
+status = "tentative"
+source = "Hindu calendar (Chaitra Shukla Pratipada); not officially notified; checked 2026-10-05"
+note = "Sources disagree: 7 April in most Hindu calendars, 8 April in some holiday lists."
+
+[[holiday]]
+date = 2027-09-04
+name = "Ganesh Chaturthi"
+status = "tentative"
+source = "Third-party calendars (calendarlabs.com, holidayapi.com); not officially notified; checked 2026-10-05"
+
+[[holiday]]
+date = 2027-10-09
+name = "Dassera"
+status = "tentative"
+source = "Hindu calendar (Ashwin Shukla Dashami); not officially notified; checked 2026-10-05"
+note = "Sources disagree: 9 October in most Hindu calendars, 10 October in some holiday lists."
+
+[[holiday]]
+date = 2027-10-29
+name = "Diwali (1st day)"
+status = "tentative"
+source = "Third-party calendars: Laxmi Pujan on 29 October; not officially notified; checked 2026-10-05"
+
+[[holiday]]
+date = 2027-10-30
+name = "Diwali (2nd day)"
+status = "tentative"
+source = "Third-party calendars: 30 October; not officially notified; checked 2026-10-05"
+note = "Bali Pratipada may fall on 30 or 31 October."

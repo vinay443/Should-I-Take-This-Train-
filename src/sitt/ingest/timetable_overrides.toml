@@ -1,0 +1,48 @@
+# Manual corrections to the Central Railway timetable.
+#
+# The PDF converter (python -m sitt.ingest.cr_pdf) never guesses: a train it can't read is
+# left out and reported. This file is where you put what the PDF really says. It is
+# applied last, after the main PDFs and the AC and 15-car supplements.
+#
+# Format and worked examples: docs/timetable-format.md, "Manual overrides".
+# The whole file is checked before anything is applied. A mistake here stops the
+# conversion with a message naming the entry, so it can't silently damage the timetable.
+#
+# Each correction is one [[train]] table. `number` and `reason` are required.
+#
+#   action = "set"     (the default) change a train that exists. Any of:
+#                        days = "mon-sat"            also "daily", "mon-fri", "sun", "sat|sun"
+#                        service_type = "fast"       or "slow"
+#                        service_code = "T 15"
+#                        ac = true
+#                        cars = 15                   or 12
+#                        notes = ["ladies_special"]  replaces the train's notes
+#                        stop_times = { DIVA = "14:19" }        change a time, or add a stop
+#                        remove_stops = ["VVH"]                 drop stops
+#                        stops = [["CSMT", "08:04"], ...]       replace every stop
+#   action = "add"     a train the converter doesn't have. Needs direction ("up" towards
+#                      CSMT, or "down"), service_type and stops, in the order it calls.
+#   action = "remove"  drop a train. Takes only number and reason.
+#
+# Station codes are the ones in sitt/ingest/cr_pdf.py (KYN, TNA, DR, CSMT, ...).
+# Times are 24-hour HH:MM, Mumbai time.
+#
+# Examples (commented out; they are not real corrections):
+#
+# [[train]]
+# number = "96415"
+# reason = "PTT DN page 7 prints 14:91 at Diva; the UP page and NTES both give 14:19."
+# stop_times = { DIVA = "14:19" }
+#
+# [[train]]
+# number = "95999"
+# action = "add"
+# reason = "Listed in the CR notice of 2026-11-01, not yet in any PTT PDF."
+# direction = "down"
+# service_type = "fast"
+# days = "mon-sat"
+# service_code = "K 99"
+# stops = [["CSMT", "10:00"], ["DR", "10:12"], ["TNA", "10:40"], ["KYN", "11:02"]]
+#
+# There are no corrections at present. Train 95901, whose Vidyavihar cell holds a stray
+# backtick, is handled by the converter itself (see "Stray marks" in cr_pdf.py).

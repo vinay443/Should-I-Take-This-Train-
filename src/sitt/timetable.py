@@ -5,6 +5,7 @@ from datetime import date, datetime, time, timedelta
 
 import duckdb
 
+from sitt.holidays import is_sunday_schedule
 from sitt.tz import IST
 
 
@@ -74,7 +75,9 @@ def next_trains(
     IST. Trains leaving earlier in the same minute as `when` are included.
     Running days apply to the day a train starts its run, so a train that
     leaves CSMT at 23:52 on a Sunday-only service reaches Thane at 00:45 on
-    Monday. The search covers the rest of today and all of tomorrow.
+    Monday. A holiday in `sitt.holidays` runs the Sunday timetable, whatever
+    day of the week it falls on. The search covers the rest of today and all
+    of tomorrow.
     """
     if n < 1:
         raise ValueError("n must be at least 1")
@@ -114,7 +117,7 @@ def next_trains(
     trips = []
     for day_offset in (-1, 0, 1):
         service_day = when.date() + timedelta(days=day_offset)
-        weekday = service_day.weekday()
+        weekday = 6 if is_sunday_schedule(service_day) else service_day.weekday()
         for row in rows:
             train_id, number, label, train_type, direction, start, dep, arr, o_days, d_days = row[
                 :10
