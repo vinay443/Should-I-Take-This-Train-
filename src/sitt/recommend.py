@@ -338,6 +338,18 @@ def recommend(
         model = None
         notes.append("A delay model exists but was trained on synthetic data, so it is not used.")
 
+    # A model built by sitt-retrain lists the stations it was trained and evaluated on.
+    # It says nothing useful about any other station, so it isn't used there.
+    covered = None
+    if model is not None and model.metadata.get("covered_stations") is not None:
+        covered = set(model.metadata["covered_stations"])
+        if not ({origin_code, destination_code} & covered):
+            model = None
+            notes.append(
+                "A delay model exists, but it was not trained on either of these stations, "
+                "so it is not used."
+            )
+
     # The train just ahead of the first candidate matters for crowding, so predict it too.
     ahead_of_first = earlier[-1] if earlier else None
     everything = ([ahead_of_first] if ahead_of_first else []) + trips
@@ -350,6 +362,21 @@ def recommend(
     if model is not None:
         level, synthetic = LEVEL_MODEL, model.synthetic
         predictions = predict_targets(con, model, targets)
+        outside = sorted({t.station_code for t in targets} - covered) if covered else []
+        if outside:
+            fallback = (
+                _baseline_predictions(con, targets) if has_observations else [None] * len(targets)
+            )
+            predictions = [
+                prediction if target.station_code in covered else other
+                for target, prediction, other in zip(targets, predictions, fallback, strict=True)
+            ]
+            inside = sorted({t.station_code for t in targets} & covered)
+            notes.append(
+                f"The delay model covers {', '.join(names.get(c, c) for c in inside)} only. "
+                f"Times at {', '.join(names.get(c, c) for c in outside)} use "
+                + ("the typical past delay." if has_observations else "the timetable.")
+            )
     elif has_observations:
         level, synthetic = LEVEL_BASELINE, observations_synthetic
         predictions = _baseline_predictions(con, targets)

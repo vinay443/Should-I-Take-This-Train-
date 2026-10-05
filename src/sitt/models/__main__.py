@@ -91,6 +91,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             text = render_report(DelayModel.load(args.model).metadata)
             if args.write:
+                # The page's real-data section belongs to sitt-retrain: carry it over.
+                from sitt.models.retrain import extract_real_section
+
+                kept = None
+                if args.write.is_file():
+                    kept = extract_real_section(args.write.read_text(encoding="utf-8"))
+                if kept:
+                    text = text.rstrip("\n") + "\n\n" + kept + "\n"
                 args.write.write_text(text, encoding="utf-8", newline="\n")
                 print(f"Wrote {args.write}")
             else:

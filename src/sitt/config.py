@@ -168,6 +168,38 @@ class CommuteSettings:
 
 
 @dataclass(frozen=True)
+class RetrainSettings:
+    """When there is enough real data to train on, and when a model is good enough to use.
+
+    See sitt.models.retrain and docs/model-results.md. Each can be set with the
+    environment variable named beside it. All are guesses to revisit with real data.
+    """
+
+    # --- readiness gates: all must hold before anything is trained ---
+    # SITT_RETRAIN_MIN_DAYS: distinct service days with usable observations.
+    min_days: int = 28
+    # SITT_RETRAIN_MIN_OBSERVATIONS: usable observations in total.
+    min_observations: int = 5000
+    # SITT_RETRAIN_MIN_STATION_OBSERVATIONS: a station needs this many to count as
+    # covered, and at least one station must be covered.
+    min_station_observations: int = 300
+    # SITT_RETRAIN_MIN_TEST_OBSERVATIONS: usable observations in the held-out test weeks.
+    min_test_observations: int = 500
+    # SITT_RETRAIN_TEST_WEEKS / SITT_RETRAIN_VALID_WEEKS: the time-based split.
+    test_weeks: int = 1
+    valid_weeks: int = 1
+
+    # --- promotion: a trained model replaces the one in use only if ---
+    # SITT_PROMOTE_MIN_MAE_GAIN: its test MAE is lower than the best baseline's by more
+    # than this many minutes, and
+    promote_min_mae_gain: float = 0.0
+    # SITT_PROMOTE_COVERAGE_MIN / SITT_PROMOTE_COVERAGE_MAX: its 10th-90th percentile
+    # range holds this share of test rows (80% would be perfect).
+    promote_coverage_min: float = 0.70
+    promote_coverage_max: float = 0.90
+
+
+@dataclass(frozen=True)
 class Settings:
     db_path: Path
     log_level: str
@@ -318,6 +350,25 @@ def load_commute_settings() -> CommuteSettings:
         usual_train_minutes=_number(
             "SITT_COMMUTE_USUAL_TRAIN_MINUTES", defaults.usual_train_minutes
         ),
+    )
+
+
+def load_retrain_settings() -> RetrainSettings:
+    d = RetrainSettings()
+    return RetrainSettings(
+        min_days=_number("SITT_RETRAIN_MIN_DAYS", d.min_days, int),
+        min_observations=_number("SITT_RETRAIN_MIN_OBSERVATIONS", d.min_observations, int),
+        min_station_observations=_number(
+            "SITT_RETRAIN_MIN_STATION_OBSERVATIONS", d.min_station_observations, int
+        ),
+        min_test_observations=_number(
+            "SITT_RETRAIN_MIN_TEST_OBSERVATIONS", d.min_test_observations, int
+        ),
+        test_weeks=max(1, _number("SITT_RETRAIN_TEST_WEEKS", d.test_weeks, int)),
+        valid_weeks=max(1, _number("SITT_RETRAIN_VALID_WEEKS", d.valid_weeks, int)),
+        promote_min_mae_gain=_number("SITT_PROMOTE_MIN_MAE_GAIN", d.promote_min_mae_gain),
+        promote_coverage_min=_number("SITT_PROMOTE_COVERAGE_MIN", d.promote_coverage_min),
+        promote_coverage_max=_number("SITT_PROMOTE_COVERAGE_MAX", d.promote_coverage_max),
     )
 
 

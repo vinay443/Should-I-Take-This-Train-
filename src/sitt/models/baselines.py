@@ -5,8 +5,8 @@
     hour_weekday         the median delay seen before at this hour, weekday and direction
 
 Each falls back to the next coarser one when it has no history for a key, and finally
-to the overall median. They are fitted on one row per observation (the "cold" rows of
-`sitt.models.features`), so an observation isn't counted once per earlier reading.
+to the overall median. They are fitted on one row per observation, so an observation
+isn't counted once per earlier reading of its trip.
 """
 
 from collections import defaultdict
@@ -18,6 +18,30 @@ import numpy as np
 BASELINES = ("zero", "train_station", "hour_weekday")
 
 
+def _one_row_per_observation(columns: dict[str, np.ndarray]) -> np.ndarray:
+    """A mask keeping the first feature row of each observation.
+
+    An observation is a (train, station, time it was read). The feature builder makes
+    several rows from each, so counting rows would weight an observation by how many
+    earlier readings its trip had.
+
+    This used to pick the rows with no earlier reading (`has_prior == 0`), which is one
+    per observation only when a train is never read before it starts. NTES lists a train
+    up to two hours ahead, so with its data almost no row qualified and every baseline
+    quietly fell back to "always on time".
+    """
+    if "label_time" not in columns:  # hand-built columns: fall back to the old rule
+        return columns["has_prior"] == 0
+    seen: set[tuple] = set()
+    mask = np.zeros(len(columns["label"]), dtype=bool)
+    keys = zip(columns["train_id"], columns["station_code"], columns["label_time"], strict=True)
+    for index, key in enumerate(keys):
+        if key not in seen:
+            seen.add(key)
+            mask[index] = True
+    return mask
+
+
 @dataclass
 class Baselines:
     overall: float = 0.0
@@ -26,7 +50,7 @@ class Baselines:
 
     @classmethod
     def fit(cls, columns: dict[str, np.ndarray]) -> "Baselines":
-        once = columns["has_prior"] == 0  # exactly one such row per observation
+        once = _one_row_per_observation(columns)
         labels = columns["label"][once]
         if len(labels) == 0:
             return cls()

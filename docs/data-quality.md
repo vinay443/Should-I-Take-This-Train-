@@ -100,7 +100,7 @@ ORDER BY o.observed_at DESC;
 `sitt.models.features.prepare` leaves out every observation that has a row in `dq_flags`.
 Pass `exclude_flagged=False` to keep them. A database with no `dq_flags` table, or an empty
 one, has nothing flagged, so nothing changes until you run `sitt-dq --write-flags`.
-`sitt-retrain` ([`model-results.md`](model-results.md)) recomputes the flags before it builds
+`sitt-retrain` ([`retraining.md`](retraining.md)) recomputes the flags before it builds
 features.
 
 The recommender's fallback, the median past delay of a train, does not yet look at the flags.

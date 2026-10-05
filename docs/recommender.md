@@ -26,6 +26,14 @@ ignores it and falls back to the timetable (or to past observations, if there ar
 reply then notes that a model exists but is not used. This is the state of the project today:
 `/next` gives timetable times.
 
+**A real model is used only where it was trained.** A model built by `sitt-retrain`
+([`retraining.md`](retraining.md)) lists the stations it was trained and evaluated on. NTES
+reports locals beyond Kalyan, not CSMT–Kalyan locals, so that list will be short. For a
+station outside it, the time comes from the typical past delay or the timetable, and the
+reply says so: "The delay model covers Kalyan only. Times at Dadar use the typical past
+delay." If neither of your stations is covered, the model isn't used at all and the level
+named in the reply is the one that was.
+
 To try a synthetic model anyway, for testing, set this in `.env`:
 
 ```

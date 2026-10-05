@@ -97,11 +97,21 @@ def metrics(
         "within_5": float((rounded_error <= 5).mean()),
     }
     if low is not None and high is not None:
+        # Pinball loss of the two ends of the range: lower is better, and unlike coverage
+        # it also rewards a range that is no wider than it needs to be.
+        out["pinball_q10"] = pinball_loss(actual, low, QUANTILES["q10"])
+        out["pinball_q90"] = pinball_loss(actual, high, QUANTILES["q90"])
         out["range_coverage"] = float(((actual >= low) & (actual <= high)).mean())
         out["below_range"] = float((actual < low).mean())
         out["above_range"] = float((actual > high).mean())
         out["range_width"] = float((high - low).mean())
     return out
+
+
+def pinball_loss(actual: np.ndarray, predicted: np.ndarray, alpha: float) -> float:
+    """Mean quantile (pinball) loss of `predicted` as the `alpha` quantile of `actual`."""
+    error = actual - predicted
+    return float(np.maximum(alpha * error, (alpha - 1) * error).mean())
 
 
 def _subset(columns: dict[str, np.ndarray], mask: np.ndarray) -> dict[str, np.ndarray]:
@@ -254,6 +264,29 @@ def train(
                 actual[mask], baselines.predict(baseline, test_columns)[mask]
             )
 
+    # Per station: how much there was to learn from and to test on, and how the model did
+    # there against the best baseline. Small samples are the reader's to judge.
+    by_station: dict[str, dict] = {}
+    for station in sorted(set(columns["station_code"])):
+        at_station = test_columns["station_code"] == station
+        entry: dict = {
+            "train_rows": int((train_columns["station_code"] == station).sum()),
+            "test_rows": int(at_station.sum()),
+        }
+        if at_station.any():
+            entry["model_mae"] = float(
+                np.abs(actual[at_station] - predicted["point"][at_station]).mean()
+            )
+            entry["baseline_mae"] = {
+                baseline: float(
+                    np.abs(
+                        actual[at_station] - baselines.predict(baseline, test_columns)[at_station]
+                    ).mean()
+                )
+                for baseline in BASELINES
+            }
+        by_station[station] = entry
+
     gain = boosters["point"].feature_importance(importance_type="gain")
     importance = sorted(
         zip(FEATURES, gain / max(gain.sum(), 1e-9), strict=True), key=lambda x: -x[1]
@@ -286,6 +319,7 @@ def train(
             "lightgbm": PARAMS,
         },
         "metrics": results,
+        "by_station": by_station,
         "importance": [[name, round(float(share), 4)] for name, share in importance],
         "baseline_overall_median": baselines.overall,
     }

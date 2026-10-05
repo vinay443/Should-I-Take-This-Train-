@@ -223,6 +223,43 @@ ALTER TABLE crowd_reports ADD COLUMN IF NOT EXISTS match_method VARCHAR;
 ALTER TABLE crowd_reports ADD COLUMN IF NOT EXISTS matched_at TIMESTAMPTZ;
 
 
+-- Every delay model `sitt-retrain` has trained on real observations, and what became of it
+-- (sitt.models.retrain, docs/model-results.md). The model files are under models/<version>/,
+-- which is not in git; this table is the record that survives.
+--   `version`            e.g. 'real-20261102T033000Z'.
+--   `status`             'promoted'    it beat the baselines and is the model in use;
+--                        'superseded'  it was promoted once, and a later one replaced it;
+--                        'rejected'    it did not meet the promotion rule, so the previous
+--                                      model (or the baselines) stayed in use.
+--   `is_synthetic`       always false for rows written by sitt-retrain, which refuses
+--                        synthetic observations.
+--   `model_mae`,         mean absolute error in minutes on the held-out test period, for
+--   `best_baseline_mae`  the model and for the best of the three baselines (`best_baseline`).
+--   `range_coverage`     share of test rows inside the model's 10th-90th percentile range.
+--   `reason`             why it was promoted or rejected, in a sentence.
+--   `covered_stations`   comma-separated station codes the model was trained and
+--                        evaluated on. The recommender uses it for those stations only.
+CREATE TABLE IF NOT EXISTS model_registry (
+    version             VARCHAR PRIMARY KEY,
+    created_at          TIMESTAMPTZ NOT NULL,
+    status              VARCHAR NOT NULL
+                        CHECK (status IN ('promoted', 'superseded', 'rejected')),
+    is_synthetic        BOOLEAN NOT NULL DEFAULT false,
+    data_start          DATE,
+    data_end            DATE,
+    rows_train          BIGINT,
+    rows_test           BIGINT,
+    model_mae           DOUBLE,
+    best_baseline       VARCHAR,
+    best_baseline_mae   DOUBLE,
+    range_coverage      DOUBLE,
+    reason              VARCHAR,
+    covered_stations    VARCHAR,
+    model_dir           VARCHAR,
+    git_commit          VARCHAR
+);
+
+
 -- Routes a rider has saved in the bot (`/fav`, see docs/bot-setup.md).
 --   `user_id`          the Telegram user.
 --   `name`             the rider's short name for it, e.g. 'work'. Lower case.
