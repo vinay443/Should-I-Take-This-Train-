@@ -22,6 +22,7 @@ uv run python -m sitt.synth --weeks 16
 | `--db`           | `data/synthetic.duckdb`  | Database to build. Replaced if it already exists     |
 | `--out`          | `data/synthetic`         | Folder for the Parquet batches                       |
 | `--timetable-db` | `data/sitt.duckdb`       | Where to copy the timetable from                     |
+| `--long-distance [N]` | off                 | Also invent `N` long-distance trains a day at Kalyan (24 if no number is given), to exercise the [long-distance feature](long-distance-feature.md). Changes no other reading |
 
 Sixteen weeks take about three minutes and produce roughly half a million observations.
 

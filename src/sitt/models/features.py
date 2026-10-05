@@ -27,6 +27,12 @@ A target's features use only observations made at or before its cutoff:
 - `hist_delay`: the median delay of this train at this station on earlier days (and
   `hist_count`, how many readings that is). Never the same day, so a row can't see its
   own answer;
+- optionally (see `OPTIONAL_FEATURES`), how late long-distance trains are running: the
+  median delay of trains that are not in the suburban timetable, in the last collector
+  batch before the cutoff (`ld_median_delay`), and how many there were (`ld_count`). NTES
+  lists mail and express trains at Kalyan, and they share tracks with the fast locals.
+  These columns are always computed, but a model uses them only if it was trained with
+  them (`SITT_FEATURE_LONG_DISTANCE=true`). It is an experiment, not a finding;
 - whether a megablock from the `blocks` table covers the station at the scheduled time.
   A block recorded without times is assumed to run during `BlockSettings`' default
   hours (10:00-16:00 unless configured), not all day.
@@ -84,6 +90,10 @@ NUMERIC = (
     "megablock",
 )
 FEATURES = (*CATEGORICAL, *NUMERIC)
+# Experimental inputs: computed for every row, used by a model only when it is trained
+# with them. Like every other feature, they use nothing observed after the cutoff.
+LONG_DISTANCE_FEATURES = ("ld_median_delay", "ld_count")
+OPTIONAL_FEATURES = LONG_DISTANCE_FEATURES
 # Carried alongside the features for splitting, baselines and reporting; never model inputs.
 EXTRA = ("target_id", "service_day", "direction", "label", "label_time", "cutoff", "sched_time")
 
@@ -175,6 +185,26 @@ def prepare(
         CREATE OR REPLACE TEMP TABLE batches AS
         SELECT batch_id, max(local_ts) AS batch_ts FROM obs
         WHERE batch_id IS NOT NULL GROUP BY batch_id
+        """
+    )
+    # Long-distance trains: readings of trains that are not in the suburban timetable.
+    # One value per train per batch (its arrival and departure rows averaged), then the
+    # median across trains.
+    con.execute(
+        f"""
+        CREATE OR REPLACE TEMP TABLE batch_ld AS
+        SELECT batch_id, median(delay) AS ld_median, count(*) AS ld_count
+        FROM (
+            SELECT o.batch_id, coalesce(o.train_number, o.train_id) AS number,
+                   avg(o.delay_minutes) AS delay
+            FROM observations o
+            WHERE o.batch_id IS NOT NULL AND o.delay_minutes IS NOT NULL
+              AND NOT coalesce(o.cancelled, false)
+              AND o.train_id NOT IN (SELECT train_id FROM trains)
+              {not_flagged}
+            GROUP BY ALL
+        )
+        GROUP BY batch_id
         """
     )
     con.execute(
@@ -339,6 +369,7 @@ SELECT s.target_id, s.train_id, s.station_code, s.service_day, s.direction,
        s.point_seq - s.prior_point AS prior_points_back,
        l.line_median AS line_median_delay, l.line_count,
        a.ahead_delay, a.ahead_gap,
+       d.ld_median AS ld_median_delay, coalesce(d.ld_count, 0) AS ld_count,
        h.hist_delay, coalesce(h.hist_count, 0) AS hist_count,
        CAST(EXISTS (
            SELECT 1 FROM block_spans k
@@ -356,6 +387,7 @@ SELECT s.target_id, s.train_id, s.station_code, s.service_day, s.direction,
 FROM with_state s
 LEFT JOIN batch_line l ON l.batch_id = s.state_batch AND l.direction = s.direction
 LEFT JOIN ahead a USING (target_id)
+LEFT JOIN batch_ld d ON d.batch_id = s.state_batch
 LEFT JOIN history h ON h.train_id = s.train_id AND h.station_code = s.station_code
                    AND h.service_day = s.service_day
 """
@@ -368,11 +400,11 @@ def build_features(con: duckdb.DuckDBPyConnection) -> dict[str, np.ndarray]:
     also left in the temporary table `feature_rows`.
     """
     con.execute(_FEATURE_SQL)
-    columns = ", ".join((*EXTRA, *FEATURES))
+    columns = ", ".join((*EXTRA, *FEATURES, *OPTIONAL_FEATURES))
     raw = con.execute(f"SELECT {columns} FROM feature_rows ORDER BY target_id").fetchnumpy()
     out: dict[str, np.ndarray] = {}
     for name, values in raw.items():
-        if name in NUMERIC or name == "label":
+        if name in NUMERIC or name in OPTIONAL_FEATURES or name == "label":
             values = np.ma.filled(np.ma.asarray(values).astype(float), np.nan)
         elif isinstance(values, np.ma.MaskedArray):
             values = values.filled(None) if values.dtype == object else np.asarray(values)

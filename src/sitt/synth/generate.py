@@ -116,6 +116,15 @@ class SynthConfig:
         BlockTemplate("TNA", "KYN", "fast", "11:00", "16:00"),
     )
 
+    # Invented long-distance trains listed at Kalyan, the way NTES lists real ones. Off by
+    # default (0 a day), so the standard synthetic dataset is unchanged. Switched on only
+    # to exercise the long-distance feature: `python -m sitt.synth --long-distance`.
+    long_distance_trains: int = 0  # per day
+    long_distance_station: str = "KYN"
+    long_distance_lead_minutes: int = 120  # listed this long before they are due
+    long_distance_delay_mean: float = 8.0
+    long_distance_congestion_share: float = 1.5  # how strongly they follow the line's state
+
     # How readings look.
     less_accurate_share: float = 0.4
     less_accurate_noise: int = 2  # +/- minutes
@@ -386,9 +395,63 @@ def simulate(
                     )
                 )
 
+    _long_distance_readings(config, seed, states, station_seqs, epoch, days, missed, by_poll)
+
     for minute in sorted(by_poll):
         data.batches[batch_id_for(epoch + timedelta(minutes=minute))] = by_poll[minute]
     return data
+
+
+def _long_distance_readings(
+    config: SynthConfig,
+    seed: int,
+    states: Sequence[_DayState],
+    station_seqs: dict[str, int],
+    epoch: datetime,
+    days: int,
+    missed: set[int],
+    by_poll: dict[int, list[Observation]],
+) -> None:
+    """Add invented long-distance trains at one station, in the shape of an NTES board.
+
+    Their numbers (11001, 11002, ...) are not in the suburban timetable, which is what
+    marks a reading as long-distance. Each runs late by its own amount for the day plus a
+    share of the line's congestion at that moment, so the feature built from them carries
+    some of the same signal the locals' delays do. A separate random stream is used, so
+    switching this on changes nothing else in the data.
+    """
+    count = config.long_distance_trains
+    if count <= 0 or config.long_distance_station not in station_seqs:
+        return
+    rng = random.Random(f"{seed}-long-distance")
+    for index in range(days):
+        for k in range(count):
+            due = index * DAY + int((k + 0.5) * DAY / count)
+            direction = "up" if k % 2 == 0 else "down"
+            own = rng.expovariate(1 / config.long_distance_delay_mean) * states[index].factor
+            first = -(-(due - config.long_distance_lead_minutes) // config.poll_minutes)
+            minute = max(0, first * config.poll_minutes)
+            while minute < days * DAY:
+                state = states[min(minute // DAY, days)]
+                line = state.congestion[(direction, "fast")][(minute % DAY) // 15]
+                delay = max(0, round(own + config.long_distance_congestion_share * line))
+                if minute > due + delay:
+                    break
+                if minute not in missed:
+                    moment = epoch + timedelta(minutes=minute)
+                    by_poll[minute].append(
+                        Observation(
+                            observed_at=moment,
+                            train_number=f"{11001 + k}",
+                            station_code=config.long_distance_station,
+                            event="arrival",
+                            source=SOURCE,
+                            delay_minutes=float(delay),
+                            actual_or_expected_time=epoch + timedelta(minutes=due + delay),
+                            time_kind="expected",
+                        )
+                    )
+                minute += config.poll_minutes
 
 
 def write_batches(batches: dict[str, list[Observation]], observations_dir: Path) -> int:

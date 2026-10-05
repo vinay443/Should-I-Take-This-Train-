@@ -427,3 +427,21 @@ def test_the_recommender_uses_a_real_model_only_at_covered_stations(trained):
         del model.metadata["covered_stations"]
         legacy = recommend(con, "DR", "CSMT", monday, settings, model=model)
         assert legacy.level == LEVEL_MODEL
+
+
+def test_each_training_run_judges_the_long_distance_experiment(trained):
+    _db, _folders, doc, outcome, _ = trained
+    experiment = outcome.manifest["experiments"]["long_distance_feature"]
+    assert experiment["features"] == ["ld_median_delay", "ld_count"]
+    assert experiment["used_by_this_model"] is False  # the flag is off by default
+    assert "ld_median_delay" not in outcome.manifest["features"]
+    for side in ("with_feature", "without_feature"):
+        assert set(experiment[side]) == {"mae", "within_2", "within_5", "range_coverage"}
+    # The saved model is the one without the feature, so its figures are the "without" ones.
+    assert experiment["without_feature"]["mae"] == outcome.manifest["metrics"]["model"]["mae"]
+    # This fixture has no long-distance trains, and the page says how many rows had a value.
+    assert experiment["feature_rows_with_a_value"] == 0 and experiment["feature_rows"] > 0
+    section = retrain.extract_real_section(doc.read_text("utf-8"))
+    assert "**Experiment: long-distance trains as a congestion signal.**" in section
+    assert "The feature had a value in 0 of" in section
+    assert "is noise, not a finding." in section

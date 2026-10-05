@@ -43,6 +43,9 @@ uv run sitt-retrain
    median by hour, weekday and direction): MAE, the share within 2 and 5 minutes, how much
    of the test set the 10th–90th percentile range holds, pinball loss for each end of the
    range, and the sample size and error at every station.
+   It also trains the model a second time with the
+   [long-distance feature](long-distance-feature.md) switched the other way, and records
+   both results, so that experiment is judged on real data as it arrives.
 5. **Saves a versioned model** under `models/<version>/`, e.g.
    `models/real-20261102T033000Z/`, with a `manifest.json`. `models/` is gitignored.
 6. **Decides whether to promote it** (below) and records the outcome in the

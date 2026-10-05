@@ -372,6 +372,12 @@ def load_retrain_settings() -> RetrainSettings:
     )
 
 
+def long_distance_feature_enabled() -> bool:
+    """SITT_FEATURE_LONG_DISTANCE: train delay models with the long-distance congestion
+    inputs (sitt.models.features.LONG_DISTANCE_FEATURES). An experiment; off by default."""
+    return _flag("SITT_FEATURE_LONG_DISTANCE")
+
+
 def load_settings() -> Settings:
     # Variables already set in the environment take precedence over `.env`.
     load_dotenv(find_dotenv(usecwd=True))

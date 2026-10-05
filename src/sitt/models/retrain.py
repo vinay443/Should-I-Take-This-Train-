@@ -19,6 +19,12 @@ every week and to switch itself on safely:
    is recorded in the `model_registry` table.
 6. **`docs/model-results.md`**: the "Real data so far" section is rewritten.
 
+Each training run also judges the long-distance feature experiment
+(`features.LONG_DISTANCE_FEATURES`): the model is trained a second time with the feature
+switched the other way, on the same split, and both test results go in the manifest and
+on the docs page. Which of the two is saved and considered for promotion is decided by
+`SITT_FEATURE_LONG_DISTANCE`, not by which did better on one split.
+
 Synthetic observations are refused: a database holding any is not trained on. The real
 database is only opened briefly. Training runs on a private snapshot of it, so the
 collector is never kept waiting.
@@ -36,7 +42,7 @@ import sys
 import tempfile
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 
@@ -44,11 +50,17 @@ import duckdb
 from dotenv import find_dotenv, load_dotenv
 
 from sitt import dq
-from sitt.config import RetrainSettings, load_retrain_settings, load_settings
+from sitt.config import (
+    RetrainSettings,
+    load_retrain_settings,
+    load_settings,
+    long_distance_feature_enabled,
+)
 from sitt.db import DatabaseBusyError, open_with_retry
 from sitt.models import features
 from sitt.models.baselines import BASELINES
 from sitt.models.delay import SYNTHETIC_SOURCE, DelayModel, ModelError, TrainConfig, train
+from sitt.models.features import LONG_DISTANCE_FEATURES
 from sitt.models.report import PREDICTOR_TITLES
 
 MANIFEST_FILE = "manifest.json"
@@ -220,6 +232,35 @@ def decide(metadata: dict, settings: RetrainSettings | None = None) -> Decision:
         f"and its range holds {coverage * 100:.0f}% of test rows",
         *numbers,
     )
+
+
+def long_distance_experiment(
+    con: duckdb.DuckDBPyConnection, model: DelayModel, alternative: DelayModel, used: bool
+) -> dict:
+    """Test results with and without the long-distance inputs, for the manifest.
+
+    `model` is the one being saved; `alternative` was trained the other way on the same
+    data and split. `used` says whether `model` is the one with the feature.
+    """
+    with_feature, without = (model, alternative) if used else (alternative, model)
+    (rows,) = con.execute("SELECT count(*) FROM feature_rows WHERE ld_count > 0").fetchone()
+    (total,) = con.execute("SELECT count(*) FROM feature_rows").fetchone()
+
+    def numbers(trained: DelayModel) -> dict:
+        results = trained.metadata["metrics"]["all"]["model"]
+        return {key: results[key] for key in ("mae", "within_2", "within_5", "range_coverage")}
+
+    importance = dict(with_feature.metadata["importance"])
+    return {
+        "features": list(LONG_DISTANCE_FEATURES),
+        "used_by_this_model": used,
+        "feature_rows_with_a_value": rows,
+        "feature_rows": total,
+        "with_feature": numbers(with_feature),
+        "without_feature": numbers(without),
+        "share_of_gain": {name: importance.get(name, 0.0) for name in LONG_DISTANCE_FEATURES},
+        "note": "One run on one time split. Not a finding.",
+    }
 
 
 # --- the registry and the model folders ---
@@ -504,6 +545,28 @@ def render_real_section(
             "past delays or the timetable everywhere else.",
             "",
         ]
+        experiment = manifest.get("experiments", {}).get("long_distance_feature")
+        if experiment:
+            with_it, without = experiment["with_feature"], experiment["without_feature"]
+            lines += [
+                "**Experiment: long-distance trains as a congestion signal.** The same model",
+                "trained with and without the delays of long-distance trains at the covered",
+                f"stations (`{'`, `'.join(experiment['features'])}`), on the same split:",
+                "",
+                "| | Test MAE (min) | Within 2 min | Range coverage |",
+                "| --- | --- | --- | --- |",
+                f"| With the feature | {with_it['mae']:.2f} | {_percent(with_it['within_2'])} | "
+                f"{_percent(with_it['range_coverage'])} |",
+                f"| Without it | {without['mae']:.2f} | {_percent(without['within_2'])} | "
+                f"{_percent(without['range_coverage'])} |",
+                "",
+                f"The feature had a value in {experiment['feature_rows_with_a_value']:,} of "
+                f"{experiment['feature_rows']:,} rows. The saved model was trained "
+                f"**{'with' if experiment['used_by_this_model'] else 'without'}** it "
+                "(`SITT_FEATURE_LONG_DISTANCE`). This is one run on one split: a small",
+                "difference either way is noise, not a finding.",
+                "",
+            ]
     if registry:
         lines += [
             "| Version | Status | Model MAE | Best baseline MAE | Range coverage | Test rows |",
@@ -595,10 +658,19 @@ def retrain(
             for gate in readiness.gates:
                 log(f"  [{'x' if gate.met else ' '}] {gate.describe()}")
             if readiness.ready and not check_only:
+                use_long_distance = long_distance_feature_enabled()
                 config = TrainConfig(
-                    test_weeks=settings.test_weeks, valid_weeks=settings.valid_weeks
+                    test_weeks=settings.test_weeks,
+                    valid_weeks=settings.valid_weeks,
+                    extra_features=LONG_DISTANCE_FEATURES if use_long_distance else (),
                 )
+                # The experiment first, so that the tables left behind are the main model's.
+                other = replace(
+                    config, extra_features=() if use_long_distance else LONG_DISTANCE_FEATURES
+                )
+                alternative = train(con, other, source_label=db_path.as_posix())
                 model = train(con, config, source_label=db_path.as_posix())
+                experiment = long_distance_experiment(con, model, alternative, use_long_distance)
                 evaluated = {
                     station
                     for station, entry in model.metadata["by_station"].items()
@@ -613,6 +685,7 @@ def retrain(
                 outcome.manifest = build_manifest(
                     version, model, readiness, outcome.decision, settings, git_commit()
                 )
+                outcome.manifest["experiments"] = {"long_distance_feature": experiment}
                 model.metadata["version"] = version
                 model.save(outcome.version_dir)
                 (outcome.version_dir / MANIFEST_FILE).write_text(

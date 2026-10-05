@@ -244,6 +244,30 @@ How the adapter behaves:
   1. Outer-leg EMU delays around Kalyan (Titwala, Badlapur, Kasara, Karjat, Ambernath).
   2. **Mail/express delays at Kalyan, Thane and Dadar as a corridor-health signal.** They share tracks with the fast locals.
   3. It gives an official source to fall back on if Mobond disappears.
+- **Other station boards, checked 2026-10-05 at 22:03 IST** (a Monday evening; one shared
+  session, then a token and a board request per station, 4 seconds apart: 7 requests in all):
+
+  | Board (next 2 hours) | Trains listed | Suburban-numbered (9xxxx) | In our main-line timetable | Largest delay |
+  |---|---|---|---|---|
+  | Thane (`TNA`) | 20 | 0 | 0 | 363 min |
+  | Dadar (`DR`) | 14 | 0 | 0 | 282 min |
+  | CSMT (`CSMT`) | 13 | 0 | 0 | 262 min |
+
+  All three answered first time and parsed with the existing board parser unchanged. **Every
+  train on all three was long-distance** (numbers starting 10, 11, 12, 15, 17, 18, 20, 22).
+  Not one local. Every time was an expected time, none an actual. This matches the September
+  spike, when Thane's afternoon board had a single main-line EMU among 18 trains. So these
+  boards add **nothing for locals**: NTES does not track CSMT–Kalyan locals at any station.
+
+  What they would add is more long-distance trains for the corridor-health idea
+  ([`long-distance-feature.md`](long-distance-feature.md)): about 20 at Thane on top of the
+  20 to 30 already seen at Kalyan, many of them the same trains an hour earlier or later.
+  That is not clear value. The feature is unproven even with Kalyan's own readings, and each
+  extra board costs two or three more requests every 15 minutes against a government site.
+  **No extra board has been added to the collector, not even as a disabled option.** If the
+  long-distance experiment starts to look useful on real data, Thane is the one to revisit,
+  with a per-run request budget. This was one evening's look: a weekday-morning board might
+  differ, though September's result says not by much.
 - **Terms and robots:** there's no usable robots.txt; the request to the root host returns nothing. NTES is a public government service, but it has no API terms, and bulk automated use isn't sanctioned. [railpull](https://github.com/shwetankg07/railpull), an NTES crawler, keeps to about 1 request every 1.2 s and warns that bulk redistribution "may run against the operator's terms".
 - **Unverified risk:** GitHub-hosted runners are US/Azure IPs. Indian Railways/CRIS sites sometimes block foreign IPs, and I only tested from an Indian IP. **The first implementation step should be a one-off `workflow_dispatch` run that fetches one NTES board and the Mobond feed from a GitHub runner.**
 

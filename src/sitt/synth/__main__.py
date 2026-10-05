@@ -11,7 +11,7 @@ from datetime import date
 from pathlib import Path
 
 from sitt.config import load_settings
-from sitt.synth.generate import SynthError, build_database
+from sitt.synth.generate import SynthConfig, SynthError, build_database
 
 DEFAULT_SYNTHETIC_DB = Path("data/synthetic.duckdb")
 DEFAULT_OUT_DIR = Path("data/synthetic")
@@ -51,13 +51,26 @@ def main(argv: Sequence[str] | None = None) -> int:
         type=Path,
         help="database to copy the timetable from (default: SITT_DB_PATH or data/sitt.duckdb)",
     )
+    parser.add_argument(
+        "--long-distance",
+        type=int,
+        nargs="?",
+        const=24,
+        default=0,
+        metavar="TRAINS",
+        help="also invent this many long-distance trains a day at Kalyan (24 if no number "
+        "is given), to exercise the long-distance feature. Off by default",
+    )
     args = parser.parse_args(argv)
     if args.weeks < 1:
         parser.error("--weeks must be at least 1")
 
     timetable_db = args.timetable_db or load_settings().db_path
     try:
-        result = build_database(timetable_db, args.db, args.out, args.start, args.weeks, args.seed)
+        config = SynthConfig(long_distance_trains=args.long_distance)
+        result = build_database(
+            timetable_db, args.db, args.out, args.start, args.weeks, args.seed, config
+        )
     except SynthError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

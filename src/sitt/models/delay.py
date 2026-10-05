@@ -26,7 +26,7 @@ import numpy as np
 
 from sitt.models import features
 from sitt.models.baselines import BASELINES, Baselines
-from sitt.models.features import CATEGORICAL, FEATURES, Target
+from sitt.models.features import CATEGORICAL, FEATURES, OPTIONAL_FEATURES, Target
 
 DEFAULT_MODEL_DIR = Path("models/delay")
 QUANTILES = {"q10": 0.1, "q90": 0.9}
@@ -59,13 +59,19 @@ class TrainConfig:
     early_stopping: int = 30
     seed: int = 1
     max_train_rows: int | None = None  # sample the training rows down to this many
+    # Experimental inputs to add to the standard ones (from features.OPTIONAL_FEATURES).
+    extra_features: tuple[str, ...] = ()
 
 
-def encode(columns: dict[str, np.ndarray], categories: dict[str, list[str]]) -> np.ndarray:
-    """Feature matrix in `FEATURES` order. Unknown categories become -1 (treated as missing)."""
-    n = len(columns[FEATURES[0]])
-    matrix = np.empty((n, len(FEATURES)))
-    for j, name in enumerate(FEATURES):
+def encode(
+    columns: dict[str, np.ndarray],
+    categories: dict[str, list[str]],
+    feature_names: tuple[str, ...] | list[str] = FEATURES,
+) -> np.ndarray:
+    """Feature matrix in `feature_names` order. Unknown categories become -1 (missing)."""
+    n = len(columns[feature_names[0]])
+    matrix = np.empty((n, len(feature_names)))
+    for j, name in enumerate(feature_names):
         if name in CATEGORICAL:
             codes = {value: i for i, value in enumerate(categories[name])}
             matrix[:, j] = [codes.get(value, -1) for value in columns[name]]
@@ -133,7 +139,9 @@ class DelayModel:
 
     def predict(self, columns: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
         """`point`, `low` and `high` delay in minutes for each row."""
-        matrix = encode(columns, self.metadata["categories"])
+        matrix = encode(
+            columns, self.metadata["categories"], self.metadata.get("features") or FEATURES
+        )
         point = self.boosters["point"].predict(matrix)
         q10 = self.boosters["q10"].predict(matrix)
         q90 = self.boosters["q90"].predict(matrix)
@@ -158,7 +166,9 @@ class DelayModel:
         if not metadata_path.exists():
             raise ModelError(f"no saved model in {model_dir}")
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-        if metadata.get("features") != list(FEATURES):
+        saved = metadata.get("features") or []
+        standard, extra = saved[: len(FEATURES)], saved[len(FEATURES) :]
+        if standard != list(FEATURES) or not set(extra) <= set(OPTIONAL_FEATURES):
             raise ModelError(
                 f"the model in {model_dir} was trained on different features; train it again"
             )
@@ -212,13 +222,17 @@ def train(
     valid_columns = _subset(columns, valid_mask)
     test_columns = _subset(columns, test_mask)
     categories = {name: sorted(set(train_columns[name])) for name in CATEGORICAL}
-    categorical = [FEATURES.index(name) for name in CATEGORICAL]
+    unknown = set(config.extra_features) - set(OPTIONAL_FEATURES)
+    if unknown:
+        raise ModelError(f"unknown extra feature(s): {', '.join(sorted(unknown))}")
+    feature_names = [*FEATURES, *config.extra_features]
+    categorical = [feature_names.index(name) for name in CATEGORICAL]
 
     def dataset(part: dict[str, np.ndarray], reference: lgb.Dataset | None = None) -> lgb.Dataset:
         return lgb.Dataset(
-            encode(part, categories),
+            encode(part, categories, feature_names),
             label=part["label"],
-            feature_name=list(FEATURES),
+            feature_name=feature_names,
             categorical_feature=categorical,
             reference=reference,
             free_raw_data=False,
@@ -240,7 +254,7 @@ def train(
         )
 
     baselines = Baselines.fit(train_columns)
-    model = DelayModel(boosters, {"categories": categories})
+    model = DelayModel(boosters, {"categories": categories, "features": feature_names})
     predicted = model.predict(test_columns)
     actual = test_columns["label"]
     cold = test_columns["has_prior"] == 0
@@ -289,14 +303,14 @@ def train(
 
     gain = boosters["point"].feature_importance(importance_type="gain")
     importance = sorted(
-        zip(FEATURES, gain / max(gain.sum(), 1e-9), strict=True), key=lambda x: -x[1]
+        zip(feature_names, gain / max(gain.sum(), 1e-9), strict=True), key=lambda x: -x[1]
     )
     model.metadata = {
         "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "synthetic": SYNTHETIC_SOURCE in sources,
         "sources": sorted(sources),
         "trained_on": source_label,
-        "features": list(FEATURES),
+        "features": feature_names,
         "categories": categories,
         "periods": {
             "train": [str(_day(first)), str(_day(valid_start) - timedelta(days=1))],
@@ -316,6 +330,7 @@ def train(
             "early_stopping": config.early_stopping,
             "seed": config.seed,
             "max_train_rows": config.max_train_rows,
+            "extra_features": list(config.extra_features),
             "lightgbm": PARAMS,
         },
         "metrics": results,
