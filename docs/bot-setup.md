@@ -1,7 +1,8 @@
 # Telegram bot setup
 
-The bot is a personal crowd logger: you tell it how full your train was, and it stores a row in
-`crowd_reports`. It runs locally in polling mode, so no public URL or webhook is needed.
+The bot is a personal crowd logger and train picker: you tell it how full your train was, and
+it stores a row in `crowd_reports`; you ask it which train to take, and it recommends one. It
+runs locally in polling mode, so no public URL or webhook is needed.
 
 ## 1. Create the bot with BotFather
 
@@ -73,6 +74,8 @@ Try it from your phone:
   It needs a timetable in the database (see the [README](../README.md#setup)).
 - `/why`: explains the last `/next` recommendation: the predicted delay and crowding reasons
   for every train, and the rule that decided it.
+- `/fav add work KYN CSMT 8:12 mon-fri`: save a route. See [Saved routes](#saved-routes).
+- `/commute`: `/next` for your saved route, with no typing.
 - `/cancel`: abandon a log in progress.
 
 ## How much to trust `/next`
@@ -93,6 +96,86 @@ delay figures then come from invented data and say nothing about real trains.
 Crowding is always a rule-of-thumb estimate, sharpened by your own `/log` reports. See
 [`recommender.md`](recommender.md) for the decision rule and its thresholds, and
 [`crowding.md`](crowding.md) for the crowding rules.
+
+## Saved routes
+
+Save the routes you travel, so the bot can answer with one tap and can ask you about your
+usual train.
+
+```
+/fav add work KYN CSMT 8:12 mon-fri
+/fav add home CSMT KYN 18:05
+```
+
+The name comes first (up to 20 letters, digits, `-` or `_`), then where from and where to,
+typed any way `/next` accepts. Two things are optional and can come in either order:
+
+- **the time of your usual train**, e.g. `8:12` or `6:05pm`;
+- **the days you travel**: `mon-fri` (the default), `mon-sat`, `daily`, or a list such as
+  `mon,wed,fri`.
+
+Saving a name again replaces that route.
+
+| Command | What it does |
+| --- | --- |
+| `/fav` or `/fav list` | Your saved routes |
+| `/fav remove work` | Forget one |
+| `/fav default work` | The route `/commute` uses. Your first saved route is the default |
+| `/fav notify work off` | Stop the message before your usual train (`on` to restart) |
+| `/fav nudge work off` | Stop the crowding question after it (`on` to restart) |
+
+Favourites are per Telegram user and live in the `favourite_routes` table.
+
+### `/commute`
+
+`/commute` is `/next` for your default route. If you have also saved the same route the other
+way round, the two are treated as an outbound and a return leg: before 14:00 you get the
+outbound one, and from 14:00 the return one. The outbound leg is whichever has the earlier
+usual train. `/why` explains the answer as usual.
+
+### What the bot sends by itself
+
+A saved route **with a usual train time** switches on two messages, on the days you said you
+travel:
+
+1. **Before your train.** 20 minutes before the usual time, the `/commute` recommendation
+   arrives without you asking.
+2. **After your train.** 5 minutes after your usual train's scheduled arrival, the bot asks
+   "How crowded was the 08:12 fast to CSMT from Kalyan (KYN)?" with buttons `1` to `5`. One
+   tap stores a crowd report that is already tied to that exact train (`match_method =
+   'nudge'`), which is the most useful kind for the crowding estimate
+   ([`crowding.md`](crowding.md#reports-for-the-exact-train)). **Didn't take it** logs
+   nothing. **Stop asking** turns the question off for that route.
+
+"Your usual train" is the scheduled train leaving within 10 minutes of the time you gave. If
+there is none, `/fav add` says so and no question is asked.
+
+Things to know:
+
+- **They only fire while the bot is running.** The bot is a program on your PC, not a
+  service. If `sitt-bot` isn't running, or the PC is asleep, nothing is sent. A message whose
+  moment was missed by more than 10 minutes is skipped, not sent late.
+- **Nothing is sent on Sundays or holidays** (the days in
+  [`src/sitt/holidays.py`](../src/sitt/holidays.py)), unless you set
+  `SITT_COMMUTE_SKIP_SUNDAY_SCHEDULE=false`.
+- **Only users in `ALLOWED_USER_IDS` are ever messaged.**
+- Each message goes out once a day per route, even if the bot restarts. This is recorded in
+  the `bot_notifications` table.
+- A train that arrives after midnight is asked about after it arrives, as part of the day it
+  left on.
+
+They need python-telegram-bot's job queue, which `uv sync` installs.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `SITT_COMMUTE_RETURN_AFTER` | `14:00` | From this time `/commute` gives the return leg |
+| `SITT_COMMUTE_NOTIFY` | true | Send the recommendation before the usual train |
+| `SITT_COMMUTE_NOTIFY_LEAD_MINUTES` | 20 | How long before |
+| `SITT_COMMUTE_NUDGE` | true | Ask how crowded the usual train was |
+| `SITT_COMMUTE_NUDGE_AFTER_MINUTES` | 5 | How long after its scheduled arrival |
+| `SITT_COMMUTE_SKIP_SUNDAY_SCHEDULE` | true | Send neither on Sundays and holidays |
+| `SITT_COMMUTE_GRACE_MINUTES` | 10 | How late a missed message may still be sent |
+| `SITT_COMMUTE_USUAL_TRAIN_MINUTES` | 10 | How near your usual time the train must leave |
 
 ## Stations
 

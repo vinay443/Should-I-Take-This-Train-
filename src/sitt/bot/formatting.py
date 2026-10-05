@@ -21,6 +21,10 @@ Crowd can be 1-5 or empty / seats / standing / packed / can't board.
 /next KYN CSMT: which of the next trains to take, with predicted arrival and \
 crowding for each.
 /why: explain the last /next recommendation.
+/fav add work KYN CSMT 8:12 mon-fri: save a route and your usual train. \
+/fav on its own lists them.
+/commute: /next for your saved route. With a route saved both ways, it gives the \
+return leg in the afternoon.
 /cancel: abandon a log in progress.
 /help: show this message."""
 

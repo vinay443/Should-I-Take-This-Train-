@@ -139,6 +139,35 @@ class MatchSettings:
 
 
 @dataclass(frozen=True)
+class CommuteSettings:
+    """`/commute`, the morning message and the after-commute crowd prompt (docs/bot-setup.md).
+
+    Each can be set with the environment variable named beside it.
+    """
+
+    # SITT_COMMUTE_RETURN_AFTER: when two favourites are each other's reverse, /commute
+    # gives the outbound one before this time of day and the return one from then on.
+    return_after: time = time(14, 0)
+    # SITT_COMMUTE_NOTIFY: send the recommendation before the usual train. On by default,
+    # but nothing is sent for a favourite without a usual departure time.
+    notify_enabled: bool = True
+    # SITT_COMMUTE_NOTIFY_LEAD_MINUTES: how long before the usual train to send it.
+    notify_lead_minutes: float = 20.0
+    # SITT_COMMUTE_NUDGE: ask how crowded the usual train was once it has arrived.
+    nudge_enabled: bool = True
+    # SITT_COMMUTE_NUDGE_AFTER_MINUTES: how long after its scheduled arrival to ask.
+    nudge_after_minutes: float = 5.0
+    # SITT_COMMUTE_SKIP_SUNDAY_SCHEDULE: send neither on Sundays and holidays.
+    skip_sunday_schedule: bool = True
+    # SITT_COMMUTE_GRACE_MINUTES: a message whose moment passed while the bot was busy or
+    # restarting is still sent if no more than this late.
+    grace_minutes: float = 10.0
+    # SITT_COMMUTE_USUAL_TRAIN_MINUTES: the "usual train" is the scheduled train leaving
+    # within this many minutes of the favourite's usual time.
+    usual_train_minutes: float = 10.0
+
+
+@dataclass(frozen=True)
 class Settings:
     db_path: Path
     log_level: str
@@ -147,6 +176,7 @@ class Settings:
     model_dir: Path = Path(DEFAULT_MODEL_DIR)
     recommend: RecommendSettings = field(default_factory=RecommendSettings)
     match: MatchSettings = field(default_factory=MatchSettings)
+    commute: CommuteSettings = field(default_factory=CommuteSettings)
 
 
 def parse_allowed_user_ids(raw: str | None) -> frozenset[int]:
@@ -173,6 +203,12 @@ def _number(name: str, default: float, kind: type = float):
 
 def _flag(name: str) -> bool:
     return (os.environ.get(name) or "").strip().lower() in ("1", "true", "yes")
+
+
+def _switch(name: str, default: bool) -> bool:
+    """A flag with a default: unset keeps the default, anything else is read as yes or no."""
+    raw = (os.environ.get(name) or "").strip().lower()
+    return default if not raw else raw in ("1", "true", "yes", "on")
 
 
 def load_recommend_settings() -> RecommendSettings:
@@ -263,6 +299,28 @@ def load_match_settings() -> MatchSettings:
     )
 
 
+def load_commute_settings() -> CommuteSettings:
+    defaults = CommuteSettings()
+    return CommuteSettings(
+        return_after=_clock("SITT_COMMUTE_RETURN_AFTER", defaults.return_after),
+        notify_enabled=_switch("SITT_COMMUTE_NOTIFY", defaults.notify_enabled),
+        notify_lead_minutes=_number(
+            "SITT_COMMUTE_NOTIFY_LEAD_MINUTES", defaults.notify_lead_minutes
+        ),
+        nudge_enabled=_switch("SITT_COMMUTE_NUDGE", defaults.nudge_enabled),
+        nudge_after_minutes=_number(
+            "SITT_COMMUTE_NUDGE_AFTER_MINUTES", defaults.nudge_after_minutes
+        ),
+        skip_sunday_schedule=_switch(
+            "SITT_COMMUTE_SKIP_SUNDAY_SCHEDULE", defaults.skip_sunday_schedule
+        ),
+        grace_minutes=max(1.0, _number("SITT_COMMUTE_GRACE_MINUTES", defaults.grace_minutes)),
+        usual_train_minutes=_number(
+            "SITT_COMMUTE_USUAL_TRAIN_MINUTES", defaults.usual_train_minutes
+        ),
+    )
+
+
 def load_settings() -> Settings:
     # Variables already set in the environment take precedence over `.env`.
     load_dotenv(find_dotenv(usecwd=True))
@@ -274,4 +332,5 @@ def load_settings() -> Settings:
         model_dir=Path(os.environ.get("SITT_MODEL_DIR") or DEFAULT_MODEL_DIR),
         recommend=load_recommend_settings(),
         match=load_match_settings(),
+        commute=load_commute_settings(),
     )

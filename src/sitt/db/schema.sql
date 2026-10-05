@@ -223,6 +223,55 @@ ALTER TABLE crowd_reports ADD COLUMN IF NOT EXISTS match_method VARCHAR;
 ALTER TABLE crowd_reports ADD COLUMN IF NOT EXISTS matched_at TIMESTAMPTZ;
 
 
+-- Routes a rider has saved in the bot (`/fav`, see docs/bot-setup.md).
+--   `user_id`          the Telegram user.
+--   `name`             the rider's short name for it, e.g. 'work'. Lower case.
+--   `from_station`,    station codes.
+--   `to_station`
+--   `usual_departure`  when the rider's usual train leaves `from_station`, Mumbai time.
+--                      NULL means no usual train: no morning message and no crowd prompt.
+--   `weekdays`         the days the rider travels, as a Monday-to-Sunday mask.
+--   `is_default`       the route `/commute` uses. One per user.
+--   `notify`           send the recommendation before the usual train.
+--   `nudge`            ask how crowded the usual train was after it arrives.
+CREATE TABLE IF NOT EXISTS favourite_routes (
+    user_id         BIGINT NOT NULL,
+    name            VARCHAR NOT NULL,
+    from_station    VARCHAR NOT NULL,
+    to_station      VARCHAR NOT NULL,
+    usual_departure TIME,
+    weekdays        VARCHAR NOT NULL DEFAULT 'YYYYYNN'
+                    CHECK (regexp_full_match(weekdays, '[YN]{7}')),
+    is_default      BOOLEAN NOT NULL DEFAULT false,
+    notify          BOOLEAN NOT NULL DEFAULT true,
+    nudge           BOOLEAN NOT NULL DEFAULT true,
+    created_at      TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (user_id, name)
+);
+
+
+-- Messages the bot sent on its own, so each goes out once a day even if the bot restarts.
+--   `kind`          'notify' (the morning recommendation) or 'nudge' (the crowd prompt).
+--   `ref`           the favourite route's name.
+--   `day`           the Mumbai date the usual train left on.
+--   `train_id`,     for a nudge: the train asked about, where it was boarded, and its
+--   `station_code`, description ("08:12 fast from KYN"), so that the answer can be stored
+--   `description`   as a crowd report already matched to that train.
+--   `answered`      the rider has tapped an answer, so further taps do nothing.
+CREATE TABLE IF NOT EXISTS bot_notifications (
+    user_id         BIGINT NOT NULL,
+    kind            VARCHAR NOT NULL,
+    ref             VARCHAR NOT NULL,
+    day             DATE NOT NULL,
+    sent_at         TIMESTAMPTZ NOT NULL,
+    train_id        VARCHAR,
+    station_code    VARCHAR,
+    description     VARCHAR,
+    answered        BOOLEAN NOT NULL DEFAULT false,
+    PRIMARY KEY (user_id, kind, ref, day)
+);
+
+
 -- Planned engineering blocks ("megablocks"): a section of line closed for maintenance
 -- for a few hours, usually on a Sunday, which delays, diverts or cancels trains.
 -- Filled by sitt.ingest.blocks (announcements or manual entry) and, in a synthetic

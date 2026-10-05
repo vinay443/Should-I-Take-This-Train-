@@ -27,7 +27,9 @@ def test_build_application_registers_commands():
         if isinstance(handler, CommandHandler)
         for command in handler.commands
     }
-    assert commands == {"start", "help", "log", "mylogs", "next", "why", "cancel"}
+    assert commands == {
+        "start", "help", "log", "mylogs", "next", "why", "cancel", "commute", "fav", "favs",
+    }  # fmt: skip
     assert application.bot_data[handlers.MODEL_DIR_KEY] == Path("models/delay")
     assert application.bot_data[handlers.RECOMMEND_SETTINGS_KEY].candidates == 5
     assert len(application.handlers[-1]) == 1  # access gate runs before everything else

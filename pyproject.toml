@@ -10,7 +10,7 @@ dependencies = [
     "lightgbm>=4.7.0",
     "pdfplumber>=0.11.10",
     "python-dotenv>=1.2.3",
-    "python-telegram-bot>=22.8",
+    "python-telegram-bot[job-queue]>=22.8",
     "streamlit>=1.65.0",
 ]
 

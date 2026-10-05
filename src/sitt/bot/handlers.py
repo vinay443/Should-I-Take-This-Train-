@@ -2,14 +2,15 @@
 
 import contextlib
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
+import duckdb
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Message, Update
 from telegram.constants import ChatType
 from telegram.error import TelegramError
 from telegram.ext import ApplicationHandlerStop, ContextTypes
 
-from sitt.bot import formatting, matchflow, schedule, storage
+from sitt.bot import commute, favourites, formatting, matchflow, schedule, storage
 from sitt.bot.flow import (
     CANCEL_DATA,
     LogDraft,
@@ -20,6 +21,8 @@ from sitt.bot.flow import (
 )
 from sitt.bot.parsing import CROWD_LEVELS, SERVICES, parse_log_text, parse_time
 from sitt.bot.stations import StationDirectory, load_directory
+from sitt.config import CommuteSettings
+from sitt.db import connect
 from sitt.recommend import explain
 from sitt.tz import IST
 
@@ -31,6 +34,8 @@ MODEL_DIR_KEY = "model_dir"  # bot_data: where a trained delay model may be, or 
 RECOMMEND_SETTINGS_KEY = "recommend_settings"  # bot_data: thresholds for /next
 LAST_RECOMMENDATION_KEY = "last_recommendation"  # user_data: what /why explains
 MATCH_SETTINGS_KEY = "match_settings"  # bot_data: how reports are matched to trains
+COMMUTE_SETTINGS_KEY = "commute_settings"  # bot_data: /commute and the bot's own messages
+ALLOWED_USERS_KEY = "allowed_user_ids"  # bot_data: who the bot may message on its own
 
 _PROMPTS: dict[Step, str] = {
     "station": "Where did you board? Tap a station or type its name.",
@@ -101,6 +106,233 @@ async def why_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.effective_message.reply_text(formatting.NO_RECOMMENDATION_YET)
         return
     await update.effective_message.reply_text(explain(recommendation))
+
+
+# --- saved routes, /commute, and the messages the bot sends on its own ---
+
+
+def _commute_settings(context: ContextTypes.DEFAULT_TYPE) -> CommuteSettings:
+    return context.bot_data.get(COMMUTE_SETTINGS_KEY) or CommuteSettings()
+
+
+async def fav_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """`/fav add|list|remove|default|notify|nudge`: saved routes."""
+    message = update.effective_message
+    user_id = update.effective_user.id
+    db_path = context.bot_data[DB_PATH_KEY]
+    args = list(context.args or [])
+    action = args[0].lower() if args else "list"
+    stations = _stations(context)
+
+    if action == "list":
+        saved = favourites.list_favourites(db_path, user_id)
+        if not saved:
+            await message.reply_text(f"No saved routes yet.\n{favourites.ADD_USAGE}")
+            return
+        lines = ["Your saved routes:"]
+        lines += [f"• {favourites.describe(favourite, stations)}" for favourite in saved]
+        await message.reply_text("\n".join(lines))
+        return
+
+    if action == "add":
+        try:
+            parsed = favourites.parse_add(user_id, args[1:], stations)
+        except favourites.FavouriteError as exc:
+            await message.reply_text(str(exc))
+            return
+        saved = favourites.add_favourite(db_path, parsed)
+        await message.reply_text(_saved_text(saved, context, stations))
+        return
+
+    name = args[1].lower() if len(args) > 1 else None
+    if action in ("remove", "rm", "delete") and name:
+        removed = favourites.remove_favourite(db_path, user_id, name)
+        await message.reply_text(f"Removed {name}." if removed else _no_such(name))
+    elif action == "default" and name:
+        done = favourites.set_default(db_path, user_id, name)
+        await message.reply_text(f"/commute now uses {name}." if done else _no_such(name))
+    elif action in favourites.FLAGS and name and len(args) > 2 and args[2].lower() in ("on", "off"):
+        value = args[2].lower() == "on"
+        done = favourites.set_flag(db_path, user_id, name, action, value)
+        what = "The message before your train" if action == "notify" else "The crowding question"
+        await message.reply_text(
+            f"{what} is {'on' if value else 'off'} for {name}." if done else _no_such(name)
+        )
+    else:
+        await message.reply_text(favourites.USAGE)
+
+
+def _no_such(name: str) -> str:
+    return f"You have no saved route called {name!r}. /fav list shows them."
+
+
+def _saved_text(
+    saved: favourites.Favourite, context: ContextTypes.DEFAULT_TYPE, stations: StationDirectory
+) -> str:
+    """Confirmation for `/fav add`, saying what the bot will now do by itself."""
+    settings = _commute_settings(context)
+    lines = [f"Saved {favourites.describe(saved, stations)}"]
+    if saved.usual_departure is None:
+        lines.append("No usual train time, so I won't message you about it. /commute works.")
+        return "\n".join(lines)
+    today = datetime.now(IST).date()
+    days = [today + timedelta(days=offset) for offset in range(7)]
+    day = next((d for d in days if saved.runs_on(d.weekday())), today)
+    with connect(context.bot_data[DB_PATH_KEY]) as con:
+        trip = commute.usual_trip(con, saved, day, settings)
+    if settings.notify_enabled:
+        lines.append(
+            f"On those days I'll send the recommendation {settings.notify_lead_minutes:g} min "
+            f"before. /fav notify {saved.name} off stops that."
+        )
+    if trip is None:
+        lines.append(
+            f"The timetable has no train within {settings.usual_train_minutes:g} min of "
+            f"{saved.usual_departure:%H:%M} on this route, so I won't ask how crowded it was."
+        )
+    elif settings.nudge_enabled:
+        lines.append(
+            f"After the {trip.departure:%H:%M} {trip.train_type} to {trip.label} arrives I'll ask "
+            f"how crowded it was. /fav nudge {saved.name} off stops that."
+        )
+    lines.append("Both only happen while this bot is running.")
+    return "\n".join(lines)
+
+
+async def commute_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """`/next` for the default saved route, or its return leg later in the day."""
+    message = update.effective_message
+    db_path = context.bot_data[DB_PATH_KEY]
+    saved = favourites.list_favourites(db_path, update.effective_user.id)
+    now = datetime.now(IST)
+    chosen = favourites.pick_for_commute(saved, now, _commute_settings(context))
+    if chosen is None:
+        await message.reply_text(f"No saved routes yet.\n{favourites.ADD_USAGE}")
+        return
+    try:
+        recommendation = _recommend(context, chosen, now)
+    except schedule.ScheduleError as exc:
+        await message.reply_text(
+            f"{exc}\nYour saved route {chosen.name!r} may need saving again with /fav add."
+        )
+        return
+    context.user_data[LAST_RECOMMENDATION_KEY] = recommendation
+    await message.reply_text(f"{chosen.name}\n{formatting.format_recommendation(recommendation)}")
+
+
+def _recommend(context: ContextTypes.DEFAULT_TYPE, favourite: favourites.Favourite, now: datetime):
+    return schedule.recommend_trains(
+        context.bot_data[DB_PATH_KEY],
+        favourite.from_station,
+        favourite.to_station,
+        now,
+        settings=context.bot_data.get(RECOMMEND_SETTINGS_KEY),
+        model_dir=context.bot_data.get(MODEL_DIR_KEY),
+    )
+
+
+def nudge_keyboard(item: commute.Due) -> InlineKeyboardMarkup:
+    """1-5 in one row, for a one-tap answer; then the two ways out."""
+    name = item.favourite.name
+    levels = [
+        InlineKeyboardButton(
+            str(level), callback_data=commute.callback_data(item.day, str(level), name)
+        )
+        for level in CROWD_LEVELS
+    ]
+    others = [
+        InlineKeyboardButton(
+            "Didn't take it", callback_data=commute.callback_data(item.day, commute.SKIP, name)
+        ),
+        InlineKeyboardButton(
+            "Stop asking", callback_data=commute.callback_data(item.day, commute.OFF, name)
+        ),
+    ]
+    return InlineKeyboardMarkup([levels, others])
+
+
+def nudge_text(item: commute.Due, stations: StationDirectory) -> str:
+    trip = item.trip
+    scale = " · ".join(f"{level} {label}" for level, label in CROWD_LEVELS.items())
+    return (
+        f"How crowded was the {trip.departure:%H:%M} {trip.train_type} to {trip.label} from "
+        f"{stations.label(item.favourite.from_station)}?\n{scale}"
+    )
+
+
+async def commute_tick(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Runs every minute: send whatever morning messages and crowd prompts are due.
+
+    Only users on the allow-list are ever messaged. A busy database just means trying
+    again at the next tick, within the grace period.
+    """
+    db_path = context.bot_data[DB_PATH_KEY]
+    now = datetime.now(IST)
+    try:
+        items = commute.check_due(
+            db_path,
+            now.replace(tzinfo=None),
+            _commute_settings(context),
+            context.bot_data.get(ALLOWED_USERS_KEY) or frozenset(),
+        )
+        stations = load_directory(db_path) if items else None
+    except duckdb.Error as exc:
+        logger.warning("Could not check for due messages (%s); will retry", type(exc).__name__)
+        return
+    for item in items:
+        user_id = item.favourite.user_id
+        try:
+            if item.kind == commute.NOTIFY:
+                recommendation = _recommend(context, item.favourite, now)
+                text = (
+                    f"Your {item.favourite.name} commute\n"
+                    f"{formatting.format_recommendation(recommendation)}"
+                )
+                markup = None
+            else:
+                recommendation = None
+                text, markup = nudge_text(item, stations), nudge_keyboard(item)
+            # Recorded before sending: a message lost to an error is better than one
+            # repeated every minute.
+            commute.record_sent(db_path, item)
+            await context.bot.send_message(chat_id=user_id, text=text, reply_markup=markup)
+            if recommendation is not None:
+                remembered = getattr(context.application, "user_data", None)
+                if remembered is not None:
+                    remembered[user_id][LAST_RECOMMENDATION_KEY] = recommendation
+        except Exception:
+            logger.exception("Could not send the %s message for %s", item.kind, item.favourite.name)
+
+
+async def nudge_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """A tap under the crowd prompt: log the level, skip, or stop being asked."""
+    query = update.callback_query
+    try:
+        day, answer, name = commute.parse_callback_data(query.data)
+    except ValueError:
+        await query.answer()
+        return
+    db_path = context.bot_data[DB_PATH_KEY]
+    result = commute.answer_nudge(db_path, update.effective_user.id, day, name, answer)
+    if result.status == "unknown":
+        await query.answer("That question has expired.", show_alert=True)
+        return
+    if result.status == "already":
+        await query.answer("Already answered.")
+        return
+    await query.answer()
+    if result.status == "logged":
+        level = int(answer)
+        await query.edit_message_text(
+            f"Logged #{result.report_id}: {result.description} · {formatting.crowd_label(level)}, "
+            "matched to that train. Thanks."
+        )
+    elif result.status == "skipped":
+        await query.edit_message_text(f"OK, nothing logged for the {result.description}.")
+    else:
+        await query.edit_message_text(
+            f"I won't ask about your {name} commute again. /fav nudge {name} on turns it back on."
+        )
 
 
 async def mylogs_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

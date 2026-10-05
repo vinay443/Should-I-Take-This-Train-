@@ -215,6 +215,9 @@ def test_requirements_txt_covers_the_projects_dependencies():
     pinned = {line.split("==")[0].strip() for line in required.splitlines() if "==" in line}
     for dependency in project["dependencies"]:
         name = dependency.split(">=")[0].split("==")[0].strip().lower()
+        name, _, extras = name.partition("[")  # e.g. python-telegram-bot[job-queue]
         assert name in pinned, f"{name} is missing from requirements.txt; run `uv export`"
+        if "job-queue" in extras:
+            assert "apscheduler" in pinned, "the job-queue extra is missing; run `uv export`"
     assert (REPO / "packages.txt").read_text(encoding="utf-8").split() == ["libgomp1"]
     assert (REPO / "streamlit_app.py").exists()
