@@ -110,6 +110,10 @@ class Station:
 # Station labels as printed in the PDFs, with the spellings seen in either direction.
 # Codes are checked against NTES's station list (2026-09-27) except KLY, DLV, LWJ and
 # KHPI, which NTES doesn't list.
+# Sion is SION, not SIN: NTES's station list
+# (https://enquiry.indianrail.gov.in/mntes/javascripts/station_data.js, checked
+# 2026-10-05) has {"code":"SION","name":"SION"} and no SIN entry. Wikipedia and some
+# third-party sites still give the older code SIN, which the bot accepts as an alias.
 _STATIONS: dict[Station, tuple[str, ...]] = {
     Station("CSMT", "CSMT"): ("CSMT",),
     Station("MSD", "Masjid"): ("Masjid",),
