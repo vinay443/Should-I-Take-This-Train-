@@ -16,6 +16,7 @@ dependencies = [
 [project.scripts]
 sitt-init-db = "sitt.db.database:main"
 sitt-bot = "sitt.bot.app:main"
+sitt-block = "sitt.ingest.blocks:main"
 
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13"]

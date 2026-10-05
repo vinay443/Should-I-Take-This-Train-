@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<!-- Test fixture. The page structure (tabs, numbered card divs, three <p> per card) follows
+     https://yatrirailways.com/live-railway-announcements as fetched on 2026-09-27, trimmed.
+     Every sentence in it is invented for the tests; none of Yatri's text is reproduced. -->
+<html>
+<body>
+<main>
+<section>
+  <ul class="nav nav-tabs">
+    <li class="nav-item"><button class="active fold" id="all">All</button></li>
+    <li class="nav-item"><button class="bg-red fold" id="2">Mega Blocks</button></li>
+    <li class="nav-item"><button class="bg-yellow fold" id="1">Cancellations</button></li>
+    <li class="nav-item"><button class="bg-purple fold" id="3">Delays</button></li>
+    <li class="nav-item"><button class="bg-green fold" id="4">Monsoon</button></li>
+    <li class="nav-item"><button class="bg-blue fold" id="5">Other</button></li>
+  </ul>
+  <div class="col-12 mt-5">
+    <div class="row" id="parent">
+
+      <div class="2 col-lg-4 col-md-6 col-12 mb-3 ">
+        <a href="https://example.invalid/open_announcements">
+          <div class="card-box h-100 red shadow">
+            <p class=" text-capitalize font-weight-bold">Megablock on Central and Harbour line on Sunday, 11th October (tap to open)</p>
+            <p class="font-14 text-capitalize text-warning">Sat, 10 Oct 26 10:40AM</p>
+            <p class="font-14  text-capitalize font-weight-normal">Invented teaser: maintenance work is planned this Sunday.</p>
+          </div>
+        </a>
+      </div>
+
+      <div class="2 col-lg-4 col-md-6 col-12 mb-3 ">
+        <a href="https://example.invalid/open_announcements">
+          <div class="card-box h-100 red shadow">
+            <p class=" text-capitalize font-weight-bold">Megablock on Western line on Saturday/Sunday, 10th/11th October at Mid Night (tap to open)</p>
+            <p class="font-14 text-capitalize text-warning">Fri, 09 Oct 26 05:05PM</p>
+            <p class="font-14  text-capitalize font-weight-normal">Invented teaser: overnight work between Saturday and Sunday.</p>
+          </div>
+        </a>
+      </div>
+
+      <div class="1 col-lg-4 col-md-6 col-12 mb-3 ">
+        <a href="https://example.invalid/open_announcements">
+          <div class="card-box h-100 yellow shadow">
+            <p class=" text-capitalize font-weight-bold">Some evening services will not run on Monday, 12th October</p>
+            <p class="font-14 text-capitalize text-warning">Sun, 11 Oct 26 08:15PM</p>
+            <p class="font-14  text-capitalize font-weight-normal">Invented teaser: a cancellation notice, not a block.</p>
+          </div>
+        </a>
+      </div>
+
+      <div class="2 col-lg-4 col-md-6 col-12 mb-3 ">
+        <a href="https://example.invalid/open_announcements">
+          <div class="card-box h-100 red shadow">
+            <p class=" text-capitalize font-weight-bold">Megablock on Trans-Harbour line on Sunday, 3rd January</p>
+            <p class="font-14 text-capitalize text-warning">Thu, 31 Dec 26 09:00AM</p>
+            <p class="font-14  text-capitalize font-weight-normal">Invented teaser: the date falls in the next year.</p>
+          </div>
+        </a>
+      </div>
+
+      <div class="2 col-lg-4 col-md-6 col-12 mb-3 ">
+        <a href="https://example.invalid/open_announcements">
+          <div class="card-box h-100 red shadow">
+            <p class=" text-capitalize font-weight-bold">Special block this weekend, see the app</p>
+            <p class="font-14 text-capitalize text-warning">Fri, 16 Oct 26 11:00AM</p>
+            <p class="font-14  text-capitalize font-weight-normal">Invented teaser: no date or line in the title.</p>
+          </div>
+        </a>
+      </div>
+
+    </div>
+  </div>
+</section>
+</main>
+</body>
+</html>

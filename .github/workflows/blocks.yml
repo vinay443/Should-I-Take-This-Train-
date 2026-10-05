@@ -1,0 +1,71 @@
+name: Fetch megablock announcements
+
+# Reads Yatri's announcements page once and saves the megablocks it lists (date and line
+# only; see docs/megablocks.md) as a JSON file under data/blocks/ on the `data` branch.
+#
+# The schedule stays commented out, like collect.yml's, until you decide to switch it on.
+# Once a day is plenty: megablocks are announced a day or two ahead.
+
+on:
+  # schedule:
+  #   - cron: "30 13 * * *" # 19:00 IST
+  workflow_dispatch:
+
+permissions:
+  contents: write # push to the data branch
+
+concurrency:
+  group: fetch-blocks
+  cancel-in-progress: false
+
+env:
+  DATA_BRANCH: data
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        run: uv sync --locked --no-dev
+
+      - name: Check out the data branch
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch --depth=1 origin "$DATA_BRANCH"; then
+            git worktree add -B "$DATA_BRANCH" datastore FETCH_HEAD
+          else
+            echo "No $DATA_BRANCH branch yet; starting an empty (orphan) one."
+            git worktree add --orphan -b "$DATA_BRANCH" datastore
+          fi
+
+      - name: Fetch
+        run: |
+          # --no-db: the runner has no database. The JSON holds facts only (date, line),
+          # never the announcement's text.
+          uv run sitt-block fetch --no-db --json-out "datastore/data/blocks/$(date -u +%Y-%m-%d).json"
+
+      - name: Commit and push
+        working-directory: datastore
+        run: |
+          if [ ! -d data/blocks ]; then
+            echo "Nothing was fetched."
+            exit 0
+          fi
+          git add data/blocks
+          if git diff --cached --quiet; then
+            echo "Nothing new to commit."
+            exit 0
+          fi
+          git commit -q -m "Megablock announcements $(date -u +%Y-%m-%d)"
+          for attempt in 1 2 3; do
+            git push origin "HEAD:$DATA_BRANCH" && exit 0
+            sleep $((attempt * 10))
+            git pull --rebase --depth=1 origin "$DATA_BRANCH" || true
+          done
+          exit 1
