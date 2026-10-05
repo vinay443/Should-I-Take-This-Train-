@@ -42,6 +42,10 @@ data/raw/2026-09-27/20260927T102100Z-3fa2c1-ntes.json.gz
 data/observations/2026-09-27/20260927T102100Z-3fa2c1.parquet  one per run, all sources together
 ```
 
+The raw files keep everything the source sent. The Parquet file holds only the parsed fields
+and leaves out the source's own text (see
+[What is and isn't published](#what-is-and-isnt-published)).
+
 Dates and times in file names are UTC. Both folders are gitignored on `main`.
 
 The exit code is 1 if any source failed. Whatever the other sources returned is still written.
@@ -141,7 +145,8 @@ Things to know about scheduled runs:
 
 - GitHub starts them late when it is busy and sometimes skips them. Expect gaps.
 - GitHub disables schedules in a repository with no activity for 60 days.
-- This repository is public, so the `data` branch is too. See the next section.
+- This repository is public, so the `data` branch is too. See
+  [What is and isn't published](#what-is-and-isnt-published).
 
 ## 5. How the data is stored
 
@@ -160,15 +165,33 @@ A batch of about 290 rows is roughly 9 KB, so a year of 15-minute runs is on the
 300 MB across 35,000 files. Before it gets that far, compact old days into one file per day or
 month and rewrite the branch.
 
-**Raw responses** are not committed by default. On GitHub they are kept as a workflow artifact
-for 90 days and then deleted. Setting the repository variable `SITT_COMMIT_RAW=true` commits
-them to the `data` branch instead. Don't do that while the repository is public: it would
-republish Mobond's feed.
+### What is and isn't published
 
-Note that the Parquet files already carry Mobond's status text for each train, in the
-`raw_status` column. On a public repository that is close to republishing the feed, which
-[`data-sources.md`](data-sources.md) advises against. Raise it when asking Mobond for
-permission, or make the repository private before switching Mobond on.
+This repository is public, so the `data` branch is too. Mobond's feed is a commercial app's
+data, and [`data-sources.md`](data-sources.md) says not to republish it. So the Parquet files
+hold **derived fields only**:
+
+| In the Parquet files (public)                                        | Not in them                         |
+| -------------------------------------------------------------------- | ----------------------------------- |
+| train number, station code, event, delay, time, `cancelled`, `less_accurate`, source, batch | `raw_status`: the source's own text, e.g. Mobond's status string for a train |
+
+`raw_status` is still a column of the `observations` table, but it is NULL for every row
+loaded from the Parquet files. The text itself survives in two places:
+
+- **Locally:** the raw archive under `data/raw/`, which holds each response exactly as
+  received. It is gitignored.
+- **On GitHub:** the same raw archive, uploaded as a workflow artifact on every run and
+  deleted after 90 days. Artifacts of a public repository can be downloaded by anyone who is
+  signed in to GitHub, so this is less exposed than the branch but not private.
+
+One field can still carry a word of Mobond's text: when the collector doesn't recognise a
+station name, `station_code` holds the name as Mobond wrote it (e.g. `LONAVLA`) until the
+loader matches it to a code. Status text that the parser doesn't understand is stored as
+event `unknown` with no station, so it never reaches the files.
+
+Setting the repository variable `SITT_COMMIT_RAW=true` also commits raw responses to the
+`data` branch, **except Mobond's**, which the workflow always leaves out. In practice that
+means the NTES board pages.
 
 ## 6. Tests
 

@@ -76,17 +76,19 @@ jobs:
           SOURCE: ${{ steps.sources.outputs.source }}
           COMMIT_RAW: ${{ vars.SITT_COMMIT_RAW }}
         run: |
-          # Raw responses go to the data branch only if SITT_COMMIT_RAW=true (don't do that
-          # in a public repo: it would republish the Mobond feed). Otherwise they're kept as
-          # a workflow artifact.
-          raw_dir=raw-artifact
-          if [ "$COMMIT_RAW" = "true" ]; then raw_dir=datastore/data/raw; fi
+          # Raw responses are always kept as a workflow artifact, never in the Parquet files.
+          # SITT_COMMIT_RAW=true also commits them to the data branch, except Mobond's:
+          # this repository is public, and committing that would republish Mobond's feed.
           set +e
-          uv run python -m sitt.ingest.live --source "$SOURCE" --data-dir datastore/data --raw-dir "$raw_dir"
+          uv run python -m sitt.ingest.live --source "$SOURCE" --data-dir datastore/data --raw-dir raw-artifact
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          if [ "$COMMIT_RAW" = "true" ] && [ -d raw-artifact ]; then
+            mkdir -p datastore/data/raw
+            rsync -a --exclude='*-mobond.json.gz' raw-artifact/ datastore/data/raw/
+          fi
 
       - name: Keep raw responses as an artifact
-        if: steps.collect.outcome == 'success' && vars.SITT_COMMIT_RAW != 'true'
+        if: steps.collect.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: raw-${{ github.run_id }}

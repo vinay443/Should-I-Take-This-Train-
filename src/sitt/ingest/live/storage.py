@@ -5,6 +5,11 @@ Layout, relative to the data directory:
     observations/YYYY-MM-DD/<batch_id>.parquet
 Dates are UTC. Each collector run is one batch and writes each file exactly once, so
 files never change after they are written. That keeps the git data branch append-only.
+
+The Parquet files are published (collect.yml commits them to the public `data` branch),
+so they hold derived fields only. A source's own text, `Observation.raw_status`, is
+left out of them: for Mobond it is the feed's status string, which we must not
+republish. It stays in the raw archive, which is never committed for Mobond.
 """
 
 import gzip
@@ -19,7 +24,8 @@ import duckdb
 
 from sitt.ingest.live.common import Observation, RawResponse
 
-# Parquet columns, in `observations` order (minus the surrogate `id`).
+# Parquet columns, in `observations` order, minus the surrogate `id` and `raw_status`
+# (see the module docstring: source text is never written to the published files).
 COLUMNS: dict[str, str] = {
     "observed_at": "TIMESTAMPTZ",
     "train_id": "VARCHAR",
@@ -32,7 +38,6 @@ COLUMNS: dict[str, str] = {
     "event": "VARCHAR",
     "cancelled": "BOOLEAN",
     "less_accurate": "BOOLEAN",
-    "raw_status": "VARCHAR",
     "batch_id": "VARCHAR",
 }
 

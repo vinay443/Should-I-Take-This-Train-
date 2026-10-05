@@ -85,12 +85,15 @@ CREATE TABLE IF NOT EXISTS observations (
 --                   NTES: 'arrival' | 'departure'.
 --                   Mobond: 'at' | 'arriving' | 'crossed' | 'between' (station_code is the
 --                   station last passed) | 'rake_at' (rake waiting, not yet running) |
---                   'cancelled' | 'unknown' (status text not understood; see raw_status).
+--                   'cancelled' | 'unknown' (status text not understood; see the raw archive).
 --                   station_code is an IR code where known, else the source's station name,
 --                   or '' when the source gives no station (cancellations).
 --   `cancelled`     the source reports this service as cancelled.
 --   `less_accurate` Mobond's "(Less Accurate)" marker, on roughly 40% of its readings.
---   `raw_status`    the source's text for this train, e.g. Mobond's status string.
+--   `raw_status`    the source's text for this train, e.g. Mobond's status string. The
+--                   collector's Parquet files leave it out, because they are committed to
+--                   a public branch, so it is NULL for rows loaded from them. The text
+--                   survives only in the raw archive (data/raw/, or workflow artifacts).
 --   `batch_id`      the collector run that produced the row, which is also its Parquet file name.
 ALTER TABLE observations ADD COLUMN IF NOT EXISTS train_number VARCHAR;
 ALTER TABLE observations ADD COLUMN IF NOT EXISTS event VARCHAR;

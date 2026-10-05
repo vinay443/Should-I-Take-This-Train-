@@ -1,9 +1,11 @@
 """End-to-end collector runs against a fake HTTP transport. No network."""
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import parse_qs
 
+import duckdb
 import httpx
 import pytest
 
@@ -13,7 +15,7 @@ from sitt.ingest.live import mobond, ntes
 from sitt.ingest.live.collect import collect
 from sitt.ingest.live.common import make_client, user_agent
 from sitt.ingest.live.load import load
-from sitt.ingest.live.storage import read_raw
+from sitt.ingest.live.storage import COLUMNS, read_raw
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "live"
 MOBOND_BODY = (FIXTURES / "mobond_getalllivetrains.json").read_text(encoding="utf-8")
@@ -84,6 +86,67 @@ def test_collects_both_sources_politely(tmp_path):
     assert result.parquet_path == (
         tmp_path / "observations" / "2026-09-27" / f"{result.batch_id}.parquet"
     )
+
+
+def test_published_parquet_has_no_source_text(tmp_path):
+    """The Parquet files go to a public branch, so Mobond's status text must not be in them."""
+    result = _run(tmp_path, FakeSources())
+
+    with duckdb.connect() as con:
+        columns = [
+            row[0]
+            for row in con.execute(
+                "DESCRIBE SELECT * FROM read_parquet(?)", [str(result.parquet_path)]
+            ).fetchall()
+        ]
+        text_values = {
+            value
+            for row in con.execute(
+                "SELECT train_id, station_code, time_kind, source, train_number, event, batch_id "
+                "FROM read_parquet(?)",
+                [str(result.parquet_path)],
+            ).fetchall()
+            for value in row
+        }
+    assert "raw_status" not in columns
+    assert columns == list(COLUMNS)
+    statuses = set(json.loads(MOBOND_BODY).values())
+    assert len(statuses) > 30
+    assert text_values.isdisjoint(statuses)
+    assert not any("min Late" in str(value) or "Accurate" in str(value) for value in text_values)
+    assert result.parquet_path.read_bytes().find(b"Less Accurate") == -1
+
+    # The text is still in memory for the dry-run summary and in the local raw archive.
+    assert all(o.raw_status for o in result.observations)
+    mobond_raw = next(s.raw_path for s in result.sources if s.source == "mobond")
+    assert read_raw(mobond_raw).body == MOBOND_BODY
+
+    # Loaded rows leave the schema's raw_status column NULL.
+    with init_db(tmp_path / "test.duckdb") as con:
+        load(con, tmp_path / "observations")
+        assert con.execute("SELECT count(raw_status), count(*) FROM observations").fetchone() == (
+            0,
+            49,
+        )
+
+
+def test_parquet_written_before_raw_status_was_dropped_still_loads(tmp_path):
+    """Old local batches carry a raw_status column; the loader ignores it."""
+    target = tmp_path / "observations" / "2026-09-27" / "20260927T102100Z-aaaaaa.parquet"
+    target.parent.mkdir(parents=True)
+    with duckdb.connect() as con:
+        con.execute(
+            "COPY (SELECT TIMESTAMPTZ '2026-09-27 10:21:00+00' AS observed_at, "
+            "'95231' AS train_id, "
+            "'KYN' AS station_code, NULL::TIMESTAMPTZ AS actual_or_expected_time, "
+            "NULL::VARCHAR AS time_kind, 3.0 AS delay_minutes, 'mobond' AS source, "
+            "'95231' AS train_number, 'at' AS event, false AS cancelled, false AS less_accurate, "
+            "'At KALYAN, 3 min Late' AS raw_status, '20260927T102100Z-aaaaaa' AS batch_id) "
+            f"TO '{target.as_posix()}' (FORMAT parquet)"
+        )
+    with init_db(tmp_path / "test.duckdb") as con:
+        assert load(con, tmp_path / "observations").rows == 1
+        assert con.execute("SELECT raw_status FROM observations").fetchone() == (None,)
 
 
 def test_parquet_loads_into_duckdb_once(tmp_path):
