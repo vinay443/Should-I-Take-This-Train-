@@ -137,3 +137,35 @@ CREATE TABLE IF NOT EXISTS crowd_reports (
     note                VARCHAR,
     CHECK (train_id IS NOT NULL OR train_description IS NOT NULL)
 );
+
+
+-- Planned engineering blocks ("megablocks"): a section of line closed for maintenance
+-- for a few hours, usually on a Sunday, which delays, diverts or cancels trains.
+-- Filled by sitt.ingest.blocks (announcements or manual entry) and, in a synthetic
+-- database, by sitt.synth.
+--   `block_id`      stable key built from the date, line, section, times and tracks, so
+--                   re-ingesting the same announcement doesn't add a second row.
+--   `block_date`    the day the block starts (Mumbai local date).
+--   `line`          'central' (main line), 'harbour', 'transharbour' or 'western'.
+--   `from_station`, `to_station`  the ends of the section: station codes where the
+--                   station is known, else the name as announced. NULL if not stated.
+--   `start_time`, `end_time`      Mumbai local time. An end before the start means the
+--                   block runs past midnight. NULL if not stated.
+--   `tracks`        'fast', 'slow' or 'both'; NULL if not stated.
+--   `direction`     'up', 'down' or 'both'; NULL if not stated.
+--   `source`        'yatri', 'manual' or 'synthetic'.
+--   `summary`       a short description in our own words, never the announcement's text.
+CREATE TABLE IF NOT EXISTS blocks (
+    block_id        VARCHAR PRIMARY KEY,
+    block_date      DATE NOT NULL,
+    line            VARCHAR NOT NULL,
+    from_station    VARCHAR,
+    to_station      VARCHAR,
+    start_time      TIME,
+    end_time        TIME,
+    tracks          VARCHAR CHECK (tracks IN ('fast', 'slow', 'both')),
+    direction       VARCHAR CHECK (direction IN ('up', 'down', 'both')),
+    source          VARCHAR NOT NULL,
+    summary         VARCHAR,
+    recorded_at     TIMESTAMPTZ
+);

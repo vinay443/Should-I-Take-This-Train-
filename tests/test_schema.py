@@ -5,7 +5,14 @@ import pytest
 
 from sitt.db import init_db
 
-EXPECTED_TABLES = {"stations", "trains", "scheduled_stops", "observations", "crowd_reports"}
+EXPECTED_TABLES = {
+    "stations",
+    "trains",
+    "scheduled_stops",
+    "observations",
+    "crowd_reports",
+    "blocks",
+}
 
 
 def table_names(con: duckdb.DuckDBPyConnection) -> set[str]:
