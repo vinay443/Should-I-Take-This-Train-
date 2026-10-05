@@ -12,7 +12,7 @@ train_number,destination,service_type,direction,station_code,station_name,schedu
 90101,Kalyan,slow,down,PR,Parel,06:16,06:16,daily
 90101,Kalyan,slow,down,DR,Dadar,06:19,06:20,daily
 90101,Kalyan,slow,down,MTN,Matunga,06:22,06:22,daily
-90101,Kalyan,slow,down,SIN,Sion,06:25,06:25,daily
+90101,Kalyan,slow,down,SION,Sion,06:25,06:25,daily
 90101,Kalyan,slow,down,CLA,Kurla,06:28,06:29,daily
 90101,Kalyan,slow,down,VVH,Vidyavihar,06:32,06:32,daily
 90101,Kalyan,slow,down,GC,Ghatkopar,06:34,06:35,daily
@@ -47,7 +47,7 @@ train_number,destination,service_type,direction,station_code,station_name,schedu
 90105,Titwala,slow,down,PR,Parel,07:24,07:24,mon-sat
 90105,Titwala,slow,down,DR,Dadar,07:27,07:28,mon-sat
 90105,Titwala,slow,down,MTN,Matunga,07:30,07:30,mon-sat
-90105,Titwala,slow,down,SIN,Sion,07:33,07:33,mon-sat
+90105,Titwala,slow,down,SION,Sion,07:33,07:33,mon-sat
 90105,Titwala,slow,down,CLA,Kurla,07:36,07:37,mon-sat
 90105,Titwala,slow,down,VVH,Vidyavihar,07:40,07:40,mon-sat
 90105,Titwala,slow,down,GC,Ghatkopar,07:42,07:43,mon-sat
@@ -82,7 +82,7 @@ train_number,destination,service_type,direction,station_code,station_name,schedu
 90109,Kalyan,slow,down,PR,Parel,07:54,07:54,sun
 90109,Kalyan,slow,down,DR,Dadar,07:57,07:58,sun
 90109,Kalyan,slow,down,MTN,Matunga,08:00,08:00,sun
-90109,Kalyan,slow,down,SIN,Sion,08:03,08:03,sun
+90109,Kalyan,slow,down,SION,Sion,08:03,08:03,sun
 90109,Kalyan,slow,down,CLA,Kurla,08:06,08:07,sun
 90109,Kalyan,slow,down,VVH,Vidyavihar,08:10,08:10,sun
 90109,Kalyan,slow,down,GC,Ghatkopar,08:12,08:13,sun
@@ -108,7 +108,7 @@ train_number,destination,service_type,direction,station_code,station_name,schedu
 90113,Thane,slow,down,PR,Parel,08:14,08:14,daily
 90113,Thane,slow,down,DR,Dadar,08:17,08:18,daily
 90113,Thane,slow,down,MTN,Matunga,08:20,08:20,daily
-90113,Thane,slow,down,SIN,Sion,08:23,08:23,daily
+90113,Thane,slow,down,SION,Sion,08:23,08:23,daily
 90113,Thane,slow,down,CLA,Kurla,08:26,08:27,daily
 90113,Thane,slow,down,VVH,Vidyavihar,08:30,08:30,daily
 90113,Thane,slow,down,GC,Ghatkopar,08:32,08:33,daily
@@ -127,7 +127,7 @@ train_number,destination,service_type,direction,station_code,station_name,schedu
 90111,Kalyan,slow,down,PR,Parel,00:06,00:06,daily
 90111,Kalyan,slow,down,DR,Dadar,00:09,00:10,daily
 90111,Kalyan,slow,down,MTN,Matunga,00:12,00:12,daily
-90111,Kalyan,slow,down,SIN,Sion,00:15,00:15,daily
+90111,Kalyan,slow,down,SION,Sion,00:15,00:15,daily
 90111,Kalyan,slow,down,CLA,Kurla,00:18,00:19,daily
 90111,Kalyan,slow,down,VVH,Vidyavihar,00:22,00:22,daily
 90111,Kalyan,slow,down,GC,Ghatkopar,00:24,00:25,daily
@@ -160,7 +160,7 @@ train_number,destination,service_type,direction,station_code,station_name,schedu
 90102,CSMT,slow,up,GC,Ghatkopar,05:03,05:04,daily
 90102,CSMT,slow,up,VVH,Vidyavihar,05:06,05:06,daily
 90102,CSMT,slow,up,CLA,Kurla,05:09,05:10,daily
-90102,CSMT,slow,up,SIN,Sion,05:13,05:13,daily
+90102,CSMT,slow,up,SION,Sion,05:13,05:13,daily
 90102,CSMT,slow,up,MTN,Matunga,05:16,05:16,daily
 90102,CSMT,slow,up,DR,Dadar,05:18,05:19,daily
 90102,CSMT,slow,up,PR,Parel,05:22,05:22,daily
@@ -186,7 +186,7 @@ train_number,destination,service_type,direction,station_code,station_name,schedu
 90104,CSMT,slow,up,GC,Ghatkopar,07:51,07:52,daily
 90104,CSMT,slow,up,VVH,Vidyavihar,07:54,07:54,daily
 90104,CSMT,slow,up,CLA,Kurla,07:57,07:58,daily
-90104,CSMT,slow,up,SIN,Sion,08:01,08:01,daily
+90104,CSMT,slow,up,SION,Sion,08:01,08:01,daily
 90104,CSMT,slow,up,MTN,Matunga,08:04,08:04,daily
 90104,CSMT,slow,up,DR,Dadar,08:06,08:07,daily
 90104,CSMT,slow,up,PR,Parel,08:10,08:10,daily
@@ -230,7 +230,7 @@ train_number,destination,service_type,direction,station_code,station_name,schedu
 90110,CSMT,slow,up,GC,Ghatkopar,08:36,08:37,daily
 90110,CSMT,slow,up,VVH,Vidyavihar,08:39,08:39,daily
 90110,CSMT,slow,up,CLA,Kurla,08:42,08:43,daily
-90110,CSMT,slow,up,SIN,Sion,08:46,08:46,daily
+90110,CSMT,slow,up,SION,Sion,08:46,08:46,daily
 90110,CSMT,slow,up,MTN,Matunga,08:49,08:49,daily
 90110,CSMT,slow,up,DR,Dadar,08:51,08:52,daily
 90110,CSMT,slow,up,PR,Parel,08:55,08:55,daily

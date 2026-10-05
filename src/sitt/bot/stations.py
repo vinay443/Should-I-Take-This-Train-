@@ -38,7 +38,7 @@ STATIONS: tuple[Station, ...] = (
     Station("GC", "Ghatkopar"),
     Station("VVH", "Vidyavihar"),
     Station("CLA", "Kurla"),
-    Station("SIN", "Sion"),
+    Station("SION", "Sion", ("sin",)),  # SIN was this bot's code before the PDF timetable
     Station("MTN", "Matunga"),
     Station("DR", "Dadar"),
     Station("PR", "Parel"),

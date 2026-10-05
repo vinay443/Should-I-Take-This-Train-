@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+import duckdb
 import pytest
 
 from sitt.db import init_db
@@ -37,6 +38,34 @@ def test_new_observation_columns_exist_and_schema_reapplies(tmp_path):
     with init_db(path) as con:  # second run must not fail on the ALTERs
         columns = {row[0] for row in con.execute("DESCRIBE observations").fetchall()}
     assert columns >= NEW_COLUMNS
+
+
+def test_schema_upgrades_a_database_created_before_the_collector(tmp_path):
+    path = tmp_path / "old.duckdb"
+    with duckdb.connect(str(path)) as old:  # `observations` as first released
+        old.execute(
+            "CREATE SEQUENCE observations_id_seq;"
+            "CREATE TABLE observations ("
+            "id BIGINT PRIMARY KEY DEFAULT nextval('observations_id_seq'),"
+            "observed_at TIMESTAMPTZ NOT NULL, train_id VARCHAR NOT NULL,"
+            "station_code VARCHAR NOT NULL, actual_or_expected_time TIMESTAMPTZ,"
+            "time_kind VARCHAR CHECK (time_kind IN ('actual', 'expected')),"
+            "delay_minutes DOUBLE, source VARCHAR NOT NULL)"
+        )
+        old.execute(
+            "INSERT INTO observations (observed_at, train_id, station_code, source) "
+            "VALUES (?, '95231', 'KYN', 'manual')",
+            [NOW],
+        )
+
+    with init_db(path) as con:
+        write_parquet([_obs("95231", "KYN")], tmp_path / "obs", new_batch_id(NOW))
+        assert load(con, tmp_path / "obs").rows == 1
+        rows = con.execute(
+            "SELECT id, source, train_number, cancelled FROM observations ORDER BY id"
+        ).fetchall()
+    # The old row survives; its new columns are NULL apart from the boolean defaults.
+    assert rows == [(1, "manual", None, False), (2, "mobond", "95231", False)]
 
 
 def test_rematch_trains_and_stations(con, tmp_path):

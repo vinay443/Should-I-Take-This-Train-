@@ -62,7 +62,9 @@ Try it from your phone:
 - `/log`: guided flow with buttons for station, time (or type one), fast/slow and crowd.
   If a quick log is missing something, the bot asks only for the missing parts.
 - `/mylogs`: your last 10 reports.
-- `/next KYN CSMT`: placeholder, replies "Coming soon."
+- `/next KYN CSMT`: the next five scheduled trains between two stations, with departure and
+  arrival times. Stations accept codes or names. It needs a timetable in the database (see
+  the [README](../README.md#setup)) and shows timetable times only, not live delays.
 - `/cancel`: abandon a log in progress.
 
 ## What gets stored

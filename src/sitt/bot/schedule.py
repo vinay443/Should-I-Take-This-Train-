@@ -45,8 +45,8 @@ def _station_code(con: duckdb.DuckDBPyConnection, token: str) -> str:
     """Resolve what the user typed: a code or name in the timetable, or a bot alias."""
     candidates = [token]
     if (station := lookup_station(token)) is not None:
-        # Aliases such as "cst", and names whose code differs in the timetable
-        # (the bot calls Sion "SIN", the timetable "SION"), resolve by name.
+        # Aliases such as "cst" or "sin", and stations whose code differs in the
+        # loaded timetable, resolve through the bot's own code and name.
         candidates += [station.code, station.name]
     for candidate in candidates:
         try:

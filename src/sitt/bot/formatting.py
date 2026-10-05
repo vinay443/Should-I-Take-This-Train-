@@ -71,6 +71,8 @@ def format_departures(departures: Departures, now: datetime) -> str:
     if not departures.trips:
         return f"No scheduled trains {route} today or tomorrow.\n\n{NEXT_FOOTER}"
     lines = [f"Next trains {route}:"]
+    # TODO: Mark ladies' specials. sitt.ingest.cr_pdf writes "ladies_special" to the CSV's
+    # `notes` column, but the loader ignores that column and `trains` has nowhere to keep it.
     for trip in departures.trips:
         day = "" if trip.departure.date() == now.date() else f"{trip.departure:%a} "
         minutes = round(trip.duration.total_seconds() / 60)

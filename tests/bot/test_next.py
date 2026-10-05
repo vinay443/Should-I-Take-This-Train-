@@ -60,8 +60,8 @@ def test_bot_aliases_resolve(sample_db):
     assert departures.trips[0].number == "90104"
 
 
-def test_station_whose_code_differs_resolves_by_name(pdf_db):
-    # The bot knows Sion as SIN; the PDF timetable uses the NTES code SION.
+def test_old_sion_code_still_resolves(pdf_db):
+    # Sion was SIN in the bot before it took the PDF timetable's code, SION.
     departures = upcoming_trains(pdf_db, "sin", "KYN", datetime(2026, 9, 28, 5, 0), n=1)
     assert departures.origin == "Sion"
     assert departures.trips[0].number == "96107"  # S 3: CSMT 04:47, Sion 05:11

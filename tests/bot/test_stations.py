@@ -17,3 +17,8 @@ def test_lookup():
     assert lookup_station(" tna ").code == "TNA"
     assert lookup_station("kanjurmarg").code == "KJRD"
     assert lookup_station("nowhere") is None
+
+
+def test_sion_uses_the_timetable_code_and_keeps_the_old_one():
+    assert lookup_station("sion").code == "SION"
+    assert lookup_station("SIN").code == "SION"
