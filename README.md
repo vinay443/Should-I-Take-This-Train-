@@ -34,12 +34,20 @@ Load a timetable CSV, in the format described in
 uv run python -m sitt.ingest.timetable tests/fixtures/sample_timetable.csv
 ```
 
-That sample is invented. For the real Central main line timetable, download the two PDFs
-linked at the top of [`src/sitt/ingest/cr_pdf.py`](src/sitt/ingest/cr_pdf.py), convert them
-to that CSV format, then load the result the same way:
+That sample is invented. For the real Central main line timetable, download the PDFs linked
+at the top of [`src/sitt/ingest/cr_pdf.py`](src/sitt/ingest/cr_pdf.py): the two main PDFs
+(DOWN and UP) and, optionally, the AC and 15-car supplements that update them. Convert them to
+that CSV format:
 
 ```bash
-uv run python -m sitt.ingest.cr_pdf dn.pdf up.pdf -o central.csv
+uv run python -m sitt.ingest.cr_pdf dn.pdf up.pdf --ac-supplement ac.pdf --15-car-supplement cars.pdf -o central.csv
+```
+
+The converter prints one line for every train a supplement changed, added or couldn't be
+applied to. Then load the result, replacing the line's earlier timetable:
+
+```bash
+uv run python -m sitt.ingest.timetable central.csv --replace
 ```
 
 To run the Telegram crowd-logging bot, see [`docs/bot-setup.md`](docs/bot-setup.md).
@@ -84,7 +92,8 @@ data/         local database (gitignored)
    find what timetable and live running data exists for Mumbai locals and how reliable it is.
 2. **Timetable ingestion** (done, see [`docs/timetable-format.md`](docs/timetable-format.md)):
    load stations, trains and scheduled stops for the Central line. A parser for Central
-   Railway's timetable PDFs is built (`sitt.ingest.cr_pdf`).
+   Railway's timetable PDFs, including the AC and 15-car supplements, is built
+   (`sitt.ingest.cr_pdf`).
 3. **Live collector** (built, schedule not yet switched on, see
    [`docs/collector.md`](docs/collector.md)): poll live running status on a schedule and store
    observations.

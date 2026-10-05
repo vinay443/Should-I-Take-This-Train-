@@ -39,7 +39,7 @@ them.
 | `service_code` | no | The timetable's own code for the service, e.g. `A 1`. | `trains.service_code` |
 | `ac` | no | `yes` or `no`: an air-conditioned rake. | `trains.is_ac` |
 | `cars` | no | Rake length in cars, e.g. `15`. | `trains.car_count` |
-| `notes` | no | Flags joined by `\|`. `ladies_special` marks a train reserved for women; other flags are ignored. | `trains.is_ladies_special` |
+| `notes` | no | Flags joined by `\|`. `ladies_special` marks a train reserved for women; other flags, such as the PDF converter's `non_ac_weekends`, are ignored. | `trains.is_ladies_special` |
 
 Every value is trimmed of surrounding whitespace.
 
