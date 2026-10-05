@@ -45,10 +45,14 @@ CREATE TABLE IF NOT EXISTS trains (
 --   `is_ac`              an air-conditioned rake.
 --   `car_count`          rake length in cars (12 or 15), where the source gives it.
 --   `is_ladies_special`  a train reserved for women.
+--   `ac_weekdays_only`   an AC train that runs without AC on Saturdays, Sundays and
+--                        nominated holidays ("AC#" in the timetable). Only meaningful
+--                        when `is_ac` is true.
 ALTER TABLE trains ADD COLUMN IF NOT EXISTS service_code VARCHAR;
 ALTER TABLE trains ADD COLUMN IF NOT EXISTS is_ac BOOLEAN;
 ALTER TABLE trains ADD COLUMN IF NOT EXISTS car_count INTEGER;
 ALTER TABLE trains ADD COLUMN IF NOT EXISTS is_ladies_special BOOLEAN;
+ALTER TABLE trains ADD COLUMN IF NOT EXISTS ac_weekdays_only BOOLEAN;
 
 
 -- The timetable: where and when each train is meant to stop.

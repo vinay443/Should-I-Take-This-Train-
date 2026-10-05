@@ -58,10 +58,9 @@ def test_load_sample(loaded):
         "slow",
         "central",
         "down",
-        None,  # service_code, is_ac, car_count, is_ladies_special: not in the sample CSV
-        None,
-        None,
-        None,
+        # service_code, is_ac, car_count, is_ladies_special, ac_weekdays_only:
+        # not in the sample CSV
+        *(None,) * 5,
     )
 
     stops = loaded.execute(
@@ -268,6 +267,14 @@ def test_optional_train_attributes_are_stored(con, tmp_path):
         ("2", "T 2", False, None, True),
         ("3", None, None, None, False),  # blank ac/cars mean "not stated"
     ]
+
+
+def test_non_ac_weekends_note_is_stored(con, tmp_path):
+    text = ATTRIBUTES.replace("K 1,yes,15,ladies_coaches", "K 1,yes,15,non_ac_weekends")
+    load_timetable(con, read_timetable(write(tmp_path, text)))
+    assert con.execute(
+        "SELECT number, is_ac, ac_weekdays_only FROM trains ORDER BY number"
+    ).fetchall() == [("1", True, True), ("2", False, False), ("3", None, False)]
 
 
 def test_reloading_without_attribute_columns_clears_them(con, tmp_path):

@@ -199,6 +199,8 @@ means the NTES board pages.
 uv run pytest tests/live
 ```
 
-The tests never touch the network. They run the parsers over trimmed copies of real responses
-saved on 2026-09-27 in [`tests/fixtures/live/`](../tests/fixtures/live/), and run the whole
-collector against a fake HTTP transport that serves those files.
+The tests never touch the network. They run the parsers over the files in
+[`tests/fixtures/live/`](../tests/fixtures/live/), and run the whole collector against a fake
+HTTP transport that serves those files. The NTES file is a trimmed copy of a real board page
+saved on 2026-09-27. The Mobond file is invented: it has the feed's structure and every status
+wording the parser handles, but none of Mobond's data.

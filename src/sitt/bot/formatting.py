@@ -65,7 +65,7 @@ def trip_tags(trip: ScheduledTrip) -> list[str]:
     tags = []
     if trip.is_ladies_special:
         tags.append("LADIES SPECIAL (women only)")
-    if trip.is_ac:
+    if trip.runs_ac:
         tags.append("AC")
     if trip.car_count == 15:
         tags.append("15-car")

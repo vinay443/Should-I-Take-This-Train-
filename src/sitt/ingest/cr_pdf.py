@@ -76,9 +76,18 @@ They are applied over the main edition in date order (`apply_supplement`):
   days and service code come from the supplement, which is newer. The AC supplement
   sets `ac`; the 15-car supplement sets `cars` to 15. Whatever the supplement doesn't
   state (the car count in the AC PDF, AC in the 15-car PDF, ladies' special) is kept.
-- A train number that isn't in the timetable yet is added. Whether it replaced an
-  older service isn't stated, so nothing is removed; the report names any existing
-  train with the same service code so a person can check.
+- A train number that isn't in the timetable yet is added, and nothing is removed.
+  The report names any existing train with the same service code.
+
+  The 15-car supplement adds two such trains: 95337 (A 1, fast, CSMT 00:05) beside
+  96301 (A 1, slow, CSMT 00:02), and 95017 (KP 15, fast, CSMT 22:57) beside 96019
+  (KP 15, slow, CSMT 22:28). A service code normally belongs to one train, so each
+  pair looks like a replacement. Both are kept, because the evidence says the older
+  trains still run: NTES's train list of 2026-09-27, six weeks after the supplement
+  took effect, still had 96301 and 96019, and NTES recorded 96301 running on 25-27
+  September 2026 at its 2024 times (Kalyan 01:30, Ambernath 01:46). The new trains are
+  fast services in different slots, not retimed copies. If a later main edition drops
+  the old numbers, converting that edition will drop them here too.
 - "AC#" means the train runs without AC on Saturdays, Sundays and nominated holidays.
   It is stored as AC with the note `non_ac_weekends`.
 - Every change is reported, one line per train.

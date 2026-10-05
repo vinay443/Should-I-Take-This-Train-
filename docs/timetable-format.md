@@ -39,7 +39,7 @@ them.
 | `service_code` | no | The timetable's own code for the service, e.g. `A 1`. | `trains.service_code` |
 | `ac` | no | `yes` or `no`: an air-conditioned rake. | `trains.is_ac` |
 | `cars` | no | Rake length in cars, e.g. `15`. | `trains.car_count` |
-| `notes` | no | Flags joined by `\|`. `ladies_special` marks a train reserved for women; other flags, such as the PDF converter's `non_ac_weekends`, are ignored. | `trains.is_ladies_special` |
+| `notes` | no | Flags joined by `\|`. `ladies_special` marks a train reserved for women. `non_ac_weekends` marks an AC train that runs without AC on Saturdays and Sundays. Other flags are ignored. | `trains.is_ladies_special`, `trains.ac_weekdays_only` |
 
 Every value is trimmed of surrounding whitespace.
 
@@ -69,7 +69,8 @@ easier to read.
 **Optional attributes may be unknown.** A file without one of the optional columns leaves
 that attribute NULL in the database, and so does a blank `service_code`, `ac` or `cars`
 value: NULL means the source didn't say. `notes` is different: when the column is present,
-a train without the `ladies_special` flag is stored as not a ladies' special. Loading a
+a train without the `ladies_special` flag is stored as not a ladies' special, and likewise
+for `non_ac_weekends`. Loading a
 train again replaces its attributes along with everything else, so reloading from a file
 without these columns clears them.
 
@@ -162,8 +163,10 @@ for trip in next_trains(con, "Kalyan", "CSMT", datetime.now(), n=5):
     print(trip.number, trip.train_type, trip.departure, trip.arrival)
 ```
 
-Each trip also carries `service_code`, `is_ac`, `car_count` and `is_ladies_special`, which
-are `None` when the timetable didn't give them.
+Each trip also carries `service_code`, `is_ac`, `car_count`, `is_ladies_special` and
+`ac_weekdays_only`, which are `None` when the timetable didn't give them. `trip.runs_ac` says
+whether that particular run is air-conditioned, allowing for AC trains that run without AC
+at weekends.
 
 Stations can be given by code or name, in any case. Naive datetimes are treated as
 Mumbai time, and aware ones are converted to IST. Running days and trains crossing

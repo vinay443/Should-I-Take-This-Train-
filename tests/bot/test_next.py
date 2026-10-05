@@ -228,3 +228,26 @@ def test_log_falls_back_to_the_built_in_list_without_a_timetable(tmp_path):
         )
     )
     assert message.replies == ["Logged #1: 08:12 fast from CSMT · 4/5 packed"]
+
+
+def test_ac_weekdays_only_trains_are_not_marked_ac_at_weekends(tmp_path):
+    rows = [
+        "train_number,destination,service_type,direction,station_code,station_name,"
+        "scheduled_arrival,scheduled_departure,days,ac,notes",
+        "1,Kalyan,fast,down,TNA,Thane,,08:00,daily,yes,non_ac_weekends",
+        "1,Kalyan,fast,down,KYN,Kalyan,08:20,,daily,yes,non_ac_weekends",
+        "2,Kalyan,fast,down,TNA,Thane,,08:05,daily,yes,",
+        "2,Kalyan,fast,down,KYN,Kalyan,08:25,,daily,yes,",
+    ]
+    csv_path = tmp_path / "ac.csv"
+    csv_path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    path = tmp_path / "ac.duckdb"
+    with init_db(path) as con:
+        load_timetable(con, read_timetable(csv_path))
+
+    friday, saturday = datetime(2026, 10, 2, 7, 0), datetime(2026, 10, 3, 7, 0)
+    weekday = upcoming_trains(path, "TNA", "KYN", friday, n=2).trips
+    weekend = upcoming_trains(path, "TNA", "KYN", saturday, n=2).trips
+    assert [t.runs_ac for t in weekday] == [True, True]
+    assert [t.runs_ac for t in weekend] == [False, True]
+    assert [formatting.trip_tags(t) for t in weekend] == [[], ["AC"]]

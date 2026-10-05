@@ -28,6 +28,16 @@ class ScheduledTrip:
     is_ac: bool | None = None
     car_count: int | None = None
     is_ladies_special: bool | None = None
+    ac_weekdays_only: bool | None = None  # AC rake that runs without AC at weekends
+    service_day: date | None = None  # the day this run starts from its first station
+
+    @property
+    def runs_ac(self) -> bool | None:
+        """Whether this particular run is air-conditioned. None if the timetable doesn't say."""
+        if not self.is_ac:
+            return self.is_ac
+        weekend = self.service_day is not None and self.service_day.weekday() >= 5
+        return not (self.ac_weekdays_only and weekend)
 
     @property
     def duration(self) -> timedelta:
@@ -91,7 +101,8 @@ def next_trains(
                coalesce(o.scheduled_departure, o.scheduled_arrival),
                coalesce(d.scheduled_arrival, d.scheduled_departure),
                o.days_of_operation, d.days_of_operation,
-               t.service_code, t.is_ac, t.car_count, t.is_ladies_special
+               t.service_code, t.is_ac, t.car_count, t.is_ladies_special,
+               t.ac_weekdays_only
         FROM trains t
         JOIN stops o ON o.train_id = t.train_id AND o.station_code = $origin
         JOIN stops d ON d.train_id = t.train_id AND d.station_code = $destination
@@ -108,7 +119,7 @@ def next_trains(
             train_id, number, label, train_type, direction, start, dep, arr, o_days, d_days = row[
                 :10
             ]
-            service_code, is_ac, car_count, is_ladies_special = row[10:]
+            service_code, is_ac, car_count, is_ladies_special, ac_weekdays_only = row[10:]
             if o_days[weekday] != "Y" or d_days[weekday] != "Y":
                 continue
             departure = _on_service_day(service_day, start, dep)
@@ -127,6 +138,8 @@ def next_trains(
                     is_ac=is_ac,
                     car_count=car_count,
                     is_ladies_special=is_ladies_special,
+                    ac_weekdays_only=ac_weekdays_only,
+                    service_day=service_day,
                 )
             )
     trips.sort(key=lambda trip: (trip.departure, trip.arrival, trip.train_id))

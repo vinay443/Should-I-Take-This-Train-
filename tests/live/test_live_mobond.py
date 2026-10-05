@@ -26,6 +26,38 @@ def test_fixture_parses_completely():
     assert [o.raw_status for o in observations if o.event == "unknown"] == []
 
 
+def test_fixture_is_invented_but_covers_every_status_shape():
+    """The fixture is hand-written, not a copy of Mobond's feed, so it must be complete."""
+    body = FIXTURE.read_text(encoding="utf-8")
+    statuses = list(json.loads(body).values())
+    observations = parse_response(_raw(body))
+
+    # Every alternative of the parser's pattern, by the event it produces.
+    events = {o.event for o in observations}
+    assert events == {"at", "crossed", "arriving", "between", "rake_at", "cancelled"}
+    assert any(s.startswith("Reaching ") for s in statuses)  # parsed as "at" its current station
+
+    # Every optional part, present and absent, for each positional event.
+    for event in ("at", "crossed", "arriving", "between"):
+        group = [o for o in observations if o.event == event]
+        assert {o.delay_minutes is None for o in group} == {True, False}, event
+        assert {o.less_accurate for o in group} == {True, False}, event
+        assert any((o.delay_minutes or 0) > 0 for o in group), event
+        assert any((o.delay_minutes or 0) < 0 for o in group), event
+    for prefix in ("At ", "Crossed ", "Between "):
+        assert any(s.startswith("[") and f"] {prefix}" in s for s in statuses), prefix
+    assert any(o.observed_at < FETCHED for o in observations)  # "[N min ago]"
+    rakes = [o for o in observations if o.event == "rake_at"]
+    assert {o.delay_minutes is None for o in rakes} == {True, False}
+    assert sum(o.cancelled for o in observations) == 1
+
+    # Central numbers resolve to codes; Western (90-94xxx) keep the raw station name.
+    by_number = {o.train_number: o for o in observations}
+    assert by_number["95012"].station_code == "DI"
+    assert by_number["91010"].station_code == "DADAR"
+    assert by_number["97016"].station_code == "ULNR"
+
+
 @pytest.mark.parametrize(
     ("status", "event", "station", "delay", "less_accurate"),
     [

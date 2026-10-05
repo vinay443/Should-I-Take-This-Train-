@@ -49,6 +49,7 @@ AC_COLUMN = "ac"
 CARS_COLUMN = "cars"
 NOTES_COLUMN = "notes"
 LADIES_SPECIAL_NOTE = "ladies_special"
+NON_AC_WEEKENDS_NOTE = "non_ac_weekends"
 _TRUE_VALUES = frozenset({"yes", "y", "true", "1"})
 _FALSE_VALUES = frozenset({"no", "n", "false", "0"})
 
@@ -102,6 +103,7 @@ class Train:
     is_ac: bool | None = None
     car_count: int | None = None
     is_ladies_special: bool | None = None
+    ac_weekdays_only: bool | None = None
 
 
 @dataclass
@@ -205,6 +207,7 @@ def _train_attributes(row: dict[str, str], errors: list[str]) -> dict:
     if NOTES_COLUMN in row:
         notes = {note.strip().lower() for note in row[NOTES_COLUMN].split("|")}
         attributes["is_ladies_special"] = LADIES_SPECIAL_NOTE in notes
+        attributes["ac_weekdays_only"] = NON_AC_WEEKENDS_NOTE in notes
     return attributes
 
 
@@ -427,7 +430,12 @@ def station_order(routes: Iterable[tuple[str, str, Sequence[str]]]) -> list[str]
 _STATION_COLUMNS = {"code": "VARCHAR", "name": "VARCHAR"}
 _TRAIN_COLUMNS = dict.fromkeys(
     ("train_id", "number", "label", "train_type", "direction", "service_code"), "VARCHAR"
-) | {"is_ac": "BOOLEAN", "car_count": "INTEGER", "is_ladies_special": "BOOLEAN"}
+) | {
+    "is_ac": "BOOLEAN",
+    "car_count": "INTEGER",
+    "is_ladies_special": "BOOLEAN",
+    "ac_weekdays_only": "BOOLEAN",
+}
 _STOP_COLUMNS = {
     "train_id": "VARCHAR",
     "station_code": "VARCHAR",
@@ -510,16 +518,18 @@ def load_timetable(
         con.execute(
             """
             INSERT INTO trains (train_id, number, label, train_type, line, direction,
-                                service_code, is_ac, car_count, is_ladies_special)
+                                service_code, is_ac, car_count, is_ladies_special,
+                                ac_weekdays_only)
             SELECT train_id, number, label, train_type, ?, direction,
-                   service_code, is_ac, car_count, is_ladies_special
+                   service_code, is_ac, car_count, is_ladies_special, ac_weekdays_only
             FROM load_trains
             ON CONFLICT (train_id) DO UPDATE SET
                 number = excluded.number, label = excluded.label,
                 train_type = excluded.train_type, line = excluded.line,
                 direction = excluded.direction, service_code = excluded.service_code,
                 is_ac = excluded.is_ac, car_count = excluded.car_count,
-                is_ladies_special = excluded.is_ladies_special
+                is_ladies_special = excluded.is_ladies_special,
+                ac_weekdays_only = excluded.ac_weekdays_only
             """,
             [line],
         )
