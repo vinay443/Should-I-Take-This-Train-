@@ -37,6 +37,9 @@ select = ["E", "F", "W", "I", "B", "UP", "SIM"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "expects_blocked_network: the test relies on tests/conftest.py refusing a real connection",
+]
 
 [dependency-groups]
 dev = [
