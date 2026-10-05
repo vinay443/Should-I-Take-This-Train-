@@ -36,6 +36,8 @@ uv run python -m sitt.ingest.timetable tests/fixtures/sample_timetable.csv
 
 To run the Telegram crowd-logging bot, see [`docs/bot-setup.md`](docs/bot-setup.md).
 
+To collect live running status, see [`docs/collector.md`](docs/collector.md).
+
 ## Development
 
 ```bash
@@ -72,7 +74,9 @@ data/         local database (gitignored)
    find what timetable and live running data exists for Mumbai locals and how reliable it is.
 2. **Timetable ingestion** (done, see [`docs/timetable-format.md`](docs/timetable-format.md)):
    load stations, trains and scheduled stops for the Central line.
-3. **Live collector**: poll live running status on a schedule and store observations.
+3. **Live collector** (built, schedule not yet switched on, see
+   [`docs/collector.md`](docs/collector.md)): poll live running status on a schedule and store
+   observations.
 4. **Crowd logging bot** (done, see [`docs/bot-setup.md`](docs/bot-setup.md)): a Telegram
    bot that lets riders report how crowded their train is.
 5. **Baseline models**: simple benchmarks such as historical averages by train, station and
