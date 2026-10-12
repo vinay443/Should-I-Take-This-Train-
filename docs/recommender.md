@@ -8,7 +8,8 @@ recommends one with a one-line reason:
 > arrives 15 min later.
 
 The bot's `/next` shows this above the list of trains, and `/why` explains it. The dashboard
-has an interactive version.
+has an interactive version, and `uv run sitt-next KYN CSMT` prints it in a terminal (see the
+README for its options).
 
 ## Where the predicted times come from
 
@@ -18,7 +19,7 @@ The recommender uses the best source it has, and every reply says which:
 | --- | --- | --- |
 | **model** | A delay model **trained on real observations** is saved in `models/delay` | Predicts each train's delay at your station and at your destination, with a rough range (the "±4 min") |
 | **baseline** | No usable model, but the database has observations | Uses the median delay seen on earlier days for that train at that station |
-| **timetable** | Neither | Scheduled times as they stand |
+| **timetable** | Neither, or there are readings but none from earlier days of these trains | Scheduled times as they stand |
 
 **A model trained on synthetic data is not used.** Until real observations have been
 collected, any model you train comes from invented delays, so by default the recommender
@@ -45,6 +46,37 @@ delay figures tell you nothing about real trains. The same warning appears if th
 behind a baseline are synthetic.
 
 Crowding always comes from the rule-of-thumb estimate in [`crowding.md`](crowding.md).
+
+## Live readings
+
+Whatever the level, a **recent reading of a train today** beats a prediction. If the database
+holds a reading of a run at your station, or at a station before it on that train's route,
+taken no more than 30 minutes before the time you ask about (`SITT_LIVE_MAX_AGE_MINUTES`):
+
+- its delay becomes the train's delay leaving your station;
+- the arrival keeps whatever change en route the level predicted. At timetable level that is
+  none, so a train 9 minutes late leaving is shown 9 minutes late arriving. With a baseline of
+  "on time at Kalyan, 14 late into CSMT" and a live reading of 5 late, it arrives 19 late;
+- a train whose **scheduled time has passed but which is running late enough to still be
+  caught** is put back on the list ("Running late, so still to leave: the 10:06 fast");
+- the train just ahead's live delay feeds the crowding rule ("the train before it is 17 min
+  late"), even at timetable level.
+
+Readings taken after the time you ask about are ignored, so asking about a past moment with
+`sitt-next --date … --at …` doesn't see the future. Suspect readings flagged by `sitt-dq` are
+left out. Live trains are marked: "· live" in `/next`, "(live 10:15)" in `sitt-next`, a Live
+column in the dashboard, and a line in `/why`.
+
+**Nothing collects in the background**, so readings are only as fresh as your last manual
+run. To use them, collect once and then ask:
+
+```bash
+uv run sitt-collect
+uv run sitt-next KYN CSMT
+```
+
+NTES reports trains from beyond Kalyan (Kasara, Karjat and so on) and long-distance trains,
+so live readings mostly help for journeys from Kalyan or further out.
 
 ## The decision rule
 
@@ -76,11 +108,12 @@ Set these in `.env` (see [`.env.example`](../.env.example)). They are read by
 | `SITT_LADIES_SPECIAL_OK` | false | Whether ladies' specials may be recommended |
 | `SITT_MODEL_DIR` | `models/delay` | Where the trained delay model is |
 | `SITT_ALLOW_SYNTHETIC_MODEL` | false | Use a model even if it was trained on synthetic data. For testing only |
+| `SITT_LIVE_MAX_AGE_MINUTES` | 30 | How old a reading may be and still count as live. 0 turns live readings off |
 
 ## What it can't do yet
 
-- **Live data.** A train is known to be cancelled, or the train ahead to be late, only if the
-  collector has stored readings in the database within the last few hours. The collector's
-  schedule is not switched on, so in practice these rules never fire yet.
+- **Fresh data by itself.** Live readings and cancellations are only as recent as your last
+  manual `sitt-collect`; nothing runs in the background. NTES doesn't cover CSMT–Kalyan
+  locals, so most of the core route has no live readings at all.
 - **Changing trains.** It compares direct trains only.
 - **Platforms, or which coach to board.**

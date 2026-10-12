@@ -80,10 +80,19 @@ def trip_tags(trip: ScheduledTrip) -> list[str]:
 
 def prediction_footer(recommendation: Recommendation) -> str:
     """Says what the times are based on. Always names synthetic data when it was used."""
+    live = any(option.live is not None for option in recommendation.options)
     if recommendation.level == LEVEL_TIMETABLE:
-        basis = "Timetable times only: there is no delay data yet."
+        basis = (
+            "Timetable times, except trains marked live (a reading from the last few minutes)."
+            if live
+            else "Timetable times only: there is no delay data yet."
+        )
+        if recommendation.synthetic:
+            basis += " The live readings are SYNTHETIC (invented), not real trains."
     else:
         basis = f"Arrival times use the {recommendation.level_text}."
+        if live:
+            basis += " Trains marked live use a reading from the last few minutes."
     return f"{basis} {CROWDING_CAVEAT} /why for details."
 
 
@@ -103,6 +112,8 @@ def format_recommendation(recommendation: Recommendation) -> str:
             late = round(option.arrival_delay)
             if late:
                 line += f" ({abs(late)} min {'late' if late > 0 else 'early'})"
+            if option.live is not None:
+                line += " · live"
             if option.crowding:
                 line += f" · {option.crowding.label}"
         if tags := trip_tags(trip):

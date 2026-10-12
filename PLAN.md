@@ -37,7 +37,7 @@ clear error and exit code 2; `--train` with no matching train says so; tests cov
 `--at`/`--date`, `--train` and errors; verified by running it against the sample timetable
 and against the real database.
 
-### 3. Use live readings in recommendations (roadmap item 6) — [ ]
+### 3. Use live readings in recommendations (roadmap item 6) — [x]
 Today only *past days'* readings feed predictions (and cancellations). A reading taken a few
 minutes ago that says "running 9 min late" is ignored.
 Use the latest same-day reading of each candidate at the boarding station (or the
