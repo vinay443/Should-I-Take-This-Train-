@@ -9,6 +9,13 @@ item; the next unticked item in PLAN.md is what to do next.
 
 ## 2026-10-12
 
+### Item 9: `sitt-next --collect` (done)
+- One `sitt-collect` round (NTES; Mobond only with both switches) right before answering;
+  prints "Live check just now: ntes N readings." A failed fetch still gives an answer.
+  `--data-dir` for where batches go. No network without the flag (tested).
+- Not tried against the real NTES from here (no route from the cloud workspace); tests use
+  the recorded NTES board fixture. Worth one real run on your PC.
+
 ### Item 8: "Did you mean…?" for stations (done)
 - `StationDirectory.suggest` (stdlib difflib over aliases, codes and names); the bot's
   `/next` and `sitt-next` both add "Did you mean Thane (TNA)?" to the unknown-station error.
