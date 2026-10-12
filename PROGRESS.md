@@ -9,6 +9,10 @@ item; the next unticked item in PLAN.md is what to do next.
 
 ## 2026-10-12
 
+### Item 17: two-minute quick start (done)
+- README "Try it in two minutes": four commands from a fresh clone to a `sitt-next` answer
+  on the sample timetable. Verified in a fresh clone of `main`.
+
 ### Item 16: line-state nowcast backtest (done; not used in recommendations)
 - New `python -m sitt.models.line_state [--by-direction]`: predicts each run's final delay
   15-60 min ahead from zero / own reading / other same-direction trains' honest readings /
