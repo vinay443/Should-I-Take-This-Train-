@@ -9,11 +9,13 @@ when the train was due** (within `CLOSE_MINUTES` of its expected time), which st
 what really happened: a 15-minute snapshot usually misses the moment a train passes, so true
 "actual" times are rare.
 
-For every earlier reading it records the *lead* (how long before the train was due the
-reading was taken) and the *drift* (final delay minus the delay that reading gave). Drift is
-summarised by lead bucket, separately for readings that said "on time" (0) and readings that
-already showed a delay. See docs/live-drift.md for the results and what the recommender does
-with them.
+For every earlier reading it records the *lead* (how long before the train's **scheduled**
+time the reading was taken: the only time a rider knows when the reading comes in; negative
+once that time has passed) and the *drift* (final delay minus the delay that reading gave).
+A run is one train at one station on one service day; arrival and departure readings are the
+same run. Drift is summarised by lead bucket, separately for readings that said "on time"
+(0 or early) and readings that already showed a delay. See docs/live-drift.md for the
+results and what the recommender does with them.
 """
 
 import argparse
@@ -25,7 +27,9 @@ import duckdb
 
 # The last reading counts as "what happened" only if taken this close to the train's time.
 CLOSE_MINUTES = 15
-# Lead buckets, in minutes before the train was due: [0, 15), [15, 30), [30, 60), [60, ...).
+# Lead buckets, in minutes before the train's scheduled time: after it (< 0), [0, 15),
+# [15, 30), [30, 60), [60, ...).
+AFTER = -1
 BUCKETS = (0, 15, 30, 60)
 
 
@@ -44,6 +48,8 @@ class DriftRow:
 
     @property
     def lead_label(self) -> str:
+        if self.lead_from == AFTER:
+            return "after its time"
         if self.lead_to is None:
             return f"{self.lead_from}+ min"
         return f"{self.lead_from}-{self.lead_to} min"
@@ -54,7 +60,7 @@ def _bucket_sql() -> str:
         f"WHEN lead < {upper} THEN {lower}"
         for lower, upper in zip(BUCKETS, BUCKETS[1:], strict=False)
     )
-    return f"CASE {cases} ELSE {BUCKETS[-1]} END"
+    return f"CASE WHEN lead < 0 THEN {AFTER} {cases} ELSE {BUCKETS[-1]} END"
 
 
 def drift_pairs_sql(suburban_only: bool = True) -> str:
@@ -62,8 +68,10 @@ def drift_pairs_sql(suburban_only: bool = True) -> str:
     where_suburban = "AND train_id IN (SELECT train_id FROM trains)" if suburban_only else ""
     return f"""
         WITH r AS (
-            SELECT train_id, station_code, event, observed_at,
+            SELECT train_id, station_code, observed_at,
                    actual_or_expected_time AS t, delay_minutes AS d,
+                   actual_or_expected_time - to_minutes(CAST(delay_minutes AS BIGINT))
+                       AS scheduled,
                    -- One run of a train: readings whose scheduled time falls on the same
                    -- service day (shifted 3 h so late-night runs stay together).
                    date_trunc('day', actual_or_expected_time
@@ -74,17 +82,16 @@ def drift_pairs_sql(suburban_only: bool = True) -> str:
               AND source <> 'synthetic'
               {where_suburban}
         ), final AS (
-            SELECT train_id, station_code, event, run_key,
-                   arg_max(d, observed_at) AS d_final, arg_max(t, observed_at) AS t_final,
-                   max(observed_at) AS last_seen
+            SELECT train_id, station_code, run_key,
+                   arg_max(d, observed_at) AS d_final, max(observed_at) AS last_seen
             FROM r GROUP BY ALL
             HAVING max(observed_at) >= arg_max(t, observed_at) - INTERVAL {CLOSE_MINUTES} MINUTE
         )
-        SELECT r.d = 0 AS said_on_time,
-               (epoch(f.t_final) - epoch(r.observed_at)) / 60 AS lead,
+        SELECT round(r.d) <= 0 AS said_on_time,
+               (epoch(r.scheduled) - epoch(r.observed_at)) / 60 AS lead,
                f.d_final - r.d AS drift
-        FROM r JOIN final f USING (train_id, station_code, event, run_key)
-        WHERE r.observed_at < f.last_seen AND f.t_final >= r.observed_at
+        FROM r JOIN final f USING (train_id, station_code, run_key)
+        WHERE r.observed_at < f.last_seen
     """
 
 
@@ -98,7 +105,7 @@ def drift_table(con: duckdb.DuckDBPyConnection, suburban_only: bool = True) -> l
         FROM pairs GROUP BY ALL ORDER BY said_on_time DESC, bucket
         """
     ).fetchall()
-    ends = dict(zip(BUCKETS, [*BUCKETS[1:], None], strict=True))
+    ends = dict(zip(BUCKETS, [*BUCKETS[1:], None], strict=True)) | {AFTER: 0}
     return [
         DriftRow(bool(on_time), int(b), ends[int(b)], int(n), *(float(v) for v in rest))
         for on_time, b, n, *rest in rows
@@ -107,8 +114,8 @@ def drift_table(con: duckdb.DuckDBPyConnection, suburban_only: bool = True) -> l
 
 def format_table(rows: list[DriftRow]) -> str:
     lines = [
-        "| Reading said | Taken before due | Readings | Mean abs drift | 10th pct | Median "
-        "| 90th pct | Ended 5+ min later | Ended 3+ min earlier |",
+        "| Reading said | Taken before scheduled time | Readings | Mean abs drift | 10th pct "
+        "| Median | 90th pct | Ended 5+ min later | Ended 3+ min earlier |",
         "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for row in rows:
