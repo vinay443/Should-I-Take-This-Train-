@@ -444,3 +444,21 @@ def test_synthetic_model_can_be_allowed_for_testing(synthetic_setup):
     why = explain(rec)
     assert "Predictions used: delay model, built from SYNTHETIC (invented) data" in why
     assert "say nothing about how real trains run" in why and "likely between" in why
+
+
+def test_the_baseline_leaves_out_readings_flagged_by_sitt_dq(loaded):
+    # 90106 into CSMT: 10 min late on three days, and three absurd 300-minute readings.
+    for back, delay in enumerate([10, 300, 10, 300, 10, 300], start=1):
+        day = MONDAY_7 - timedelta(days=back)
+        _reading(loaded, day.replace(hour=8, minute=30), "90106", "CSMT", delay)
+    unflagged = recommend(loaded, "KYN", "CSMT", MONDAY_7, model_dir=None)
+    fast = next(o for o in unflagged.options if o.trip.number == "90106")
+    assert fast.arrival_delay == 155  # the median, dragged up by the bad readings
+    loaded.execute(
+        "INSERT INTO dq_flags (observation_id, flag, detail, flagged_at) "
+        "SELECT id, 'implausible_delay', 'test', now() FROM observations "
+        "WHERE delay_minutes = 300"
+    )
+    flagged = recommend(loaded, "KYN", "CSMT", MONDAY_7, model_dir=None)
+    fast = next(o for o in flagged.options if o.trip.number == "90106")
+    assert fast.arrival_delay == 10

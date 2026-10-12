@@ -4,10 +4,16 @@ Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
 ## Where this stopped
 
-Round 3 in progress (PLAN.md items 15-18; rounds 1-2 done). See the newest entry below for the last finished
+Round 4 in progress (PLAN.md items 19-21; rounds 1-3 done). See the newest entry below for the last finished
 item; the next unticked item in PLAN.md is what to do next.
 
 ## 2026-10-12
+
+### Items 19-20: timetable currency; flags in the baseline (done)
+- The 15 Aug 2026 15-car changes are in the timetable; the 29 June 2026 AC conversions (12
+  services) are not. README says so. **Needs you:** the newer AC supplement PDF from Central
+  Railway (couldn't open their page without your approval).
+- The baseline already leaves out `dq_flags` readings; test added, data-quality doc fixed.
 
 ### Item 18: bot handler tests (done)
 - `tests/bot/test_log_flow.py`: the full `/log` button flow to a saved report and `/mylogs`,
