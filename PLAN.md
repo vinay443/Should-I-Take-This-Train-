@@ -86,7 +86,7 @@ tests and a handler test pass; help text and bot docs updated.
 `sitt-next KYN CSTM` and `/next KYN Thaane` suggest the closest station names/codes
 (stdlib `difflib`). **Done when:** tests for typos, codes and names; both entry points use it.
 
-### 9. `sitt-next --collect` — [ ]
+### 9. `sitt-next --collect` — [x]
 Runs one manual collection round (same as `sitt-collect`, NTES only unless Mobond is
 permitted) and then recommends, so live readings are fresh. Never scheduled. **Done when:**
 test with a mocked HTTP client (network stays blocked in tests); a failed collection still

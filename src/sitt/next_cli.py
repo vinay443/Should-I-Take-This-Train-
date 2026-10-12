@@ -5,20 +5,25 @@
     uv run sitt-next Kalyan CSMT --date 2026-10-13 --at 18:30
     uv run sitt-next KYN CSMT --train 08:12      focus on the train leaving at 08:12
     uv run sitt-next KYN CSMT --why              the full explanation, as /why gives it
+    uv run sitt-next KYN CSMT --collect          fetch live running status once, then answer
 
 It uses the same recommender as the bot's `/next` (sitt.recommend), on the database at
-SITT_DB_PATH or `--db`. Nothing is fetched from the network. To use a fresh live reading,
-run `uv run sitt-collect` once by hand first (see docs/recommender.md).
+SITT_DB_PATH or `--db`. Nothing is fetched from the network unless you pass `--collect`,
+which does exactly one `sitt-collect` round (NTES; Mobond only if both of its switches are
+on) right then. Nothing is ever scheduled. See docs/recommender.md#live-readings.
 
 Exit codes: 0 a recommendation was printed, 1 nothing could be recommended or the asked-for
 train isn't in the timetable, 2 bad arguments (unknown station, bad time, no database).
 """
 
 import argparse
+import logging
 import sys
 from dataclasses import replace
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
+
+import httpx
 
 from sitt.bot.formatting import trip_tags
 from sitt.bot.schedule import ScheduleError, recommend_trains
@@ -66,7 +71,41 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("-n", type=int, help="how many trains to compare (default 5)")
     parser.add_argument("--db", type=Path, help="database file (default SITT_DB_PATH)")
     parser.add_argument("--no-model", action="store_true", help="ignore any saved delay model")
+    parser.add_argument(
+        "--collect",
+        action="store_true",
+        help="fetch live running status once (like sitt-collect) before answering",
+    )
+    parser.add_argument(
+        "--data-dir",
+        type=Path,
+        default=Path("data"),
+        help="where --collect keeps raw responses and batches (default: data)",
+    )
     return parser
+
+
+def collect_now(db_path: Path, data_dir: Path, client: httpx.Client | None = None) -> str:
+    """One manual collection round. Returns a line saying how it went; never raises."""
+    from sitt.ingest.live import local  # only needed with --collect
+
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    try:
+        run = local.run_once(data_dir, db_path, local.enabled_sources(), client)
+    except Exception as exc:  # a failed fetch must not stop the recommendation
+        return f"Live check failed ({type(exc).__name__}); using what the database already has."
+    parts = []
+    for result in run.collected.sources:
+        if result.skipped:
+            parts.append(f"{result.source} skipped ({result.skipped})")
+        elif result.ok:
+            parts.append(f"{result.source} {len(result.observations)} readings")
+        else:
+            parts.append(f"{result.source} failed ({result.error})")
+    line = "Live check just now: " + ", ".join(parts) + "."
+    if run.load_error:
+        line += " Could not save them to the database, so they aren't used this time."
+    return line
 
 
 def asked_at(now: datetime, at: time | None, day: date | None, train: time | None) -> datetime:
@@ -197,7 +236,11 @@ def format_answer(recommendation: Recommendation, focus: int | None = None) -> s
     return "\n".join(lines)
 
 
-def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
+def main(
+    argv: list[str] | None = None,
+    now: datetime | None = None,
+    client: httpx.Client | None = None,
+) -> int:
     # Windows consoles and redirected output may not be UTF-8; never crash on a symbol.
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
@@ -216,6 +259,7 @@ def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
     if args.n is not None:
         recommend_settings = replace(recommend_settings, candidates=max(1, args.n))
     when = asked_at(now or datetime.now(IST), args.at, args.date, args.train)
+    collected = collect_now(Path(db_path), args.data_dir, client) if args.collect else None
     try:
         recommendation = recommend_trains(
             db_path,
@@ -241,6 +285,9 @@ def main(argv: list[str] | None = None, now: datetime | None = None) -> int:
             )
             return 1
 
+    if collected:
+        print(collected)
+        print()
     print(explain(recommendation) if args.why else format_answer(recommendation, focus))
     return 0 if recommendation.choice is not None else 1
 

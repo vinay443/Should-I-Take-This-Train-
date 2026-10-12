@@ -1,12 +1,17 @@
 """`sitt-next`: the command-line recommender."""
 
 from datetime import date, datetime, time
+from pathlib import Path
 
+import duckdb
+import httpx
 import pytest
 from conftest import SAMPLE_CSV
 
 from sitt import next_cli
 from sitt.db import init_db
+from sitt.ingest.live import mobond, ntes
+from sitt.ingest.live.common import make_client
 from sitt.ingest.timetable import load_timetable, read_timetable
 from sitt.tz import IST
 
@@ -139,3 +144,75 @@ def test_a_typo_gets_a_suggestion(db, capsys):
     code, _, err = run(db, capsys, "KYN", "Thaane")
     assert code == 2
     assert "Did you mean Thane (TNA)?" in err
+
+
+# --- --collect: one manual collection round, against a fake NTES ---
+
+LIVE_FIXTURES = Path(__file__).parent / "fixtures" / "live"
+
+
+class FakeNtes:
+    def __init__(self, status: int = 200):
+        self.status = status
+        self.hosts: list[str] = []
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        self.hosts.append(request.url.host)
+        url = str(request.url)
+        if url == ntes.BASE_URL:
+            return httpx.Response(self.status, text="<html>home</html>")
+        if url.startswith(f"{ntes.BASE_URL}GetCSRFToken"):
+            return httpx.Response(200, text="<input type='hidden' name='tk1' value='v1'>")
+        if url.startswith(f"{ntes.BASE_URL}q?"):
+            board = (LIVE_FIXTURES / "ntes_live_station_kyn.html").read_text(encoding="utf-8")
+            return httpx.Response(200, text=board)
+        return httpx.Response(404)
+
+
+@pytest.fixture
+def no_mobond(monkeypatch):
+    monkeypatch.setattr(ntes, "PAUSE_SECONDS", 0)
+    monkeypatch.delenv(mobond.ENABLE_VARIABLE, raising=False)
+    monkeypatch.delenv(mobond.PERMISSION_VARIABLE, raising=False)
+
+
+def test_collect_fetches_once_then_recommends(db, tmp_path, capsys, no_mobond):
+    fake = FakeNtes()
+    with make_client(httpx.MockTransport(fake)) as client:
+        code = next_cli.main(
+            ["--db", str(db), "--data-dir", str(tmp_path / "data"), "--collect", "KYN", "CSMT"],
+            now=NOW,
+            client=client,
+        )
+    out = capsys.readouterr().out
+    assert code == 0
+    first = out.splitlines()[0]
+    assert first.startswith("Live check just now: ntes ") and first.endswith(" readings.")
+    assert int(first.split("ntes ")[1].split()[0]) > 0
+    assert "Kalyan -> Chhatrapati Shivaji Maharaj Terminus" in out
+    assert set(fake.hosts) == {"enquiry.indianrail.gov.in"}  # NTES only, never Mobond
+    with duckdb.connect(str(db), read_only=True) as con:
+        assert con.execute("SELECT count(*) FROM observations").fetchone()[0] > 0
+        assert con.execute("SELECT count(*) FROM collector_runs").fetchone()[0] >= 1
+
+
+def test_a_failed_collection_still_recommends(db, tmp_path, capsys, no_mobond):
+    with make_client(httpx.MockTransport(FakeNtes(status=503))) as client:
+        code = next_cli.main(
+            ["--db", str(db), "--data-dir", str(tmp_path / "data"), "--collect", "KYN", "CSMT"],
+            now=NOW,
+            client=client,
+        )
+    out = capsys.readouterr().out
+    assert code == 0
+    assert out.splitlines()[0].startswith("Live check just now: ntes failed (")
+    assert "Kalyan -> Chhatrapati Shivaji Maharaj Terminus" in out
+
+
+def test_without_collect_nothing_is_fetched(db, capsys):
+    def refuse(request):
+        raise AssertionError("no request may be made without --collect")
+
+    with make_client(httpx.MockTransport(refuse)) as client:
+        assert next_cli.main(["--db", str(db), "KYN", "CSMT"], now=NOW, client=client) == 0
+    assert "Live check" not in capsys.readouterr().out

@@ -89,10 +89,12 @@ uv run sitt-next KYN CSMT
 | `-n 8` | Compare 8 trains instead of 5 |
 | `--db path` | Use another database than `SITT_DB_PATH` |
 | `--no-model` | Ignore any saved delay model |
+| `--collect` | Fetch live running status once (one `sitt-collect` round) and then answer, so live readings are fresh. The only option that uses the network |
 
 It prints the recommendation, then one row per train: when it leaves, predicted arrival,
 how late it is predicted to leave, estimated crowding, and tags (AC, 15-car, ladies'
-special). It fetches nothing from the network. Exit code 0 means a train was recommended.
+special). Without `--collect` it fetches nothing from the network. A mistyped station gets
+"Did you mean…?". Exit code 0 means a train was recommended.
 
 ## Run the bot
 
@@ -136,8 +138,7 @@ if that is ever switched on, and stores it as observations. See
   just before asking to get live readings into the recommendation:
 
   ```bash
-  uv run sitt-collect
-  uv run sitt-next KYN CSMT
+  uv run sitt-next KYN CSMT --collect
   ```
 
   [`docs/collector.md`](docs/collector.md#6-running-it-on-this-windows-machine) also describes an

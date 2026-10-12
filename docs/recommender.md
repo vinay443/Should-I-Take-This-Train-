@@ -71,9 +71,12 @@ column in the dashboard, and a line in `/why`.
 run. To use them, collect once and then ask:
 
 ```bash
-uv run sitt-collect
-uv run sitt-next KYN CSMT
+uv run sitt-next KYN CSMT --collect
 ```
+
+That runs one `sitt-collect` round first (the same as running it yourself) and prints how it
+went ("Live check just now: ntes 212 readings."). If the fetch fails, you still get a
+recommendation from what the database already has.
 
 NTES reports trains from beyond Kalyan (Kasara, Karjat and so on) and long-distance trains,
 so live readings mostly help for journeys from Kalyan or further out.

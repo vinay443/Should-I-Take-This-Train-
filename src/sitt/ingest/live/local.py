@@ -19,8 +19,10 @@ the next run loads it.
 Every run, including one where every source failed, is recorded in `collector_runs`
 (see sitt.ingest.live.runlog), which is what `sitt-health` reads.
 
-Meant to be run every 15 minutes by Windows Task Scheduler; `scripts/collect-once.ps1`
-wraps it, and `scripts/register-collector-task.ps1` creates the task.
+Run it by hand, or with `sitt-next --collect` just before asking for a recommendation.
+It can also be run every 15 minutes by Windows Task Scheduler (`scripts/collect-once.ps1`
+wraps it, `scripts/register-collector-task.ps1` creates the task), but that is optional
+and not in use.
 """
 
 import argparse
