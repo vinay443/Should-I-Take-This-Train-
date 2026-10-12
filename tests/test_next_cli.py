@@ -1,6 +1,7 @@
 """`sitt-next`: the command-line recommender."""
 
-from datetime import date, datetime, time
+import re
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
 import duckdb
@@ -216,3 +217,77 @@ def test_without_collect_nothing_is_fetched(db, capsys):
     with make_client(httpx.MockTransport(refuse)) as client:
         assert next_cli.main(["--db", str(db), "KYN", "CSMT"], now=NOW, client=client) == 0
     assert "Live check" not in capsys.readouterr().out
+
+
+# --- live, cancelled and history rows ---
+
+
+def _observe(db, when: datetime, number: str, delay, source="ntes", cancelled=False):
+    with init_db(db) as con:
+        con.execute(
+            "INSERT INTO observations (observed_at, train_id, station_code, delay_minutes, "
+            "source, train_number, event, cancelled) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [when, f"central-{number}", "" if cancelled else "KYN", delay, source, number,
+             "cancelled" if cancelled else "at", cancelled],
+        )  # fmt: skip
+
+
+def test_live_cancelled_and_focus_on_a_train_that_is_not_the_pick(db, capsys):
+    _observe(db, NOW - timedelta(minutes=3), "90106", 6)  # the 07:12 fast, 6 late
+    _observe(db, NOW - timedelta(minutes=20), "90108", None, cancelled=True)
+    code, out, _ = run(db, capsys, "KYN", "CSMT", "--train", "07:12", "--at", "07:00")
+    assert code == 0
+    rows = {
+        re.search(r"\d\d:\d\d", line).group(): line
+        for line in out.splitlines()
+        if " to CSMT" in line and not line.startswith("The ")
+    }
+    assert "6 min late (live 06:57)" in rows["07:12"]
+    assert "CANCELLED" in rows["07:31"]
+    assert "Times: timetable, except trains marked live." in out
+    assert "live: 6 min late at 06:57, at KYN" in out
+    # 07:12 + 6 = 08:25 arrival, after the 07:03 slow's 08:24: so the slow is the pick.
+    assert "Recommended instead: the 07:03 slow." in out
+
+    code, out, _ = run(db, capsys, "KYN", "CSMT", "--train", "07:31", "--at", "07:00")
+    assert "reported CANCELLED" in out
+
+
+def test_history_gives_a_range_and_synthetic_is_flagged(db, capsys):
+    # Six earlier days of the 07:12 fast: on time at Kalyan, 12-16 min late into CSMT.
+    with init_db(db) as con:
+        for back, late in enumerate([12, 13, 14, 15, 16, 14], start=1):
+            day = NOW - timedelta(days=back)
+            for station, delay, hhmm in (("KYN", 0, (7, 12)), ("CSMT", late, (8, 30))):
+                con.execute(
+                    "INSERT INTO observations (observed_at, train_id, station_code, "
+                    "delay_minutes, source, train_number, event) "
+                    "VALUES (?, 'central-90106', ?, ?, 'synthetic', '90106', 'at')",
+                    [day.replace(hour=hhmm[0], minute=hhmm[1]), station, delay],
+                )
+    code, out, _ = run(db, capsys, "KYN", "CSMT", "--train", "07:12", "--at", "07:00")
+    assert code == 0
+    assert "Times: typical past delay of each train, built from SYNTHETIC" in out
+    assert "SYNTHETIC: these delays come from invented data" in out
+    assert "likely between" in out  # the focus block shows the 10th-90th percentile range
+    row = next(
+        line
+        for line in out.splitlines()
+        if " to CSMT" in line and not line.startswith("The ") and "07:12" in line
+    )
+    assert "±" in row
+
+
+def test_collect_reports_a_crash_without_stopping(db, tmp_path, capsys, monkeypatch):
+    from sitt.ingest.live import local
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(local, "run_once", boom)
+    code = next_cli.main(
+        ["--db", str(db), "--data-dir", str(tmp_path / "d"), "--collect", "KYN", "CSMT"], now=NOW
+    )
+    out = capsys.readouterr().out
+    assert code == 0
+    assert out.startswith("Live check failed (RuntimeError); using what the database already has.")

@@ -223,6 +223,13 @@ uv run ruff format
 uv run pytest
 ```
 
+To see which lines the tests reach (about 92% of `src/sitt` on 12 October 2026; the
+Streamlit app itself shows as 0% because its headless test runs it as a script):
+
+```bash
+uv run pytest --cov=sitt --cov-report=term-missing:skip-covered
+```
+
 CI runs the same checks on every push and pull request. Tests can't touch the network: any
 attempt to connect beyond this machine fails the test that made it.
 

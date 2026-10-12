@@ -9,6 +9,14 @@ item; the next unticked item in PLAN.md is what to do next.
 
 ## 2026-10-12
 
+### Item 13: test coverage (done)
+- `pytest-cov` added as a dev dependency (free). Coverage: 92% of `src/sitt` (6,916
+  statements). Weakest: `dashboard/app.py` (0%, a measurement artefact: AppTest runs it as
+  a script), `ingest/live/probe.py` 51% (manual network probe), `ingest/live/load.py` 72%
+  (CLI glue), `bot/handlers.py` 80% (Telegram callbacks).
+- New tests for `sitt-next` live/cancelled/history/synthetic rows and a crashed
+  `--collect`, and for the loader CLI. 671 tests.
+
 ### Item 12: dashboard freshness (done)
 - Sidebar, with real observations: "Last collected 06 Oct 12:45 (6 days ago). Collection is
   by hand: `uv run sitt-next KYN CSMT --collect` fetches fresh readings." (newest real

@@ -107,7 +107,7 @@ anything, to change in the generator; any clear, low-risk fix applied with tests
 Show when the data was last collected and which trains have live readings.
 **Done when:** dashboard tests cover it; app runs headless without errors.
 
-### 13. Test coverage — [ ]
+### 13. Test coverage — [x]
 Measure coverage (pytest-cov, free), list the weakest modules, add tests where they guard
 real behaviour. **Done when:** coverage figure in PROGRESS.md and README dev section.
 
