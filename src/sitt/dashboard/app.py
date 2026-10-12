@@ -43,6 +43,18 @@ def query(name: str, db: Path, *args):
     return cached(name, str(db), _stamp(db), *args)
 
 
+def freshness_text(db: Path) -> str:
+    """When real data was last collected, and how to get fresh readings."""
+    last = data.last_collected(db)
+    if last is None:
+        return "Nothing collected yet. Run `uv run sitt-collect` to collect once."
+    now = datetime.now(IST).replace(tzinfo=None)
+    return (
+        f"Last collected {last:%d %b %H:%M} ({data.age_text(last, now)}). Collection is by "
+        "hand: `uv run sitt-next KYN CSMT --collect` fetches fresh readings."
+    )
+
+
 def banners(sources: data.Sources, observations: bool) -> None:
     if sources.timetable_kind == data.TIMETABLE_SAMPLE:
         st.error(data.SAMPLE_BANNER, icon="⚠️")
@@ -416,6 +428,8 @@ def main() -> None:
     st.sidebar.caption(
         "Observations: " + ("SYNTHETIC (invented)." if sources.synthetic else "collected.")
     )
+    if not sources.synthetic and sources.observations_db is not None:
+        st.sidebar.caption(freshness_text(sources.observations_db))
     {
         "Timetable": timetable_page,
         "Delay patterns": delays_page,

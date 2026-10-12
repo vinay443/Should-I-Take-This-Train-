@@ -223,6 +223,38 @@ def observation_summary(db: Path) -> dict:
     return {"rows": rows, "first": first, "last": last, "cancelled": cancelled, "sources": sources}
 
 
+def last_collected(db: Path) -> datetime | None:
+    """When real data was last collected (Mumbai time, naive): the newest real reading or
+    collector run, whichever is later. None if there is neither."""
+    with _read(db) as con:
+        (reading,) = con.execute(
+            f"SELECT max(make_timestamp((epoch_ms(observed_at) + {IST_OFFSET_MS}) * 1000)) "
+            "FROM observations WHERE source <> ?",
+            [SYNTHETIC_SOURCE],
+        ).fetchone()
+        has_runs = con.execute(
+            "SELECT count(*) FROM information_schema.tables WHERE table_name = 'collector_runs'"
+        ).fetchone()[0]
+        run = None
+        if has_runs:
+            (run,) = con.execute(
+                f"SELECT max(make_timestamp((epoch_ms(started_at) + {IST_OFFSET_MS}) * 1000)) "
+                "FROM collector_runs"
+            ).fetchone()
+    found = [moment for moment in (reading, run) if moment is not None]
+    return max(found) if found else None
+
+
+def age_text(then: datetime, now: datetime) -> str:
+    """ "5 min ago", "3 h ago", "6 days ago"."""
+    minutes = max(0, round((now - then).total_seconds() / 60))
+    if minutes < 90:
+        return f"{minutes} min ago"
+    if minutes < 48 * 60:
+        return f"{round(minutes / 60)} h ago"
+    return f"{round(minutes / 1440)} days ago"
+
+
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 

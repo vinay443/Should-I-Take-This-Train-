@@ -9,6 +9,12 @@ item; the next unticked item in PLAN.md is what to do next.
 
 ## 2026-10-12
 
+### Item 12: dashboard freshness (done)
+- Sidebar, with real observations: "Last collected 06 Oct 12:45 (6 days ago). Collection is
+  by hand: `uv run sitt-next KYN CSMT --collect` fetches fresh readings." (newest real
+  reading or collector run). Live readings were already shown in the recommender's Live
+  column and notes (item 3). 2 new tests, incl. a headless app run on a real-style DB.
+
 ### Item 11: synthetic vs real (done, doc + tool; generator unchanged)
 - New `python -m sitt.synth.compare`: real vs synthetic delays by direction and fast/slow,
   restricted to the stations, kinds of day and hours the real data covers.

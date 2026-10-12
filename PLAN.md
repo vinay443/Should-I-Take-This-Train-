@@ -103,7 +103,7 @@ Compare the synthetic generator's delay distribution (by hour, fast/slow, direct
 the real KYN readings. **Done when:** `docs/synthetic-vs-real.md` with a table and what, if
 anything, to change in the generator; any clear, low-risk fix applied with tests.
 
-### 12. Dashboard: data freshness and live readings — [ ]
+### 12. Dashboard: data freshness and live readings — [x]
 Show when the data was last collected and which trains have live readings.
 **Done when:** dashboard tests cover it; app runs headless without errors.
 
