@@ -141,5 +141,13 @@ def split_stations(words: Sequence[str], stations: StationDirectory) -> tuple[st
 def _station(stations: StationDirectory, text: str) -> Station:
     station = stations.lookup(text)
     if station is None:
-        raise ScheduleError(f"I don't know a station called {text!r}.")
+        message = f"I don't know a station called {text!r}."
+        if close := stations.suggest(text):
+            message += " Did you mean " + _either(stations.label(s.code) for s in close) + "?"
+        raise ScheduleError(message)
     return station
+
+
+def _either(names) -> str:
+    names = list(names)
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " or " + names[-1]

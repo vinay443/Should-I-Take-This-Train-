@@ -133,3 +133,9 @@ def test_asked_at():
     )
     # --at wins over --train
     assert next_cli.asked_at(NOW, time(8, 0), None, time(8, 12)).time() == time(8, 0)
+
+
+def test_a_typo_gets_a_suggestion(db, capsys):
+    code, _, err = run(db, capsys, "KYN", "Thaane")
+    assert code == 2
+    assert "Did you mean Thane (TNA)?" in err

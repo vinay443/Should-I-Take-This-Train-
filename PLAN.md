@@ -82,7 +82,7 @@ how to switch back to a cadence.
 `/next KYN CSMT 8:00` (and `tomorrow 8:00`) like `sitt-next --at`. **Done when:** parsing
 tests and a handler test pass; help text and bot docs updated.
 
-### 8. "Did you mean…?" for unknown stations — [ ]
+### 8. "Did you mean…?" for unknown stations — [x]
 `sitt-next KYN CSTM` and `/next KYN Thaane` suggest the closest station names/codes
 (stdlib `difflib`). **Done when:** tests for typos, codes and names; both entry points use it.
 
