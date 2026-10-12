@@ -2,6 +2,7 @@
 
 import logging
 import sys
+from pathlib import Path
 
 from telegram import BotCommand, Update
 from telegram.ext import (
@@ -57,6 +58,8 @@ def build_application(settings: Settings) -> Application:
         Application.builder().token(settings.telegram_bot_token).post_init(_post_init).build()
     )
     application.bot_data[handlers.DB_PATH_KEY] = settings.db_path
+    # `/next … live` keeps its batches beside the database (data/ by default).
+    application.bot_data[handlers.DATA_DIR_KEY] = Path(settings.db_path).parent
     application.bot_data[handlers.MODEL_DIR_KEY] = settings.model_dir
     application.bot_data[handlers.RECOMMEND_SETTINGS_KEY] = settings.recommend
     application.bot_data[handlers.MATCH_SETTINGS_KEY] = settings.match

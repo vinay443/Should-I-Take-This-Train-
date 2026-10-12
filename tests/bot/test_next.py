@@ -366,7 +366,7 @@ def test_next_live_collects_once_then_answers(sample_db, monkeypatch):
 
     monkeypatch.setattr(handlers, "collect_now", fake_collect)
     replies = _run_next(sample_db, ["KYN", "CSMT", "live", "tomorrow", "7:00"])
-    assert calls == [(sample_db, Path("data"))]
+    assert calls == [(sample_db, sample_db.parent)]  # batches go beside the database
     assert replies[0] == "Checking live running status…"
     assert replies[1].startswith("Live check just now: ntes 12 readings.\n\nKalyan → ")
     assert ", at 07:00 on " in replies[1]

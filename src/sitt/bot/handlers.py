@@ -99,7 +99,7 @@ async def next_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         checked = await asyncio.to_thread(
             collect_now,
             Path(context.bot_data[DB_PATH_KEY]),
-            Path(context.bot_data.get(DATA_DIR_KEY) or "data"),
+            Path(context.bot_data.get(DATA_DIR_KEY) or Path(context.bot_data[DB_PATH_KEY]).parent),
         )
     try:
         recommendation = schedule.recommend_trains(

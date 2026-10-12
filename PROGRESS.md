@@ -9,6 +9,19 @@ item; the next unticked item in PLAN.md is what to do next.
 
 ## 2026-10-12
 
+### Second independent review (rounds 3-4): fixed
+A second cold review found 4 issues, 3 confirmed; all fixed with tests:
+1. `line_state` keyed runs by event, so a run with arrival and departure readings counted
+   twice (on the real Kalyan data NTES gives one or the other, so the count stays 134).
+2. HIGH: `line_state` asked "N min before" the train's *expected* time, which includes its
+   delay: look-ahead. Now relative to the scheduled time. Corrected numbers: a train's own
+   reading barely beats the timetable (6.3 vs 6.7 min at 15 min ahead); the line state is
+   better 30-60 min ahead (5.9-6.0). Still inconsistent by session; still not used.
+   `docs/line-state.md` rewritten with the corrected tables.
+3. `line_state` mixed stations within a run; now one run per station.
+4. `/next … live` and `sitt-next --collect` wrote to `./data` relative to wherever they were
+   started; now beside the database by default.
+
 ### Item 21: `/next … live` (done)
 - `/next KYN CSMT live` runs one collection round (in a thread) and then answers, starting
   with "Live check just now: …". The helper moved to `sitt.ingest.live.local.collect_now`,

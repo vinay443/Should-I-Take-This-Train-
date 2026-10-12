@@ -79,8 +79,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--data-dir",
         type=Path,
-        default=Path("data"),
-        help="where --collect keeps raw responses and batches (default: data)",
+        help="where --collect keeps raw responses and batches (default: the database's "
+        "folder, normally data)",
     )
     return parser
 
@@ -262,7 +262,8 @@ def main(
     if args.n is not None:
         recommend_settings = replace(recommend_settings, candidates=max(1, args.n))
     when = asked_at(now or datetime.now(IST), args.at, args.date, args.train)
-    collected = collect_now(Path(db_path), args.data_dir, client) if args.collect else None
+    data_dir = args.data_dir or Path(db_path).parent
+    collected = collect_now(Path(db_path), data_dir, client) if args.collect else None
     try:
         recommendation = recommend_trains(
             db_path,
