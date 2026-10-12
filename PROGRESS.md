@@ -9,6 +9,16 @@ item; the next unticked item in PLAN.md is what to do next.
 
 ## 2026-10-12
 
+### Correction: on-time live readings no longer override (live_drift re-measured)
+- Fixing the line-state look-ahead showed `live_drift` had the same flaw: lead was measured
+  from the train's *expected* time (which includes its delay). Now measured from the
+  scheduled time, with an "after its time" row; arrival/departure counted as one run.
+- Corrected finding: 33-39% of suburban trains read "on time" before their scheduled time
+  ended 5+ min late, at **every** lead (16% in the last 15 min was an artefact).
+- So the recommender's 15-minute trust window for on-time readings (PR #9) is gone: on-time
+  or early readings never override; delayed readings still count as a floor.
+  `docs/live-drift.md` and `docs/recommender.md` rewritten. Tests updated, 1 new.
+
 ### Second independent review (rounds 3-4): fixed
 A second cold review found 4 issues, 3 confirmed; all fixed with tests:
 1. `line_state` keyed runs by event, so a run with arrival and departure readings counted

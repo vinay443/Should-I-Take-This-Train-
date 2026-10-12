@@ -67,12 +67,11 @@ LEVEL_MODEL, LEVEL_BASELINE, LEVEL_TIMETABLE = "model", "baseline", "timetable"
 SYNTHETIC_SOURCE = "synthetic"
 # How far back to look for the train that left just before the first candidate.
 AHEAD_LOOKBACK_MINUTES = 45
-# NTES shows a train as on time until shortly before it arrives, then the delay appears
-# (docs/live-drift.md: a third of suburban trains read "on time" 15-60 min ahead were 5+ min
-# late in the end). So an on-time (or early) reading only counts if taken this close to the
-# train's scheduled time at the boarding station. A reading that already shows a delay
-# always counts.
-LIVE_ON_TIME_TRUST_MINUTES = 15
+# NTES shows a train as on time until it is about to arrive, then the delay appears. In the
+# first real data, a third of suburban trains read "on time" before their scheduled time
+# ended 5+ min late, however close to that time the reading was (docs/live-drift.md). So an
+# on-time (or early) reading never overrides a prediction; a reading that already shows a
+# delay always does, as a floor.
 # A cancellation reading counts if it was made no longer than this before `now`.
 CANCELLATION_MAX_AGE_HOURS = 4
 MIN_BASELINE_READINGS_FOR_RANGE = 5
@@ -439,18 +438,14 @@ def recommend(
     for trip in earlier + trips:
         key = (trip.train_id, trip.service_day or trip.departure.date())
         reading = live.get(key)
-        if (
-            reading is not None
-            and round(reading.delay_minutes) <= 0
-            and trip.departure - reading.observed_at > timedelta(minutes=LIVE_ON_TIME_TRUST_MINUTES)
-        ):
+        if reading is not None and round(reading.delay_minutes) <= 0:
             del live[key]
             if trip.departure >= local_now:
                 early_on_time += 1
     if early_on_time:
         notes.append(
-            f"NTES shows {early_on_time} more train{'s' if early_on_time != 1 else ''} as on "
-            "time for now. That far ahead an on-time reading often turns into a delay, so "
+            f"NTES shows {early_on_time} train{'s' if early_on_time != 1 else ''} as on time "
+            "for now. About a third of trains shown on time end up 5+ min late, so "
             f"{'they keep' if early_on_time != 1 else 'it keeps'} the usual prediction."
         )
 

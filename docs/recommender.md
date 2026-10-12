@@ -53,11 +53,12 @@ Whatever the level, a **recent reading of a train today** beats a prediction. If
 holds a reading of a run at your station, or at a station before it on that train's route,
 taken no more than 30 minutes before the time you ask about (`SITT_LIVE_MAX_AGE_MINUTES`):
 
-- its delay becomes the train's delay leaving your station. An **on-time** reading only
-  counts if taken within 15 minutes of the train's time at your station: NTES shows trains
-  as on time until shortly before they arrive, and a third of those read on time 15–60
-  minutes ahead ended 5+ minutes late ([`live-drift.md`](live-drift.md)). A reading that
-  already shows a delay always counts, as a floor;
+- if it shows a **delay**, that becomes the train's delay leaving your station, as a floor
+  (delays read ahead of time usually grow). An **on-time or early** reading never overrides
+  the prediction: NTES shows trains as on time until they are about to arrive, and a third
+  of those read on time before their scheduled time ended 5+ minutes late, however close to
+  that time the reading was ([`live-drift.md`](live-drift.md)). The reply says how many
+  trains NTES showed as on time;
 - the arrival keeps whatever change en route the level predicted. At timetable level that is
   none, so a train 9 minutes late leaving is shown 9 minutes late arriving. With a baseline of
   "on time at Kalyan, 14 late into CSMT" and a live reading of 5 late, it arrives 19 late;

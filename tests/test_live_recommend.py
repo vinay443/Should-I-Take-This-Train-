@@ -148,15 +148,14 @@ def test_a_synthetic_live_reading_flags_the_recommendation(loaded):
     assert "SYNTHETIC" in formatting.prediction_footer(rec)
 
 
-def test_an_on_time_reading_far_ahead_is_not_trusted(loaded):
-    # NTES says "on time" until shortly before a train arrives (docs/live-drift.md).
+def test_an_on_time_reading_never_overrides(loaded):
+    # NTES says "on time" until a train is about to arrive (docs/live-drift.md).
     _reading(loaded, MONDAY_7 - timedelta(minutes=5), "90106", "KYN", 0)  # 17 min before 07:12
     _reading(loaded, MONDAY_7 - timedelta(minutes=2), "90104", "KYN", 0)  # 5 min before 07:03
     rec = recommend(loaded, "KYN", "CSMT", MONDAY_7, model_dir=None)
     by_number = _by_number(rec)
-    assert by_number["90106"].live is None
-    assert by_number["90104"].live is not None and by_number["90104"].live.delay_minutes == 0
-    assert any(note.startswith("NTES shows 1 more train as on time") for note in rec.notes)
+    assert by_number["90106"].live is None and by_number["90104"].live is None
+    assert any(note.startswith("NTES shows 2 trains as on time for now.") for note in rec.notes)
 
 
 def test_a_delay_read_far_ahead_is_still_used(loaded):
@@ -193,17 +192,14 @@ def test_without_readings_the_first_train_is_not_its_own_train_ahead(loaded):
     assert "the train before it is cancelled" not in first.crowding.reason
 
 
-def test_an_early_reading_far_ahead_is_not_trusted_and_never_moves_a_departure_earlier(loaded):
-    _reading(loaded, MONDAY_7 - timedelta(minutes=5), "90106", "KYN", -3)  # 17 min ahead
-    rec = recommend(loaded, "KYN", "CSMT", MONDAY_7, model_dir=None)
-    assert _by_number(rec)["90106"].live is None
-    # Close to the train, an early reading counts as on time leaving.
-    _reading(loaded, MONDAY_7.replace(minute=8), "90106", "KYN", -2)
-    rec = recommend(loaded, "KYN", "CSMT", MONDAY_7.replace(minute=9), model_dir=None)
-    fast = _by_number(rec)["90106"]
-    assert fast.live is not None and fast.live.delay_minutes == -2
-    assert fast.departure_delay == 0
-    assert fast.predicted_departure == datetime(2026, 9, 28, 7, 12)
+def test_an_early_reading_never_moves_a_departure_earlier(loaded):
+    for minutes_before, delay in ((5, -3), (1, -2)):  # far ahead, and just before
+        _reading(loaded, MONDAY_7.replace(minute=12) - timedelta(minutes=minutes_before + 12),
+                 "90106", "KYN", delay)  # fmt: skip
+        rec = recommend(loaded, "KYN", "CSMT", MONDAY_7, model_dir=None)
+        fast = _by_number(rec)["90106"]
+        assert fast.live is None and fast.departure_delay == 0
+        assert fast.predicted_departure == datetime(2026, 9, 28, 7, 12)
 
 
 def test_explain_at_timetable_level_doesnt_deny_todays_readings(loaded):
