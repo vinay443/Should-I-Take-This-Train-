@@ -11,7 +11,7 @@ import pandas as pd
 import streamlit as st
 
 from sitt.bot.formatting import trip_tags
-from sitt.config import load_settings
+from sitt.config import load_health_settings, load_settings
 from sitt.dashboard import data
 from sitt.models.crowding import CROWD_LABELS
 from sitt.models.report import PREDICTOR_TITLES, SEGMENT_TITLES
@@ -49,10 +49,12 @@ def freshness_text(db: Path) -> str:
     if last is None:
         return "Nothing collected yet. Run `uv run sitt-collect` to collect once."
     now = datetime.now(IST).replace(tzinfo=None)
-    return (
-        f"Last collected {last:%d %b %H:%M} ({data.age_text(last, now)}). Collection is by "
-        "hand: `uv run sitt-next KYN CSMT --collect` fetches fresh readings."
-    )
+    text = f"Last collected {last:%d %b %H:%M} ({data.age_text(last, now)})."
+    if load_health_settings().cadence_minutes <= 0:
+        text += (
+            " Collection is by hand: `uv run sitt-next KYN CSMT --collect` fetches fresh readings."
+        )
+    return text
 
 
 def banners(sources: data.Sources, observations: bool) -> None:

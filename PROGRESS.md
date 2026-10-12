@@ -9,6 +9,19 @@ item; the next unticked item in PLAN.md is what to do next.
 
 ## 2026-10-12
 
+### Item 14: independent review (done)
+A separate Claude Code agent reviewed all of this session's changes cold and reported 5
+defects (3 confirmed by running code). All fixed, each with a regression test:
+1. HIGH: asked mid-minute (the bot always is), a train with a late live reading was listed
+   twice, and without readings the first train could be its own "train ahead" for crowding.
+2. MEDIUM: an "early" live reading of any age was trusted and moved departures earlier. Now
+   early readings follow the on-time trust rule, and a departure is never before its time.
+3. LOW: `sitt-next --at/--train` with a past time and no `--date` now means tomorrow, as
+   in the bot.
+4. LOW: `--train` prefers the asked day and names the day when it's another.
+5. LOW: `/why` no longer says "no past observations" when today's readings exist.
+Plus: the dashboard says "collection is by hand" only when no cadence is set.
+
 ### Item 13: test coverage (done)
 - `pytest-cov` added as a dev dependency (free). Coverage: 92% of `src/sitt` (6,916
   statements). Weakest: `dashboard/app.py` (0%, a measurement artefact: AppTest runs it as
