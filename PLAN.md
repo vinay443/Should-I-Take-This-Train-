@@ -114,10 +114,27 @@ real behaviour. **Done when:** coverage figure in PROGRESS.md and README dev sec
 ### 14. Independent review — [x]
 A separate Claude Code agent reviews the round's changes cold; real findings get fixed.
 
-### Open data question (not an item)
-NTES reports 95335 leaving Kalyan at 21:54; our timetable has it at 00:18 (from Dadar
-23:23). `sitt-dq` flags it as `schedule_mismatch`. Check against the timetable PDF before
-adding an override.
+## Round 3 (added 2026-10-12, self-directed)
+
+### 15. Resolve the 95335 timetable mismatch — [x]
+Check the official DOWN PDF (your PC, `scratch/cr-main-dn.pdf`) for 95335. **Done when:**
+either an override in `timetable_overrides.toml` with the PDF evidence, or a note in
+`docs/data-quality.md` saying the timetable matches the PDF and NTES differs.
+
+### 16. Line-state nowcast, backtested on real data — [ ]
+When several trains in the same direction were just read as late, are trains without a
+reading likely late too? Backtest on the real readings: for each run, predict its final
+delay from (a) zero, (b) its own latest reading, (c) the median latest delay of other
+same-direction trains read in the previous 30 min, and combinations. **Done when:** a
+reproducible command and `docs/line-state.md` with the errors; the recommender uses the
+signal only if it clearly beats the alternatives, with a note in replies.
+
+### 17. Two-minute quick start — [ ]
+A README section that gets a new reader from clone to a `sitt-next` answer with the sample
+timetable, verified by running it in a fresh clone.
+
+### 18. Bot handler tests — [ ]
+Cover the untested `/log` button flow and the text-message paths in `bot/handlers.py`.
 
 ## Out of scope / needs you
 
