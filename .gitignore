@@ -35,3 +35,8 @@ data/synthetic/
 *.parquet
 *.csv
 !tests/fixtures/**/*.csv
+
+# Coverage data (pytest --cov)
+.coverage
+.coverage.*
+htmlcov/

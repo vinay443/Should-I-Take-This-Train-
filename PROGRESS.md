@@ -9,6 +9,13 @@ item; the next unticked item in PLAN.md is what to do next.
 
 ## 2026-10-12
 
+### Item 18: bot handler tests (done)
+- `tests/bot/test_log_flow.py`: the full `/log` button flow to a saved report and `/mylogs`,
+  double taps and stale buttons, cancel by button and by `/cancel`, typed time/station
+  replies, conflicting one-line logs, unrecognised words. `bot/handlers.py` coverage within
+  the bot tests: 72% -> 87%. 7 new tests.
+- Fixed: `.coverage` had been committed by mistake in PR #12; removed and gitignored.
+
 ### Item 17: two-minute quick start (done)
 - README "Try it in two minutes": four commands from a fresh clone to a `sitt-next` answer
   on the sample timetable. Verified in a fresh clone of `main`.

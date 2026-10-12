@@ -133,7 +133,7 @@ signal only if it clearly beats the alternatives, with a note in replies.
 A README section that gets a new reader from clone to a `sitt-next` answer with the sample
 timetable, verified by running it in a fresh clone.
 
-### 18. Bot handler tests — [ ]
+### 18. Bot handler tests — [x]
 Cover the untested `/log` button flow and the text-message paths in `bot/handlers.py`.
 
 ## Out of scope / needs you
