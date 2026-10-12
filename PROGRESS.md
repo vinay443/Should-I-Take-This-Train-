@@ -9,6 +9,11 @@ item; the next unticked item in PLAN.md is what to do next.
 
 ## 2026-10-12
 
+### Item 21: `/next … live` (done)
+- `/next KYN CSMT live` runs one collection round (in a thread) and then answers, starting
+  with "Live check just now: …". The helper moved to `sitt.ingest.live.local.collect_now`,
+  shared with `sitt-next --collect`. Without `live` nothing is fetched (tested). 2 new tests.
+
 ### Items 19-20: timetable currency; flags in the baseline (done)
 - The 15 Aug 2026 15-car changes are in the timetable; the 29 June 2026 AC conversions (12
   services) are not. README says so. **Needs you:** the newer AC supplement PDF from Central

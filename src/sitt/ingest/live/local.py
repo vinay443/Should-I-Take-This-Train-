@@ -149,6 +149,30 @@ def run_once(
     return LocalRun(collected, loaded)
 
 
+def collect_now(db_path: Path, data_dir: Path, client: httpx.Client | None = None) -> str:
+    """One collection round, asked for by the rider (`sitt-next --collect`, `/next … live`).
+
+    Returns one line saying how it went. Never raises: a failed fetch must not stop the
+    recommendation that follows.
+    """
+    try:
+        run = run_once(data_dir, db_path, enabled_sources(), client)
+    except Exception as exc:
+        return f"Live check failed ({type(exc).__name__}); using what the database already has."
+    parts = []
+    for result in run.collected.sources:
+        if result.skipped:
+            parts.append(f"{result.source} skipped ({result.skipped})")
+        elif result.ok:
+            parts.append(f"{result.source} {len(result.observations)} readings")
+        else:
+            parts.append(f"{result.source} failed ({result.error})")
+    line = "Live check just now: " + ", ".join(parts) + "."
+    if run.load_error:
+        line += " Could not save them to the database, so they aren't used this time."
+    return line
+
+
 def _configure_logging(log_file: Path | None) -> None:
     handlers: list[logging.Handler] = [logging.StreamHandler()]
     if log_file is not None:

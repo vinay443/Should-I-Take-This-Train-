@@ -149,7 +149,7 @@ re-run the converter (README, "Load the timetable").
 The data-quality doc said the baseline ignored `dq_flags`; it doesn't (it reads the same
 feature table). Proven with a test; doc corrected.
 
-### 21. `/next … live` in the bot — [ ]
+### 21. `/next … live` in the bot — [x]
 `/next KYN CSMT live` runs one manual collection round first, like `sitt-next --collect`,
 only when asked. **Done when:** handler test with a fake NTES; help text and docs updated.
 

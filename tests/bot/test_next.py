@@ -355,3 +355,27 @@ def test_an_unknown_station_gets_suggestions(sample_db):
     assert reply.startswith("I don't know a station called 'Thaane'. Did you mean Thane (TNA)?")
     [reply] = _run_next(sample_db, ["KYN", "Atlantis"])
     assert "Did you mean" not in reply
+
+
+def test_next_live_collects_once_then_answers(sample_db, monkeypatch):
+    calls = []
+
+    def fake_collect(db_path, data_dir, client=None):
+        calls.append((db_path, data_dir))
+        return "Live check just now: ntes 12 readings."
+
+    monkeypatch.setattr(handlers, "collect_now", fake_collect)
+    replies = _run_next(sample_db, ["KYN", "CSMT", "live", "tomorrow", "7:00"])
+    assert calls == [(sample_db, Path("data"))]
+    assert replies[0] == "Checking live running status…"
+    assert replies[1].startswith("Live check just now: ntes 12 readings.\n\nKalyan → ")
+    assert ", at 07:00 on " in replies[1]
+
+
+def test_next_without_live_never_collects(sample_db, monkeypatch):
+    def refuse(*args, **kwargs):
+        raise AssertionError("collected without being asked")
+
+    monkeypatch.setattr(handlers, "collect_now", refuse)
+    [reply] = _run_next(sample_db, ["KYN", "CSMT"])
+    assert reply.startswith("Kalyan → ")

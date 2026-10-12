@@ -76,6 +76,9 @@ Try it from your phone:
   `/next KYN CSMT 8 pm`. A time without a day that is more than an hour gone today means
   tomorrow, so at 7 pm `/next KYN CSMT 8:00` is about tomorrow morning. The reply then says
   which time it is about.
+  Add `live` (`/next KYN CSMT live`) to fetch live running status once before answering,
+  the same as `sitt-next --collect`: one NTES request round, only when you ask, never on a
+  schedule. The reply starts with how that went ("Live check just now: ntes 212 readings.").
 - `/why`: explains the last `/next` recommendation: the predicted delay and crowding reasons
   for every train, and the rule that decided it.
 - `/fav add work KYN CSMT 8:12 mon-fri`: save a route. See [Saved routes](#saved-routes).

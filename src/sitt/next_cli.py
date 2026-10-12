@@ -86,26 +86,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def collect_now(db_path: Path, data_dir: Path, client: httpx.Client | None = None) -> str:
-    """One manual collection round. Returns a line saying how it went; never raises."""
+    """One manual collection round (see sitt.ingest.live.local.collect_now)."""
     from sitt.ingest.live import local  # only needed with --collect
 
     logging.getLogger("httpx").setLevel(logging.WARNING)
-    try:
-        run = local.run_once(data_dir, db_path, local.enabled_sources(), client)
-    except Exception as exc:  # a failed fetch must not stop the recommendation
-        return f"Live check failed ({type(exc).__name__}); using what the database already has."
-    parts = []
-    for result in run.collected.sources:
-        if result.skipped:
-            parts.append(f"{result.source} skipped ({result.skipped})")
-        elif result.ok:
-            parts.append(f"{result.source} {len(result.observations)} readings")
-        else:
-            parts.append(f"{result.source} failed ({result.error})")
-    line = "Live check just now: " + ", ".join(parts) + "."
-    if run.load_error:
-        line += " Could not save them to the database, so they aren't used this time."
-    return line
+    return local.collect_now(db_path, data_dir, client)
 
 
 def asked_at(now: datetime, at: time | None, day: date | None, train: time | None) -> datetime:
