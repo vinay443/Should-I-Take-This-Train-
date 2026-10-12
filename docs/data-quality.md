@@ -103,7 +103,10 @@ one, has nothing flagged, so nothing changes until you run `sitt-dq --write-flag
 `sitt-retrain` ([`retraining.md`](retraining.md)) recomputes the flags before it builds
 features.
 
-The recommender's fallback, the median past delay of a train, does not yet look at the flags.
+The recommender's baseline (the median past delay of a train) and its live readings read
+the same feature table, so they also leave out flagged readings, once `sitt-dq
+--write-flags` has stored them (tested in `tests/test_recommend.py`). Without that step
+nothing is flagged in the database, and every reading counts.
 
 ## Limits
 

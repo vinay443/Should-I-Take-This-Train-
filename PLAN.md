@@ -136,6 +136,23 @@ timetable, verified by running it in a fresh clone.
 ### 18. Bot handler tests — [x]
 Cover the untested `/log` button flow and the text-message paths in `bot/handlers.py`.
 
+## Round 4 (added 2026-10-12, self-directed)
+
+### 19. Is the timetable current? — [x]
+News checked 2026-10-12: the 22 extra 15-car services of 15 Aug 2026 are in (the 15-car
+supplement); the 12 services converted to AC from 29 June 2026 are **not** (our AC
+supplement is from April 2025, and no newer one is on your PC). Recorded in the README.
+Needs you: download the newer AC supplement from Central Railway's timetable page and
+re-run the converter (README, "Load the timetable").
+
+### 20. Baseline and data-quality flags — [x]
+The data-quality doc said the baseline ignored `dq_flags`; it doesn't (it reads the same
+feature table). Proven with a test; doc corrected.
+
+### 21. `/next … live` in the bot — [ ]
+`/next KYN CSMT live` runs one manual collection round first, like `sitt-next --collect`,
+only when asked. **Done when:** handler test with a fake NTES; help text and docs updated.
+
 ## Out of scope / needs you
 
 - Asking Mobond for permission (the adapter stays off until then).
