@@ -12,7 +12,7 @@ from sitt.db import DatabaseBusyError, init_db, open_with_retry
 from sitt.ingest.live import runlog
 from sitt.tz import IST
 
-SETTINGS = HealthSettings()
+SETTINGS = HealthSettings(cadence_minutes=15)  # a scheduled collector
 TOKEN = "123456:TEST-TOKEN-not-real"
 
 
@@ -264,6 +264,8 @@ def environment(db, tmp_path, monkeypatch):
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", TOKEN)
     monkeypatch.setenv("ALLOWED_USER_IDS", "111,222")
     monkeypatch.delenv("SITT_TELEGRAM_SEND", raising=False)
+    # These tests are about a scheduled collector; manual mode has its own tests below.
+    monkeypatch.setenv("SITT_COLLECT_CADENCE_MINUTES", "15")
     return db
 
 
@@ -411,3 +413,63 @@ def test_cli_reports_a_missing_database(tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
     assert health.main(["--db", str(tmp_path / "nope.duckdb")]) == 2
     assert "No database at" in capsys.readouterr().err
+
+
+# --- manual collection (no schedule, the default) ---
+
+MANUAL = HealthSettings()
+
+
+def test_manual_is_the_default(monkeypatch):
+    from sitt.config import load_health_settings
+
+    monkeypatch.delenv("SITT_COLLECT_CADENCE_MINUTES", raising=False)
+    assert load_health_settings().cadence_minutes == 0
+    monkeypatch.setenv("SITT_COLLECT_CADENCE_MINUTES", "0.5")
+    assert load_health_settings().cadence_minutes == 1  # a schedule is at least a minute
+    monkeypatch.setenv("SITT_COLLECT_CADENCE_MINUTES", "30")
+    assert load_health_settings().cadence_minutes == 30
+
+
+def test_manual_collection_counts_no_gaps(db):
+    with init_db(db) as con:
+        add_run(con, ist(5, 8))
+        add_run(con, ist(5, 20))
+        report = health.build_report(con, ist(5, 6), ist(6, 6), MANUAL, now=ist(6, 9))
+    assert report.manual
+    assert (report.actual_runs, report.expected_runs, report.gaps) == (2, 0, [])
+    assert report.last_run_at == ist(5, 20)
+    text = health.format_report(report)
+    assert "Runs: 2 recorded. Collection is by hand" in text
+    assert "Last run: 05 Oct 20:00 IST (13 h ago)" in text
+    assert "Gaps" not in text and "missed" not in text
+    summary = health.format_summary(report)
+    assert "Runs: 2 (by hand)" in summary and "Gaps" not in summary
+
+
+def test_manual_report_shows_the_last_run_even_outside_the_window(db):
+    with init_db(db) as con:
+        add_run(con, ist(1, 8))
+        report = health.build_report(con, ist(5, 6), ist(6, 6), MANUAL, now=ist(6, 6))
+    assert report.actual_runs == 0
+    assert "Last run: 01 Oct 08:00 IST (4 d 22 h ago)" in health.format_report(report)
+
+
+def test_manual_report_with_no_runs_says_how_to_collect(db):
+    with init_db(db) as con:
+        report = health.build_report(con, ist(5, 6), ist(6, 6), MANUAL, now=ist(6, 6))
+    assert "Last run: none. Run `uv run sitt-collect`" in health.format_report(report)
+
+
+def test_manual_collection_raises_no_no_run_alert_but_still_source_alerts(db):
+    with init_db(db) as con:
+        add_run(con, ist(1, 8))  # a week ago: fine when collecting by hand
+        assert health.evaluate_alerts(con, ist(8, 8), MANUAL) == []
+        assert [a.key for a in health.evaluate_alerts(con, ist(8, 8), SETTINGS)] == [
+            "no_successful_run"
+        ]
+        for minute in range(0, 60, 15):
+            add_run(con, ist(8, 9, minute), ntes="failed", error="HTTP 503")
+        keys = [a.key for a in health.evaluate_alerts(con, ist(8, 10), MANUAL)]
+    assert "no_successful_run" not in keys
+    assert any(key.startswith("source_down") for key in keys)

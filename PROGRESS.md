@@ -2,23 +2,22 @@
 
 Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
-## Where this stopped (2026-10-12)
+## Where this stopped
 
-PLAN.md items 1-4 are done and merged to `main` (PRs #1-#4). Item 5 (2027 holidays) is
-blocked until Maharashtra publishes its 2027 list, usually in November-December.
-
-**Next step:** when the 2027 list is out, update the 2027 entries in
-`src/sitt/holidays.toml` (status `reported` or `confirmed`, with the source and date
-checked), run `uv run pytest`, and open a PR. Until then there is no code work left in
-PLAN.md; the remaining roadmap items (Mobond permission, logging crowd reports, collecting
-by hand, a new timetable edition) need you or outside events. Good candidates for a next
-PLAN.md: a `sitt-next --collect` flag that runs one manual collection round first, or
-showing live readings on the dashboard's delay-patterns page.
-
-Your PC's copy of the repo is still at commit 371b022; run `git pull` there to get this
-work.
+Round 2 in progress (PLAN.md items 6-14). See the newest entry below for the last finished
+item; the next unticked item in PLAN.md is what to do next.
 
 ## 2026-10-12
+
+### Item 6: `sitt-health` in manual mode (done)
+- `SITT_COLLECT_CADENCE_MINUTES` now defaults to 0 = collection by hand: no expected runs,
+  no gaps, no "no successful run" alert; the report shows **Last run** (even before the
+  window). Source-failure alerts still apply. Set 15 to get the old behaviour.
+- Real-DB check: the report used to say "about 96 run(s) missed"; now "Runs: 0 recorded.
+  Collection is by hand… Last run: 06 Oct 12:45 IST (6 d 6 h ago)".
+- 5 new tests; the scheduled-mode tests now set a cadence explicitly.
+- Also found by running `sitt-dq` on real data: 95335 timetable vs NTES mismatch (PLAN.md,
+  open data question). Not changed.
 
 ### Item 4: docs for manual-only collection (done)
 - README: live observations are from 5-6 Oct plus manual runs; "collect once, then ask"

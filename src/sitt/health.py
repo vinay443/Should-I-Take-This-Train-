@@ -9,7 +9,9 @@ Reads `collector_runs` (written by `sitt-collect`) and `observations`. Two kinds
 trouble are kept apart:
 
 * a **gap**: no run was recorded for longer than the cadence allows. The machine was off
-  or asleep, or Task Scheduler didn't start the task.
+  or asleep, or Task Scheduler didn't start the task. With no cadence
+  (`SITT_COLLECT_CADENCE_MINUTES=0`, the default: collection is by hand) there are no gaps,
+  and the report lists the last runs instead.
 * a **source failure**: a run happened, and a source didn't answer or couldn't be parsed.
 
 Telegram messages are only really sent when `SITT_TELEGRAM_SEND=true`; otherwise, and
@@ -168,6 +170,13 @@ class HealthReport:
     # One line per data-quality headline, filled by sitt.dq when it is available.
     data_quality: list[str] = field(default_factory=list)
 
+    last_run_at: datetime | None = None  # the latest run ever recorded, not just in the window
+
+    @property
+    def manual(self) -> bool:
+        """Collection is by hand: no schedule, so nothing is "expected" or "missed"."""
+        return self.cadence_minutes <= 0
+
     @property
     def missed_runs(self) -> int:
         return sum(gap.missed_runs for gap in self.gaps)
@@ -250,7 +259,14 @@ def build_report(
 
     # Don't count the time before the collector was first switched on as a gap.
     effective_start = start
+    last_run = None
     if has_run_log:
+        last_run = _moment(
+            con.execute(
+                "SELECT epoch_us(max(started_at)) FROM collector_runs WHERE started_at <= ?",
+                [now],
+            ).fetchone()[0]
+        )
         first = _moment(
             con.execute("SELECT epoch_us(min(started_at)) FROM collector_runs").fetchone()[0]
         )
@@ -285,21 +301,25 @@ def build_report(
         except Exception as exc:  # the health report must survive a data-quality bug
             dq_lines = [f"could not be checked ({type(exc).__name__}); run `sitt-dq` to see why"]
 
+    manual = settings.cadence_minutes <= 0
     cadence = timedelta(minutes=settings.cadence_minutes)
     return HealthReport(
         start=start,
         end=end,
         generated_at=now,
-        cadence_minutes=settings.cadence_minutes,
-        expected_runs=max(0, int((end - effective_start) / cadence)),
+        cadence_minutes=max(0.0, settings.cadence_minutes),
+        expected_runs=0 if manual else max(0, int((end - effective_start) / cadence)),
         actual_runs=len(run_times),
-        gaps=find_gaps(
+        gaps=[]
+        if manual
+        else find_gaps(
             run_times,
             effective_start,
             end,
             settings.cadence_minutes,
             settings.gap_tolerance_minutes,
         ),
+        last_run_at=last_run,
         sources=sources,
         newest_observation_at=newest,
         has_run_log=has_run_log,
@@ -338,6 +358,15 @@ def _age_line(report: HealthReport) -> str:
     )
 
 
+def _last_run_line(report: HealthReport) -> str:
+    if report.last_run_at is None:
+        return "Last run: none. Run `uv run sitt-collect` to collect once."
+    return (
+        f"Last run: {_ist(report.last_run_at)} IST "
+        f"({duration(report.generated_at - report.last_run_at)} ago)"
+    )
+
+
 def _source_line(health: SourceHealth) -> str:
     if health.state == DISABLED:
         return f"  {health.source}: DISABLED (switched off in {health.skipped} run(s))"
@@ -358,11 +387,20 @@ def format_report(report: HealthReport) -> str:
         lines.append(
             "This database has no run log yet. Run `uv run sitt-collect` once to create it."
         )
-    lines.append(
-        f"Runs: {report.actual_runs} recorded, about {report.expected_runs} expected "
-        f"at one every {report.cadence_minutes:g} min"
-    )
-    if report.gaps:
+    if report.manual:
+        lines.append(
+            f"Runs: {report.actual_runs} recorded. Collection is by hand (no schedule), "
+            "so no runs are expected and gaps aren't counted."
+        )
+        lines.append(_last_run_line(report))
+    else:
+        lines.append(
+            f"Runs: {report.actual_runs} recorded, about {report.expected_runs} expected "
+            f"at one every {report.cadence_minutes:g} min"
+        )
+    if report.manual:
+        pass  # no schedule, so no gaps to report
+    elif report.gaps:
         lines.append(
             f"Gaps: {len(report.gaps)}, about {report.missed_runs} run(s) missed. No run was "
             "recorded in these stretches (machine off or asleep, or the task didn't start):"
@@ -391,11 +429,14 @@ def format_report(report: HealthReport) -> str:
 
 def format_summary(report: HealthReport) -> str:
     """A compact version of the report, for one Telegram message."""
-    lines = [
-        f"SITT collector, {_span(report.start, report.end)} IST",
-        f"Runs: {report.actual_runs} of about {report.expected_runs}",
-    ]
-    if report.gaps:
+    lines = [f"SITT collector, {_span(report.start, report.end)} IST"]
+    if report.manual:
+        lines += [f"Runs: {report.actual_runs} (by hand)", _last_run_line(report)]
+    else:
+        lines.append(f"Runs: {report.actual_runs} of about {report.expected_runs}")
+    if report.manual:
+        pass
+    elif report.gaps:
         longest = max(report.gaps, key=lambda gap: gap.minutes)
         lines.append(
             f"Gaps: {len(report.gaps)} (about {report.missed_runs} runs missed); longest "
@@ -437,10 +478,13 @@ def evaluate_alerts(
     runs = load_runs(con, end=now)
     alerts = []
 
-    # 1. No run has succeeded for too long (or ever).
+    # 1. No run has succeeded for too long (or ever). Only when runs are scheduled: with
+    # collection by hand, a quiet week is a choice, not a fault.
     succeeded = [run.started_at for run in runs if run.status == OK]
     limit = timedelta(hours=settings.alert_no_run_hours)
-    if not succeeded:
+    if settings.cadence_minutes <= 0:
+        pass
+    elif not succeeded:
         alerts.append(Alert("no_successful_run", "No successful collector run is recorded."))
     elif now - max(succeeded) > limit:
         alerts.append(
