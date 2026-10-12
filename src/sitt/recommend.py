@@ -67,6 +67,11 @@ LEVEL_MODEL, LEVEL_BASELINE, LEVEL_TIMETABLE = "model", "baseline", "timetable"
 SYNTHETIC_SOURCE = "synthetic"
 # How far back to look for the train that left just before the first candidate.
 AHEAD_LOOKBACK_MINUTES = 45
+# NTES shows a train as on time until shortly before it arrives, then the delay appears
+# (docs/live-drift.md: a third of suburban trains read "on time" 15-60 min ahead were 5+ min
+# late in the end). So an on-time reading only counts if taken this close to the train's
+# scheduled time at the boarding station. A reading that already shows a delay always counts.
+LIVE_ON_TIME_TRUST_MINUTES = 15
 # A cancellation reading counts if it was made no longer than this before `now`.
 CANCELLATION_MAX_AGE_HOURS = 4
 MIN_BASELINE_READINGS_FOR_RANGE = 5
@@ -425,6 +430,24 @@ def recommend(
     live = _live_readings(
         con, earlier + trips, origin_code, local_now, settings.live_max_age_minutes
     )
+    early_on_time = 0
+    for trip in earlier + trips:
+        key = (trip.train_id, trip.service_day or trip.departure.date())
+        reading = live.get(key)
+        if (
+            reading is not None
+            and round(reading.delay_minutes) == 0
+            and trip.departure - reading.observed_at > timedelta(minutes=LIVE_ON_TIME_TRUST_MINUTES)
+        ):
+            del live[key]
+            if trip.departure >= local_now:
+                early_on_time += 1
+    if early_on_time:
+        notes.append(
+            f"NTES shows {early_on_time} more train{'s' if early_on_time != 1 else ''} as on "
+            "time for now. That far ahead an on-time reading often turns into a delay, so "
+            f"{'they keep' if early_on_time != 1 else 'it keeps'} the usual prediction."
+        )
 
     # A train whose scheduled time has passed but which a live reading says is running late
     # enough to still be caught is a candidate too.
@@ -639,9 +662,14 @@ def explain(recommendation: Recommendation) -> str:
             )
         lines.append(arrival + ")")
         if option.live is not None:
+            caveat = (
+                "; delays read ahead of time usually grow, rarely shrink"
+                if round(option.live.delay_minutes) > 0
+                else ""
+            )
             lines.append(
                 f"    {live_text(option.live)}, at {option.live.station_code} "
-                f"({option.live.source})"
+                f"({option.live.source}){caveat}"
             )
         if option.crowding:
             lines.append(

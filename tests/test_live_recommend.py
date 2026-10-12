@@ -146,3 +146,21 @@ def test_a_synthetic_live_reading_flags_the_recommendation(loaded):
     rec = recommend(loaded, "KYN", "CSMT", MONDAY_7, model_dir=None)
     assert rec.synthetic
     assert "SYNTHETIC" in formatting.prediction_footer(rec)
+
+
+def test_an_on_time_reading_far_ahead_is_not_trusted(loaded):
+    # NTES says "on time" until shortly before a train arrives (docs/live-drift.md).
+    _reading(loaded, MONDAY_7 - timedelta(minutes=5), "90106", "KYN", 0)  # 17 min before 07:12
+    _reading(loaded, MONDAY_7 - timedelta(minutes=2), "90104", "KYN", 0)  # 5 min before 07:03
+    rec = recommend(loaded, "KYN", "CSMT", MONDAY_7, model_dir=None)
+    by_number = _by_number(rec)
+    assert by_number["90106"].live is None
+    assert by_number["90104"].live is not None and by_number["90104"].live.delay_minutes == 0
+    assert any(note.startswith("NTES shows 1 more train as on time") for note in rec.notes)
+
+
+def test_a_delay_read_far_ahead_is_still_used(loaded):
+    _reading(loaded, MONDAY_7 - timedelta(minutes=5), "90108", "KYN", 4)  # 36 min before 07:31
+    rec = recommend(loaded, "KYN", "CSMT", MONDAY_7, model_dir=None)
+    assert _by_number(rec)["90108"].live.delay_minutes == 4
+    assert "delays read ahead of time usually grow" in explain(rec)

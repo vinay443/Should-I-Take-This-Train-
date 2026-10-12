@@ -275,6 +275,7 @@ models/           trained models (gitignored)
 | [`collector.md`](docs/collector.md) | The live collector: local runs, the run log, health report and alerts, export, GitHub workflows |
 | [`data-quality.md`](docs/data-quality.md) | The checks on observations and what gets flagged |
 | [`retraining.md`](docs/retraining.md) | Training on real data: readiness gates, promotion, the model registry |
+| [`live-drift.md`](docs/live-drift.md) | How much a live reading's delay changes before the train arrives (real data), and what the recommender does about it |
 | [`long-distance-feature.md`](docs/long-distance-feature.md) | An experimental model input, switched off |
 | [`expansion-assessment.md`](docs/expansion-assessment.md) | What adding the Harbour and Western lines would take |
 | [`megablocks.md`](docs/megablocks.md) | Megablock announcements and manual entry |

@@ -9,6 +9,18 @@ item; the next unticked item in PLAN.md is what to do next.
 
 ## 2026-10-12
 
+### Item 10: how live delays drift (done)
+- New `python -m sitt.models.live_drift`: pairs each reading with the run's last reading
+  taken within 15 min of the train's time, and summarises drift by lead and by whether the
+  reading said "on time". Results and caveats in `docs/live-drift.md`.
+- Finding (suburban, real KYN data): NTES says "on time" until a train is close; a third of
+  on-time readings 15-60 min ahead ended 5+ min late; no train ended 3+ min earlier than read.
+- Recommender: an on-time live reading counts only within 15 min of the train
+  (`LIVE_ON_TIME_TRUST_MINUTES`); delayed readings always count, explained as a floor.
+  Real DB, KYN 10:20 on 6 Oct: 3 far-ahead "on time" readings no longer override.
+- No drift added to predictions yet: only 38 "late" readings. Re-run when there's more data.
+- 5 new tests.
+
 ### Item 9: `sitt-next --collect` (done)
 - One `sitt-collect` round (NTES; Mobond only with both switches) right before answering;
   prints "Live check just now: ntes N readings." A failed fetch still gives an answer.
