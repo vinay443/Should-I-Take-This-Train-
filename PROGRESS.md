@@ -2,10 +2,33 @@
 
 Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
-## Where this stopped
+## Where this stopped (2026-10-12, end of the autonomous session)
 
-Round 4 in progress (PLAN.md items 19-21; rounds 1-3 done). See the newest entry below for the last finished
-item; the next unticked item in PLAN.md is what to do next.
+All PLAN.md items in rounds 1-4 are done and merged (PRs #1-#21), each through CI, plus two
+independent reviews whose findings were all fixed. 693 tests, ~92% coverage. Only item 5
+(2027 holidays) is open, blocked until Maharashtra publishes the list.
+
+What is left needs you, or more data:
+
+1. **`git pull` on your PC.** Your local copy is still at 371b022 (before this session).
+2. **The newer AC supplement.** The 12 services converted to AC from 29 June 2026 are not
+   in the timetable. Download Central Railway's latest AC supplement PDF and re-run the
+   converter (README, "Load the timetable"), or say "continue from PROGRESS.md" with the
+   PDF in `scratch/` and I'll do it.
+3. **Collect by hand now and then** (`uv run sitt-next KYN CSMT --collect`, or
+   `sitt-collect`). Then re-run the three analyses, which decide what to change next:
+   `python -m sitt.models.live_drift`, `python -m sitt.models.line_state --by-direction`,
+   `python -m sitt.synth.compare`. Their docs say what result would justify a change.
+4. **Try `--collect` once for real.** It was only tested against a recorded NTES page; the
+   cloud workspace can't reach NTES.
+5. Mobond permission and crowd logging, as before.
+
+Next code steps once there is more data: add the median drift to delayed live readings
+(docs/live-drift.md), use the line state as a floor for up trains if it keeps winning
+(docs/line-state.md), and retune the synthetic generator's direction pattern
+(docs/synthetic-vs-real.md).
+
+The merged feature branches are still on GitHub; delete them whenever you like.
 
 ## 2026-10-12
 
