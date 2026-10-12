@@ -24,10 +24,14 @@ def default_environment(tmp_path, monkeypatch):
 
 
 @pytest.mark.expects_blocked_network
-def test_a_real_connection_is_refused(blocked_network):
+def test_a_real_connection_is_refused(blocked_network, monkeypatch):
+    # With a proxy configured, httpx would connect to the proxy (often on this machine)
+    # rather than to example.org, and the guard would never see the real host.
+    for name in PROXY_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
     with pytest.raises(OSError, match="tests must not use the network"):
         socket.create_connection(("example.com", 443), timeout=1)
-    with pytest.raises(httpx.ConnectError), httpx.Client() as client:
+    with pytest.raises(httpx.ConnectError), httpx.Client(trust_env=False) as client:
         client.get("https://example.org/")
     assert blocked_network == ["example.com", "example.org"]
 
