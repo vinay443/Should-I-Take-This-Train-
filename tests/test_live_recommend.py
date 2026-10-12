@@ -164,3 +164,51 @@ def test_a_delay_read_far_ahead_is_still_used(loaded):
     rec = recommend(loaded, "KYN", "CSMT", MONDAY_7, model_dir=None)
     assert _by_number(rec)["90108"].live.delay_minutes == 4
     assert "delays read ahead of time usually grow" in explain(rec)
+
+
+# --- found by review ---
+
+
+def test_asked_mid_minute_a_train_is_listed_once(loaded):
+    _reading(loaded, MONDAY_7.replace(minute=10), "90106", "KYN", 3)
+    asked = MONDAY_7.replace(minute=12, second=30)  # the bot asks with seconds
+    rec = recommend(loaded, "KYN", "CSMT", asked, model_dir=None)
+    today = [(o.trip.number, o.trip.departure) for o in rec.options]
+    assert len(today) == len(set(today))
+    assert rec.options[0].trip.number == "90106"
+    assert not any(note.startswith("Running late") for note in rec.notes)
+    assert any(note.startswith("Live readings used for 1 train ") for note in rec.notes)
+
+
+def test_without_readings_the_first_train_is_not_its_own_train_ahead(loaded):
+    loaded.execute(
+        "INSERT INTO observations (observed_at, train_id, station_code, source, train_number, "
+        "event, cancelled) VALUES (?, 'central-90106', '', 'ntes', '90106', 'cancelled', true)",
+        [MONDAY_7.replace(tzinfo=IST)],
+    )
+    asked = MONDAY_7.replace(minute=12, second=30)
+    rec = recommend(loaded, "KYN", "CSMT", asked, model_dir=None)
+    first = rec.options[0]
+    assert first.trip.number == "90106" and first.cancelled
+    assert "the train before it is cancelled" not in first.crowding.reason
+
+
+def test_an_early_reading_far_ahead_is_not_trusted_and_never_moves_a_departure_earlier(loaded):
+    _reading(loaded, MONDAY_7 - timedelta(minutes=5), "90106", "KYN", -3)  # 17 min ahead
+    rec = recommend(loaded, "KYN", "CSMT", MONDAY_7, model_dir=None)
+    assert _by_number(rec)["90106"].live is None
+    # Close to the train, an early reading counts as on time leaving.
+    _reading(loaded, MONDAY_7.replace(minute=8), "90106", "KYN", -2)
+    rec = recommend(loaded, "KYN", "CSMT", MONDAY_7.replace(minute=9), model_dir=None)
+    fast = _by_number(rec)["90106"]
+    assert fast.live is not None and fast.live.delay_minutes == -2
+    assert fast.departure_delay == 0
+    assert fast.predicted_departure == datetime(2026, 9, 28, 7, 12)
+
+
+def test_explain_at_timetable_level_doesnt_deny_todays_readings(loaded):
+    _reading(loaded, MONDAY_7 - timedelta(minutes=2), "90104", "KYN", 0)
+    rec = recommend(loaded, "KYN", "CSMT", MONDAY_7, model_dir=None)
+    assert rec.level == "timetable"
+    assert "no readings of these trains from earlier days" in explain(rec)
+    assert "no past observations" not in explain(rec)

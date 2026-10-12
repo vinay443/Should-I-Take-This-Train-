@@ -291,3 +291,24 @@ def test_collect_reports_a_crash_without_stopping(db, tmp_path, capsys, monkeypa
     out = capsys.readouterr().out
     assert code == 0
     assert out.startswith("Live check failed (RuntimeError); using what the database already has.")
+
+
+def test_a_past_time_without_a_date_means_tomorrow():
+    late = datetime(2026, 10, 13, 23, 50, tzinfo=IST)
+    assert next_cli.asked_at(late, time(0, 10), None, None) == datetime(
+        2026, 10, 14, 0, 10, tzinfo=IST
+    )
+    assert next_cli.asked_at(late, None, None, time(0, 10)) == datetime(
+        2026, 10, 14, 0, 9, tzinfo=IST
+    )
+    # Within the hour still means today; an explicit date is never moved.
+    assert next_cli.asked_at(late, time(23, 0), None, None).date() == date(2026, 10, 13)
+    assert next_cli.asked_at(late, time(0, 10), date(2026, 10, 13), None).date() == date(
+        2026, 10, 13
+    )
+
+
+def test_train_prefers_the_asked_day_and_names_another_day(db, capsys):
+    code, out, _ = run(db, capsys, "KYN", "CSMT", "--at", "07:00", "--train", "04:15", "-n", "8")
+    assert code == 0
+    assert "The 04:15 slow on Wed 14 Oct to CSMT (90102):" in out

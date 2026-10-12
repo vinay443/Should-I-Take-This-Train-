@@ -111,7 +111,7 @@ Show when the data was last collected and which trains have live readings.
 Measure coverage (pytest-cov, free), list the weakest modules, add tests where they guard
 real behaviour. **Done when:** coverage figure in PROGRESS.md and README dev section.
 
-### 14. Independent review — [ ]
+### 14. Independent review — [x]
 A separate Claude Code agent reviews the round's changes cold; real findings get fixed.
 
 ### Open data question (not an item)

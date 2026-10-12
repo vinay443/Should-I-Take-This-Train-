@@ -69,8 +69,9 @@ SYNTHETIC_SOURCE = "synthetic"
 AHEAD_LOOKBACK_MINUTES = 45
 # NTES shows a train as on time until shortly before it arrives, then the delay appears
 # (docs/live-drift.md: a third of suburban trains read "on time" 15-60 min ahead were 5+ min
-# late in the end). So an on-time reading only counts if taken this close to the train's
-# scheduled time at the boarding station. A reading that already shows a delay always counts.
+# late in the end). So an on-time (or early) reading only counts if taken this close to the
+# train's scheduled time at the boarding station. A reading that already shows a delay
+# always counts.
 LIVE_ON_TIME_TRUST_MINUTES = 15
 # A cancellation reading counts if it was made no longer than this before `now`.
 CANCELLATION_MAX_AGE_HOURS = 4
@@ -402,6 +403,10 @@ def recommend(
         )
         if trip.departure < local_now
     ]
+    # next_trains works to the minute, so asked at 07:12:30 the 07:12 is both "upcoming" and
+    # "earlier". Keep it upcoming only.
+    upcoming = {(trip.train_id, trip.service_day) for trip in trips}
+    earlier = [trip for trip in earlier if (trip.train_id, trip.service_day) not in upcoming]
     names = dict(con.execute("SELECT code, name FROM stations").fetchall())
     origin_code = resolve_station(con, origin)
     destination_code = resolve_station(con, destination)
@@ -436,7 +441,7 @@ def recommend(
         reading = live.get(key)
         if (
             reading is not None
-            and round(reading.delay_minutes) == 0
+            and round(reading.delay_minutes) <= 0
             and trip.departure - reading.observed_at > timedelta(minutes=LIVE_ON_TIME_TRUST_MINUTES)
         ):
             del live[key]
@@ -526,9 +531,11 @@ def recommend(
                 option.arrival_low, option.arrival_high = at_destination.low, at_destination.high
         reading = live.get((trip.train_id, trip.service_day or trip.departure.date()))
         if reading is not None:
-            # Keep the change en route that was predicted; replace the starting point.
-            shift = reading.delay_minutes - option.departure_delay
-            option.departure_delay = reading.delay_minutes
+            # Keep the change en route that was predicted; replace the starting point. A
+            # local doesn't leave before its time, so an "early" reading means on time here.
+            leaving = max(0.0, reading.delay_minutes)
+            shift = leaving - option.departure_delay
+            option.departure_delay = leaving
             option.arrival_delay += shift
             if option.arrival_low is not None and option.arrival_high is not None:
                 option.arrival_low += shift
@@ -630,8 +637,9 @@ def explain(recommendation: Recommendation) -> str:
     if rec.level == LEVEL_TIMETABLE:
         live = any(option.live is not None for option in rec.options)
         lines.append(
-            "There is no delay model and no past observations, so every train is assumed "
-            "to run on time" + (", except those with a live reading." if live else ".")
+            "There is no delay model and no readings of these trains from earlier days, so "
+            "every train is assumed to run on time"
+            + (", except those with a live reading." if live else ".")
         )
     if rec.synthetic:
         lines.append(

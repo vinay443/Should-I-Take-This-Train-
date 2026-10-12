@@ -26,7 +26,7 @@ from pathlib import Path
 import httpx
 
 from sitt.bot.formatting import trip_tags
-from sitt.bot.schedule import ScheduleError, recommend_trains
+from sitt.bot.schedule import PAST_TIME_MEANS_TOMORROW, ScheduleError, recommend_trains
 from sitt.config import load_recommend_settings, load_settings
 from sitt.recommend import LEVEL_TIMETABLE, Option, Recommendation, explain, live_text
 from sitt.tz import IST
@@ -109,23 +109,36 @@ def collect_now(db_path: Path, data_dir: Path, client: httpx.Client | None = Non
 
 
 def asked_at(now: datetime, at: time | None, day: date | None, train: time | None) -> datetime:
-    """The moment the question is asked, in Mumbai time."""
+    """The moment the question is asked, in Mumbai time.
+
+    Without `day`, a time more than an hour gone today means tomorrow, as in the bot's
+    `/next KYN CSMT 8:00` (sitt.bot.schedule.PAST_TIME_MEANS_TOMORROW).
+    """
     now = now.astimezone(IST)
-    day = day or now.date()
-    if at is not None:
-        return datetime.combine(day, at, IST)
-    if train is not None:
-        return datetime.combine(day, train, IST) - timedelta(minutes=TRAIN_LEAD_MINUTES)
-    if day != now.date():
+    clock = at if at is not None else train
+    if clock is not None:
+        moment = datetime.combine(day or now.date(), clock, IST)
+        if day is None and now - moment > PAST_TIME_MEANS_TOMORROW:
+            moment += timedelta(days=1)
+        return moment if at is not None else moment - timedelta(minutes=TRAIN_LEAD_MINUTES)
+    if day is not None and day != now.date():
         return datetime.combine(day, time(0, 0), IST)
     return now
 
 
 def find_train(recommendation: Recommendation, departs: time) -> int | None:
-    for i, option in enumerate(recommendation.options):
-        if option.trip.departure.time().replace(second=0, microsecond=0) == departs:
-            return i
-    return None
+    """The option leaving at `departs`, preferring the day the question is about."""
+    matches = [
+        i
+        for i, option in enumerate(recommendation.options)
+        if option.trip.departure.time().replace(second=0, microsecond=0) == departs
+    ]
+    same_day = [
+        i
+        for i in matches
+        if recommendation.options[i].trip.departure.date() == recommendation.asked_at.date()
+    ]
+    return (same_day or matches or [None])[0]
 
 
 def _delay(minutes: float) -> str:
@@ -177,7 +190,12 @@ def format_focus(recommendation: Recommendation, index: int) -> str:
     """A few lines about the one train the rider asked about."""
     option = recommendation.options[index]
     trip = option.trip
-    lines = [f"The {option.name} to {trip.label} ({trip.number}):"]
+    day = (
+        ""
+        if trip.departure.date() == recommendation.asked_at.date()
+        else f" on {trip.departure:%a %d %b}"
+    )
+    lines = [f"The {option.name}{day} to {trip.label} ({trip.number}):"]
     if option.cancelled:
         lines.append("  reported CANCELLED")
         return "\n".join(lines)
