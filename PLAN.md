@@ -92,7 +92,7 @@ permitted) and then recommends, so live readings are fresh. Never scheduled. **D
 test with a mocked HTTP client (network stays blocked in tests); a failed collection still
 gives a recommendation with a clear note.
 
-### 10. How live delays drift (real-data analysis) — [ ]
+### 10. How live delays drift (real-data analysis) — [x]
 From the real NTES snapshots, measure how a train's reported delay changes over the next
 15/30/45 min, and use the empirical spread to put a range ("±n min") on live predictions.
 **Done when:** `docs/live-drift.md` with the numbers and caveats (one station, ~17 hours);
