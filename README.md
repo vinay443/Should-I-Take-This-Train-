@@ -8,6 +8,35 @@ Ask the Telegram bot `/next KYN CSMT` and it answers along the lines of:
 > Take the 08:12 fast: arrives 08:58 ±4 min, likely packed, but the next best (08:27 fast)
 > arrives 15 min later.
 
+## Try it in two minutes
+
+With [uv](https://docs.astral.sh/uv/) installed, from a fresh clone, and using the small
+**invented** sample timetable (no downloads, no accounts):
+
+```bash
+uv sync
+uv run sitt-init-db
+uv run python -m sitt.ingest.timetable tests/fixtures/sample_timetable.csv
+uv run sitt-next KYN CSMT --at 07:00
+```
+
+You get a recommendation and a table of the next trains:
+
+```
+Kalyan -> Chhatrapati Shivaji Maharaj Terminus, asked at 07:00 on Tue 13 Oct 2026
+
+Wait for the 07:12 fast: arrives 08:19, earliest arrival, likely seats free.
+
+   Leaves     Train         Arrives  Leaving  Crowding        Tags
+   07:03      slow to CSMT  08:24    on time  2/5 seats free
+>  07:12      fast to CSMT  08:19    on time  2/5 seats free
+   ...
+```
+
+Then try `--why`, `--train 07:12`, or another pair such as `Kalyan Thane`. For real trains,
+load the official timetable instead ([Load the timetable](#load-the-timetable)), and add
+`--collect` to fetch live running status once before answering.
+
 ## What is real and what is synthetic
 
 Read this before trusting any number the project shows you.

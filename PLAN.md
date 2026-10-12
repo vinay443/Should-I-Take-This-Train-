@@ -129,7 +129,7 @@ same-direction trains read in the previous 30 min, and combinations. **Done when
 reproducible command and `docs/line-state.md` with the errors; the recommender uses the
 signal only if it clearly beats the alternatives, with a note in replies.
 
-### 17. Two-minute quick start — [ ]
+### 17. Two-minute quick start — [x]
 A README section that gets a new reader from clone to a `sitt-next` answer with the sample
 timetable, verified by running it in a fresh clone.
 
