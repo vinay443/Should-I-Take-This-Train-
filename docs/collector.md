@@ -235,7 +235,12 @@ Leave both off until Mobond has agreed, then follow
 Even when on, Mobond is asked at most once per 15 minutes, however often `sitt-collect` runs.
 A run inside that gap logs "Mobond not polled (rate limit)" and carries on with NTES.
 
-### Every 15 minutes with Task Scheduler
+### Every 15 minutes with Task Scheduler (optional, not in use)
+
+> **Collection is currently manual.** The task described here was set up once and then
+> switched off, by choice. Run `uv run sitt-collect` by hand when you want fresh readings
+> (for example just before `uv run sitt-next`). Only set this up if you decide you want
+> background collection again.
 
 The repository has two PowerShell scripts for this:
 

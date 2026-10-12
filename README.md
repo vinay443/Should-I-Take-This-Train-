@@ -15,13 +15,13 @@ Read this before trusting any number the project shows you.
 | Part | Status |
 | --- | --- |
 | **Timetable** | **Real.** Converted from Central Railway's official timetable PDFs: 895 main-line trains, with AC, 15-car and ladies' special markers. The base edition is from October 2024, with the 2025 AC and 2026 15-car supplements applied. |
-| **Live observations** | **Real, and very few.** Collected from NTES every 15 minutes on one PC since 5 October 2026. NTES reports locals beyond Kalyan and long-distance trains, not CSMT–Kalyan locals. m-Indicator (Mobond) is switched off: no permission yet. |
+| **Live observations** | **Real, and very few.** Collected from NTES on one PC on 5–6 October 2026; since then only when `sitt-collect` is run by hand (nothing collects in the background). NTES reports locals beyond Kalyan and long-distance trains, not CSMT–Kalyan locals. m-Indicator (Mobond) is switched off: no permission yet. |
 | **Delay data used for development** | **Synthetic.** Invented by a generator from guesses about how delays behave. |
 | **Delay model and its accuracy figures** | **Trained and tested on that synthetic data.** They show the pipeline works. They say nothing about real trains, and such a model is not used for recommendations. A real model is trained only once there is enough real data (`sitt-retrain`), and used only at the stations it was trained on. |
 | **Crowding** | **A rule-of-thumb estimate**, not a measurement and not a trained model. It is adjusted by your own crowd reports as you log them. |
 | **Crowd reports** | **Real**, whatever you log through the bot. Each is matched to a scheduled train where that can be done with confidence. |
 | **Megablocks** | **Real but partial.** Only the date and line can be fetched; the section and times are entered by hand. |
-| **`/next` today** | **Timetable times**, or the typical past delay where a few real readings exist, and the crowding estimate. Every reply says which. |
+| **`/next` and `sitt-next` today** | **Timetable times**, or the typical past delay where a few real readings exist, overridden by a **live reading** for any train read in the last 30 minutes, and the crowding estimate. Every reply says which. |
 
 Everything synthetic is labelled where it appears: `source = 'synthetic'` in the data, a
 banner in the dashboard, and a line in any bot reply that uses it. Once real observations
@@ -132,8 +132,16 @@ if that is ever switched on, and stores it as observations. See
 - **On GitHub:** the workflows exist but only start by hand. Run **Probe live sources** first
   to check the sources answer GitHub's servers.
 - **On this machine:** `uv run sitt-collect` does one round and appends to the local database.
-  [`docs/collector.md`](docs/collector.md#6-running-it-on-this-windows-machine) shows how to
-  run it every 15 minutes with Windows Task Scheduler.
+  **Collection is manual:** nothing is scheduled, and the project doesn't need it to be. Run it
+  just before asking to get live readings into the recommendation:
+
+  ```bash
+  uv run sitt-collect
+  uv run sitt-next KYN CSMT
+  ```
+
+  [`docs/collector.md`](docs/collector.md#6-running-it-on-this-windows-machine) also describes an
+  optional Windows Task Scheduler setup, which is not in use.
 
 Keeping an eye on it, and on the data:
 
@@ -246,9 +254,10 @@ src/sitt/
   synth/          synthetic observation generator
   models/         delay features, baselines, LightGBM model, retraining, crowding estimate
   recommend.py    "take this train or wait?"
+  next_cli.py     sitt-next: the recommender on the command line
   bot/            Telegram bot: logging, /next, saved routes, /commute, its own messages
   dashboard/      Streamlit app
-scripts/          PowerShell scripts for Task Scheduler: collector, health checks, retraining
+scripts/          optional PowerShell scripts for Task Scheduler (not in use: collection is manual)
 streamlit_app.py  entry point for Streamlit Community Cloud
 tests/
 docs/
@@ -282,8 +291,8 @@ Done:
 1. **Data source research.** What exists and how reliable it is.
 2. **Timetable.** The official PDFs, with supplements, converted and loaded; manual overrides
    and the movable holidays for 2026.
-3. **Live collector**, running on one PC against NTES since 5 October 2026, with a run log,
-   a health report and Telegram alerts.
+3. **Live collector** for NTES, run by hand, with a run log, a health report and Telegram
+   alerts.
 4. **Data-quality checks** on what it collects.
 5. **Crowd logging bot**, with reports matched to scheduled trains, saved routes, `/commute`,
    a morning message and a one-tap crowd prompt.
@@ -295,11 +304,16 @@ Done:
 11. **A pipeline for real-data models** that waits until there is enough data and promotes a
     model only if it beats the baselines.
 12. **Parquet export and compaction.**
+13. **`sitt-next`**: the recommender from the command line, for any time or train.
+14. **Live readings in recommendations**: a recent reading replaces a train's predicted
+    delay, late trains that can still be caught are listed, and the train ahead's delay
+    feeds crowding ([`recommender.md`](docs/recommender.md#live-readings)).
 
 Next, roughly in order:
 
-1. **Let real data accumulate**, and watch it with `sitt-health` and `sitt-dq`. Review the
-   data-quality bounds and alert thresholds after a few weeks.
+1. **Let real data accumulate**, by running `sitt-collect` by hand when convenient, and watch
+   it with `sitt-health` and `sitt-dq`. Without a schedule it grows slowly, so `sitt-retrain`
+   will take a long time to have enough.
 2. **Ask Mobond for permission.** NTES doesn't cover CSMT–Kalyan locals, which is the core of
    this project. The adapter is ready and off.
 3. **Log crowding**, ideally with a saved route so the bot asks after each commute. Tune the
@@ -308,6 +322,5 @@ Next, roughly in order:
    check the synthetic assumptions against reality.
 5. **Add the 2027 holidays** when Maharashtra publishes them (the entries are there, marked
    tentative).
-6. **Use live readings in recommendations**: cancellations and the train ahead.
-7. **Refresh the timetable** when Central Railway publishes a new main-line edition.
-8. **Other lines** only after that: see [`expansion-assessment.md`](docs/expansion-assessment.md).
+6. **Refresh the timetable** when Central Railway publishes a new main-line edition.
+7. **Other lines** only after that: see [`expansion-assessment.md`](docs/expansion-assessment.md).
