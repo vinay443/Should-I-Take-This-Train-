@@ -113,3 +113,23 @@ The recommender's fallback, the median past delay of a train, does not yet look 
   off by five minutes.
 - `schedule_mismatch` can't tell a stale timetable from a mismatched train. Look at the
   examples: the same train flagged at every poll, with the same difference, is the timetable.
+
+## Cases looked into
+
+### 95335 (checked 2026-10-12): the timetable matches the PDF; NTES differs
+
+`sitt-dq` flags every reading of 95335 on 5 October as `schedule_mismatch` (−144 min):
+NTES gave it a departure from Kalyan at 21:54, while our timetable has it reaching Kalyan
+at 00:18.
+
+95335 is not in the base DOWN timetable; it comes from the 2026 **15-car supplement**
+(page 1, rake DA 7, 15 cars). That page lists it as Dadar 23:23, Kurla 23:32, Ghatkopar
+23:37, Thane 23:53, Dombivli 00:09, **Kalyan 00:18**, Vithalwadi 00:22, Ulhasnagar 00:25,
+Ambernath 00:30, which is exactly what the converter loaded. So the timetable is a faithful
+copy of the official document, and no override was added.
+
+NTES's 21:54 must be some other schedule under the same number (a newer working timetable,
+or a different service). The flag stays, which is the right outcome: the readings are kept
+but left out of features and baselines. If NTES keeps showing 21:54 over several days, the
+supplement may be out of date for this train; check Central Railway's latest supplement
+before adding an override in `src/sitt/ingest/timetable_overrides.toml`.

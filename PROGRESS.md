@@ -4,10 +4,15 @@ Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
 ## Where this stopped
 
-Round 2 in progress (PLAN.md items 6-14). See the newest entry below for the last finished
+Round 3 in progress (PLAN.md items 15-18; rounds 1-2 done). See the newest entry below for the last finished
 item; the next unticked item in PLAN.md is what to do next.
 
 ## 2026-10-12
+
+### Item 15: 95335 mismatch resolved (no override)
+- Checked the 2026 15-car supplement PDF (on your PC in `scratch/`): 95335 is Dadar 23:23 ->
+  Kalyan 00:18, exactly as loaded. NTES's 21:54 is another schedule under the same number.
+  Kept flagged; written up in `docs/data-quality.md` ("Cases looked into").
 
 ### Item 14: independent review (done)
 A separate Claude Code agent reviewed all of this session's changes cold and reported 5
