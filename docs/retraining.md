@@ -131,7 +131,10 @@ and test periods. The recommender honours it:
 A model without the list (a synthetic one, or one from `python -m sitt.models train`) is
 treated as covering everything, as before.
 
-## Running it weekly
+## Running it weekly (optional)
+
+Running `uv run sitt-retrain` by hand is enough; it says when there is too little data. The
+scheduled task below is optional and is not set up.
 
 Data is local, so this runs on your PC, not on GitHub.
 [`scripts/retrain.ps1`](../scripts/retrain.ps1) runs `sitt-retrain` from the repository

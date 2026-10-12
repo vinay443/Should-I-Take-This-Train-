@@ -50,7 +50,7 @@ other-day reading is ignored; the train-ahead delay reaches crowding; the reason
 mentions the live reading; works at timetable level (no history). Verified on the real DB
 with a reading time inside the collected window.
 
-### 4. Docs reflect how the project is run now — [ ]
+### 4. Docs reflect how the project is run now — [x]
 The README says data is collected every 15 minutes; collection is now manual only (the
 Task Scheduler collector was switched off). Document `sitt-next`, the live-reading rule
 (`docs/recommender.md`), the manual "collect once, then ask" flow, and the `.env.example`
@@ -63,6 +63,7 @@ Maharashtra usually publishes the next year's list in November–December. The 2
 are already in `holidays.toml`, marked tentative.
 **Done when:** the official 2027 list is out and the entries are updated to
 `reported`/`confirmed`. Nothing to do before then.
+Checked 2026-10-12: no official 2027 notification found yet, only third-party calendars.
 
 ## Out of scope / needs you
 

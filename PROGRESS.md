@@ -2,7 +2,31 @@
 
 Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
+## Where this stopped (2026-10-12)
+
+PLAN.md items 1-4 are done and merged to `main` (PRs #1-#4). Item 5 (2027 holidays) is
+blocked until Maharashtra publishes its 2027 list, usually in November-December.
+
+**Next step:** when the 2027 list is out, update the 2027 entries in
+`src/sitt/holidays.toml` (status `reported` or `confirmed`, with the source and date
+checked), run `uv run pytest`, and open a PR. Until then there is no code work left in
+PLAN.md; the remaining roadmap items (Mobond permission, logging crowd reports, collecting
+by hand, a new timetable edition) need you or outside events. Good candidates for a next
+PLAN.md: a `sitt-next --collect` flag that runs one manual collection round first, or
+showing live readings on the dashboard's delay-patterns page.
+
+Your PC's copy of the repo is still at commit 371b022; run `git pull` there to get this
+work.
+
 ## 2026-10-12
+
+### Item 4: docs for manual-only collection (done)
+- README: live observations are from 5-6 Oct plus manual runs; "collect once, then ask"
+  flow; `sitt-next` and live readings in Done; roadmap renumbered; layout lists
+  `next_cli.py`; scripts marked optional.
+- `docs/collector.md`: the Task Scheduler section is marked optional and not in use.
+- `docs/retraining.md`: the weekly task is marked optional.
+- Item 5 checked: no official 2027 Maharashtra holiday list yet.
 
 ### Item 3: live readings in recommendations (done)
 - `sitt.recommend`: the latest reading of a run taken today, at most
