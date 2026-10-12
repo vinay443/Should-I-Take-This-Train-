@@ -1,8 +1,10 @@
 """Telegram handlers. Kept thin: parsing and flow logic live in plain modules."""
 
+import asyncio
 import contextlib
 import logging
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import duckdb
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Message, Update
@@ -23,6 +25,7 @@ from sitt.bot.parsing import CROWD_LEVELS, SERVICES, parse_log_text, parse_time
 from sitt.bot.stations import StationDirectory, load_directory
 from sitt.config import CommuteSettings
 from sitt.db import connect
+from sitt.ingest.live.local import collect_now
 from sitt.recommend import explain
 from sitt.tz import IST
 
@@ -36,6 +39,7 @@ LAST_RECOMMENDATION_KEY = "last_recommendation"  # user_data: what /why explains
 MATCH_SETTINGS_KEY = "match_settings"  # bot_data: how reports are matched to trains
 COMMUTE_SETTINGS_KEY = "commute_settings"  # bot_data: /commute and the bot's own messages
 ALLOWED_USERS_KEY = "allowed_user_ids"  # bot_data: who the bot may message on its own
+DATA_DIR_KEY = "data_dir"  # bot_data: where `/next … live` keeps collected batches
 
 _PROMPTS: dict[Step, str] = {
     "station": "Where did you board? Tap a station or type its name.",
@@ -79,11 +83,24 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def next_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.effective_message
-    words, when = schedule.split_when(context.args or [], datetime.now(IST))
+    words = list(context.args or [])
+    live = any(word.lower() == "live" for word in words)
+    words = [word for word in words if word.lower() != "live"]
+    words, when = schedule.split_when(words, datetime.now(IST))
     pair = schedule.split_stations(words, _stations(context))
     if pair is None:
         await message.reply_text(formatting.NEXT_USAGE)
         return
+    checked = None
+    if live:
+        # Only when asked: one collection round, like `sitt-next --collect`. It blocks on
+        # the network for a few seconds, so it runs in a thread.
+        await message.reply_text("Checking live running status…")
+        checked = await asyncio.to_thread(
+            collect_now,
+            Path(context.bot_data[DB_PATH_KEY]),
+            Path(context.bot_data.get(DATA_DIR_KEY) or "data"),
+        )
     try:
         recommendation = schedule.recommend_trains(
             context.bot_data[DB_PATH_KEY],
@@ -96,9 +113,8 @@ async def next_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await message.reply_text(f"{exc}\n{formatting.NEXT_USAGE}")
         return
     context.user_data[LAST_RECOMMENDATION_KEY] = recommendation
-    await message.reply_text(
-        formatting.format_recommendation(recommendation, show_time=when.explicit)
-    )
+    reply = formatting.format_recommendation(recommendation, show_time=when.explicit)
+    await message.reply_text(f"{checked}\n\n{reply}" if checked else reply)
 
 
 async def why_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

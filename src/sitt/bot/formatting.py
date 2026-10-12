@@ -20,7 +20,8 @@ Crowd can be 1-5 or empty / seats / standing / packed / can't board.
 /mylogs: your last 10 reports.
 /next KYN CSMT: which of the next trains to take, with predicted arrival and \
 crowding for each. Add a time or day to plan ahead: /next KYN CSMT 8:00, \
-/next KYN CSMT tomorrow 8:12.
+/next KYN CSMT tomorrow 8:12. Add "live" to fetch live running status first: \
+/next KYN CSMT live.
 /why: explain the last /next recommendation.
 /fav add work KYN CSMT 8:12 mon-fri: save a route and your usual train. \
 /fav on its own lists them.
