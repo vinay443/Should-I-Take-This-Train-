@@ -3,15 +3,18 @@
     uv run python -m sitt.models.line_state
     uv run python -m sitt.models.line_state --by-direction
 
-For every suburban run with a final reading (its last reading taken within `CLOSE_MINUTES`
-of the train's time, as in sitt.models.live_drift), pretend to ask `lead` minutes before
-that time, using only readings taken by then, and predict the final delay four ways:
+A run is one train at one station on one service day; its arrival and departure readings
+count once. For every suburban run with a final reading (its last reading taken within
+`CLOSE_MINUTES` of the train's expected time, as in sitt.models.live_drift), pretend to ask
+`lead` minutes before the train's **scheduled** time, using only readings taken by then, and
+predict the final delay four ways:
 
     zero   the timetable: 0 minutes late
     own    the run's own latest reading by then (0 if none)
-    line   the median delay of *other* trains in the same direction read in the previous
-           `LINE_WINDOW_MINUTES` within `CLOSE_MINUTES` of their own time (readings close to
-           a train are the ones that are informative; see docs/live-drift.md); 0 if none
+    line   the median, over *other* trains in the same direction at the same station, of
+           each one's latest reading in the previous `LINE_WINDOW_MINUTES` taken within
+           `CLOSE_MINUTES` of its own time (readings close to a train are the informative
+           ones; see docs/live-drift.md); 0 if none
     max    the larger of own and line
 
 No parameters are fitted, so there is nothing to overfit; the result can still be noise on
@@ -43,11 +46,15 @@ class BacktestRow:
 
 
 def _prepare(con: duckdb.DuckDBPyConnection) -> None:
+    # One row per reading, with the train's *scheduled* time (expected time minus delay):
+    # questions are asked relative to that, never to the outcome.
     con.execute(
         """
         CREATE OR REPLACE TEMP TABLE ls_readings AS
-        SELECT o.train_id, t.direction, o.event, o.observed_at,
+        SELECT o.train_id, t.direction, o.station_code, o.observed_at,
                o.actual_or_expected_time AS t, o.delay_minutes AS d,
+               o.actual_or_expected_time - to_minutes(CAST(o.delay_minutes AS BIGINT))
+                   AS scheduled,
                date_trunc('day', o.actual_or_expected_time
                    - to_minutes(CAST(o.delay_minutes AS BIGINT)) - INTERVAL 3 HOUR) AS run_key
         FROM observations o JOIN trains t USING (train_id)
@@ -56,12 +63,14 @@ def _prepare(con: duckdb.DuckDBPyConnection) -> None:
           AND o.source <> 'synthetic'
         """
     )
+    # One run = one train, one station, one service day. Its arrival and departure readings
+    # are the same run, so they are counted once: the last reading of either kind.
     con.execute(
         f"""
         CREATE OR REPLACE TEMP TABLE ls_final AS
-        SELECT train_id, direction, event, run_key,
-               arg_max(d, observed_at) AS d_final, arg_max(t, observed_at) AS t_final
-        FROM ls_readings GROUP BY ALL
+        SELECT train_id, direction, station_code, run_key,
+               arg_max(d, observed_at) AS d_final, min(scheduled) AS scheduled
+        FROM ls_readings GROUP BY train_id, direction, station_code, run_key
         HAVING max(observed_at) >= arg_max(t, observed_at) - INTERVAL {CLOSE_MINUTES} MINUTE
         """
     )
@@ -73,28 +82,35 @@ def backtest(
     _prepare(con)
     group = "direction" if by_direction else "NULL::VARCHAR"
     out: list[BacktestRow] = []
+    keys = "train_id, station_code, run_key"
     for lead in leads:
         rows = con.execute(
             f"""
             WITH q AS (
-                SELECT *, t_final - INTERVAL {int(lead)} MINUTE AS t_ask FROM ls_final
+                SELECT *, scheduled - INTERVAL {int(lead)} MINUTE AS t_ask FROM ls_final
             ), own AS (
-                SELECT q.train_id, q.event, q.run_key, arg_max(r.d, r.observed_at) AS d_own
-                FROM q JOIN ls_readings r USING (train_id, event, run_key)
+                SELECT q.train_id, q.station_code, q.run_key,
+                       arg_max(r.d, r.observed_at) AS d_own
+                FROM q JOIN ls_readings r USING ({keys})
                 WHERE r.observed_at <= q.t_ask GROUP BY ALL
-            ), line AS (
-                SELECT q.train_id, q.event, q.run_key, median(h.d) AS d_line
+            ), other AS (
+                -- each other train's latest informative reading in the window, once per train
+                SELECT q.train_id, q.station_code, q.run_key, h.train_id AS other_train,
+                       arg_max(h.d, h.observed_at) AS d
                 FROM q JOIN ls_readings h
-                  ON h.direction = q.direction AND h.train_id <> q.train_id
+                  ON h.direction = q.direction AND h.station_code = q.station_code
+                 AND h.train_id <> q.train_id
                  AND h.observed_at BETWEEN q.t_ask - INTERVAL {LINE_WINDOW_MINUTES} MINUTE
                                        AND q.t_ask
                  AND h.observed_at >= h.t - INTERVAL {CLOSE_MINUTES} MINUTE
                 GROUP BY ALL
+            ), line AS (
+                SELECT train_id, station_code, run_key, median(d) AS d_line
+                FROM other GROUP BY ALL
             ), j AS (
                 SELECT q.direction, q.d_final, coalesce(own.d_own, 0) AS own,
                        coalesce(line.d_line, 0) AS line, line.d_line IS NOT NULL AS has_line
-                FROM q LEFT JOIN own USING (train_id, event, run_key)
-                       LEFT JOIN line USING (train_id, event, run_key)
+                FROM q LEFT JOIN own USING ({keys}) LEFT JOIN line USING ({keys})
             )
             SELECT {group} AS grp, count(*), avg(has_line::INT),
                    avg(abs(d_final)), avg(abs(d_final - own)), avg(abs(d_final - line)),
