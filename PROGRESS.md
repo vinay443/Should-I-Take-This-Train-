@@ -9,6 +9,14 @@ item; the next unticked item in PLAN.md is what to do next.
 
 ## 2026-10-12
 
+### Item 16: line-state nowcast backtest (done; not used in recommendations)
+- New `python -m sitt.models.line_state [--by-direction]`: predicts each run's final delay
+  15-60 min ahead from zero / own reading / other same-direction trains' honest readings /
+  max(own, line). Write-up `docs/line-state.md`.
+- Result: max(own, line) has the lowest MAE in every row (5.3 vs 5.7 min at 15 min ahead),
+  all from up trains, but not in both sessions and no better within 5 min. Below the bar
+  set in PLAN.md, so the recommender is unchanged. 2 new tests.
+
 ### Item 15: 95335 mismatch resolved (no override)
 - Checked the 2026 15-car supplement PDF (on your PC in `scratch/`): 95335 is Dadar 23:23 ->
   Kalyan 00:18, exactly as loaded. NTES's 21:54 is another schedule under the same number.

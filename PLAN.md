@@ -121,7 +121,7 @@ Check the official DOWN PDF (your PC, `scratch/cr-main-dn.pdf`) for 95335. **Don
 either an override in `timetable_overrides.toml` with the PDF evidence, or a note in
 `docs/data-quality.md` saying the timetable matches the PDF and NTES differs.
 
-### 16. Line-state nowcast, backtested on real data — [ ]
+### 16. Line-state nowcast, backtested on real data — [x]
 When several trains in the same direction were just read as late, are trains without a
 reading likely late too? Backtest on the real readings: for each run, predict its final
 delay from (a) zero, (b) its own latest reading, (c) the median latest delay of other
