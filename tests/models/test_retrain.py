@@ -20,7 +20,7 @@ from sitt.ingest.timetable import load_timetable, read_timetable
 from sitt.models import __main__ as models_cli
 from sitt.models import retrain
 from sitt.models.delay import DelayModel, ModelError
-from sitt.recommend import LEVEL_BASELINE, LEVEL_MODEL, recommend
+from sitt.recommend import LEVEL_MODEL, LEVEL_TIMETABLE, recommend
 from sitt.tz import IST
 
 FIXTURE_SOURCE = "test-fixture"
@@ -419,8 +419,10 @@ def test_the_recommender_uses_a_real_model_only_at_covered_stations(trained):
         assert all(option.arrival_delay == 0 for option in mixed.options)  # no CSMT history
 
         # Neither station is covered: the model is not used at all, and the reply says so.
+        # There are no past readings at Dadar or CSMT either, so it says timetable rather
+        # than claiming a typical past delay it doesn't have.
         outside = recommend(con, "DR", "CSMT", monday, settings, model=model)
-        assert outside.level == LEVEL_BASELINE
+        assert outside.level == LEVEL_TIMETABLE
         assert any("was not trained on either of these stations" in n for n in outside.notes)
 
         # A model with no coverage list (an older or synthetic one) behaves as before.

@@ -23,7 +23,7 @@ from pathlib import Path
 from sitt.bot.formatting import trip_tags
 from sitt.bot.schedule import ScheduleError, recommend_trains
 from sitt.config import load_recommend_settings, load_settings
-from sitt.recommend import LEVEL_TIMETABLE, Option, Recommendation, explain
+from sitt.recommend import LEVEL_TIMETABLE, Option, Recommendation, explain, live_text
 from sitt.tz import IST
 
 # With --train and no --at, the question is asked this long before the train leaves, so
@@ -107,6 +107,8 @@ def _row(option: Option, chosen: bool, focused: bool, asked: datetime) -> list[s
         if option.arrival_margin is not None:
             arrival += f" ±{option.arrival_margin}"
         delay = _delay(option.departure_delay)
+        if option.live is not None:
+            delay += f" (live {option.live.observed_at:%H:%M})"
         crowd = f"{option.crowding.score}/5 {option.crowding.label}" if option.crowding else "?"
     return [
         marker,
@@ -153,6 +155,8 @@ def format_focus(recommendation: Recommendation, index: int) -> str:
             f", likely between {_delay(option.arrival_low)} and {_delay(option.arrival_high)}"
         )
     lines.append(arrival + ")")
+    if option.live is not None:
+        lines.append(f"  {live_text(option.live)}, at {option.live.station_code}")
     if option.crowding:
         lines.append(
             f"  crowding {option.crowding.score}/5 {option.crowding.label}: "
@@ -177,8 +181,13 @@ def format_answer(recommendation: Recommendation, focus: int | None = None) -> s
         lines += [format_table(rec, focus), ""]
     if focus is not None:
         lines += [format_focus(rec, focus), ""]
+    live = any(option.live is not None for option in rec.options)
     if rec.level == LEVEL_TIMETABLE:
-        lines.append("Times: timetable only, there is no delay data yet.")
+        lines.append(
+            "Times: timetable, except trains marked live."
+            if live
+            else "Times: timetable only, there is no delay data yet."
+        )
     else:
         lines.append(f"Times: {rec.level_text}.")
     if rec.synthetic:

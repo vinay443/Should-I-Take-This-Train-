@@ -15,7 +15,7 @@ from sitt.config import load_settings
 from sitt.dashboard import data
 from sitt.models.crowding import CROWD_LABELS
 from sitt.models.report import PREDICTOR_TITLES, SEGMENT_TITLES
-from sitt.recommend import explain, recommend
+from sitt.recommend import explain, live_text, recommend
 from sitt.timetable import next_trains
 from sitt.tz import IST
 
@@ -300,6 +300,8 @@ def recommender_page(sources: data.Sources) -> None:
         )
     st.subheader(result.reason)
     st.caption(f"Predictions used: {result.level_text}. Crowding is a rule-of-thumb estimate.")
+    for note in result.notes:
+        st.caption(note)
     rows = []
     for i, option in enumerate(result.options):
         trip = option.trip
@@ -313,6 +315,7 @@ def recommender_page(sources: data.Sources) -> None:
                 if option.cancelled
                 else f"{option.predicted_arrival:%H:%M}",
                 "± min": option.arrival_margin,
+                "Live": live_text(option.live) if option.live else "",
                 "Crowding": f"{option.crowding.score} {option.crowding.label}"
                 if option.crowding
                 else "",

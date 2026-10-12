@@ -4,6 +4,23 @@ Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
 ## 2026-10-12
 
+### Item 3: live readings in recommendations (done)
+- `sitt.recommend`: the latest reading of a run taken today, at most
+  `SITT_LIVE_MAX_AGE_MINUTES` (default 30) before the asked time, at the boarding station
+  or upstream of it, replaces the predicted departure delay; the arrival keeps the predicted
+  change en route. Options carry `live` (a `LiveReading`).
+- A train whose scheduled time has passed but which is running late enough to still be
+  caught is a candidate again. The train ahead's live delay feeds crowding.
+- Marked in `/next` ("· live"), `/why`, `sitt-next` ("(live 10:15)") and a dashboard column.
+- Behaviour change: when readings exist but none from earlier days of the trains asked
+  about, the level is now `timetable`, not `baseline` (it used to claim a typical past
+  delay it didn't have). One retrain test updated for this.
+- Footer now warns about synthetic live readings at timetable level.
+- 9 tests in `tests/test_live_recommend.py`. Checked on a copy of the real database:
+  KYN -> CSMT at 10:20 on 6 Oct picks up the 10:06 fast running 17 min late (still to
+  leave, passed over by the very-late rule) and five on-time live trains.
+- Docs: `docs/recommender.md` "Live readings"; `.env.example`.
+
 ### Item 2: `sitt-next` command-line recommender (done)
 - New `src/sitt/next_cli.py`, script `sitt-next`. Options `--at`, `--date`, `--train`,
   `--why`, `-n`, `--db`, `--no-model`. Reuses `sitt.bot.schedule.recommend_trains`, so it

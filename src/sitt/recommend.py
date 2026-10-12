@@ -11,6 +11,15 @@ which one was used:
                database has observations
     timetable  else the scheduled times as they stand
 
+On top of whichever level is used, a **live reading** overrides a train's predicted delay:
+the latest reading taken today, at most `RecommendSettings.live_max_age_minutes` before
+`now`, of that run at the boarding station or a station before it. Its delay becomes the
+departure delay; the arrival keeps whatever change en route the level predicted (none at
+timetable level). Such options carry `live` and every reply marks them. A train whose
+scheduled time has already passed is a candidate again if its live reading says it hasn't
+left yet. Live readings exist only when the collector has been run by hand shortly before
+asking.
+
 A model trained on synthetic (invented) data is **not used** unless
 `RecommendSettings.allow_synthetic_model` is set (`SITT_ALLOW_SYNTHETIC_MODEL=true`),
 which is for testing. Without it such a model is ignored and the next level down is
@@ -69,6 +78,16 @@ LEVEL_DESCRIPTIONS = {
 }
 
 
+@dataclass(frozen=True)
+class LiveReading:
+    """The latest recent reading of a run, at or before the boarding station."""
+
+    delay_minutes: float
+    observed_at: datetime  # Mumbai time, naive
+    station_code: str
+    source: str
+
+
 @dataclass
 class Option:
     """One candidate train, with what is predicted for it."""
@@ -81,6 +100,7 @@ class Option:
     cancelled: bool = False
     starts_here: bool = False
     crowding: CrowdingEstimate | None = None
+    live: LiveReading | None = None
 
     @property
     def predicted_departure(self) -> datetime:
@@ -143,7 +163,16 @@ def _arrival_text(option: Option) -> str:
     text = f"arrives {option.predicted_arrival:%H:%M}"
     if option.arrival_margin is not None:
         text += f" ±{option.arrival_margin} min"
+    if option.live is not None:
+        text += f" ({live_text(option.live)})"
     return text
+
+
+def live_text(live: LiveReading) -> str:
+    """E.g. "live: 7 min late at 08:03"."""
+    whole = round(live.delay_minutes)
+    state = "on time" if whole == 0 else f"{abs(whole)} min {'late' if whole > 0 else 'early'}"
+    return f"live: {state} at {live.observed_at:%H:%M}"
 
 
 def choose(options: list[Option], settings: RecommendSettings) -> tuple[int | None, str, str]:
@@ -282,6 +311,49 @@ def _cancelled_trains(con: duckdb.DuckDBPyConnection, now: datetime) -> set[str]
     return {row[0] for row in rows}
 
 
+def _live_readings(
+    con: duckdb.DuckDBPyConnection,
+    trips: list[ScheduledTrip],
+    origin_code: str,
+    now: datetime,
+    max_age_minutes: float,
+) -> dict[tuple[str, object], LiveReading]:
+    """The latest recent reading of each run at `origin_code` or a station before it.
+
+    Keyed by (train_id, service day). Reads the `obs` table built by `features.prepare`,
+    so suspect (flagged) and cancelled readings are already left out. Readings taken after
+    `now` are ignored, so asking about a past moment doesn't see the future.
+    """
+    if max_age_minutes <= 0 or not trips:
+        return {}
+    runs = [(trip.train_id, trip.service_day or trip.departure.date()) for trip in trips]
+    rows = con.execute(
+        """
+        SELECT o.train_id, o.service_day,
+               arg_max(o.delay_minutes, o.local_ts), max(o.local_ts),
+               arg_max(o.station_code, o.local_ts), arg_max(o.source, o.local_ts)
+        FROM obs o
+        JOIN route_points b ON b.train_id = o.train_id AND b.station_code = ?
+        WHERE o.point_seq <= b.point_seq
+          AND o.local_ts BETWEEN ? AND ?
+          AND o.train_id IN (SELECT unnest(?))
+        GROUP BY o.train_id, o.service_day
+        """,
+        [
+            origin_code,
+            now - timedelta(minutes=max_age_minutes),
+            now,
+            sorted({train_id for train_id, _ in runs}),
+        ],
+    ).fetchall()
+    wanted = set(runs)
+    return {
+        (train_id, day): LiveReading(float(delay), observed, station, source)
+        for train_id, day, delay, observed, station, source in rows
+        if (train_id, day) in wanted
+    }
+
+
 def _origins(con: duckdb.DuckDBPyConnection, train_ids: list[str]) -> dict[str, str]:
     """The first station of each train."""
     if not train_ids:
@@ -350,8 +422,31 @@ def recommend(
                 "so it is not used."
             )
 
+    live = _live_readings(
+        con, earlier + trips, origin_code, local_now, settings.live_max_age_minutes
+    )
+
+    # A train whose scheduled time has passed but which a live reading says is running late
+    # enough to still be caught is a candidate too.
+    def still_to_leave(trip: ScheduledTrip) -> bool:
+        reading = live.get((trip.train_id, trip.service_day or trip.departure.date()))
+        return (
+            reading is not None
+            and trip.departure + timedelta(minutes=round(reading.delay_minutes)) >= local_now
+        )
+
+    running_late = [trip for trip in earlier if still_to_leave(trip)]
+    gone = [trip for trip in earlier if trip not in running_late]
+    trips = running_late + trips
+    if running_late:
+        notes.append(
+            "Running late, so still to leave: "
+            + ", ".join(f"the {trip.departure:%H:%M} {trip.train_type}" for trip in running_late)
+            + "."
+        )
+
     # The train just ahead of the first candidate matters for crowding, so predict it too.
-    ahead_of_first = earlier[-1] if earlier else None
+    ahead_of_first = gone[-1] if gone else None
     everything = ([ahead_of_first] if ahead_of_first else []) + trips
     targets = []
     for trip in everything:
@@ -380,7 +475,11 @@ def recommend(
     elif has_observations:
         level, synthetic = LEVEL_BASELINE, observations_synthetic
         predictions = _baseline_predictions(con, targets)
-        if any(p is None for p in predictions):
+        if all(p is None for p in predictions):
+            # Readings exist (perhaps only today's), but none from earlier days of these
+            # trains: there is no typical delay to show, so say timetable.
+            level, synthetic = LEVEL_TIMETABLE, False
+        elif any(p is None for p in predictions):
             notes.append("Some trains have no past readings; they are shown at timetable times.")
     else:
         level, synthetic = LEVEL_TIMETABLE, False
@@ -402,10 +501,30 @@ def recommend(
             option.arrival_delay = at_destination.minutes
             if level != LEVEL_TIMETABLE and at_destination.high > at_destination.low:
                 option.arrival_low, option.arrival_high = at_destination.low, at_destination.high
+        reading = live.get((trip.train_id, trip.service_day or trip.departure.date()))
+        if reading is not None:
+            # Keep the change en route that was predicted; replace the starting point.
+            shift = reading.delay_minutes - option.departure_delay
+            option.departure_delay = reading.delay_minutes
+            option.arrival_delay += shift
+            if option.arrival_low is not None and option.arrival_high is not None:
+                option.arrival_low += shift
+                option.arrival_high += shift
+            option.live = reading
         return option
 
     all_options = [option_for(i, trip) for i, trip in enumerate(everything)]
     options = all_options[1:] if ahead_of_first else all_options
+    live_count = sum(option.live is not None for option in options)
+    if live_count:
+        oldest = min(option.live.observed_at for option in options if option.live)
+        notes.append(
+            f"Live readings used for {live_count} train{'s' if live_count != 1 else ''} "
+            f"(oldest taken at {oldest:%H:%M}); they replace the predicted delay at the "
+            "boarding station."
+        )
+        if any(option.live.source == SYNTHETIC_SOURCE for option in options if option.live):
+            synthetic = True
     for i, option in enumerate(options):
         before = all_options[i] if ahead_of_first else (options[i - 1] if i else None)
         trip = option.trip
@@ -421,8 +540,10 @@ def recommend(
                 is_ladies_special=trip.is_ladies_special,
                 sunday_schedule=is_sunday_schedule(day),
                 ahead_cancelled=bool(before and before.cancelled),
-                # Without delay data nothing is known about the train ahead.
-                ahead_delay=before.departure_delay if before and level != LEVEL_TIMETABLE else None,
+                # Without delay data or a live reading nothing is known about the train ahead.
+                ahead_delay=before.departure_delay
+                if before and (level != LEVEL_TIMETABLE or before.live is not None)
+                else None,
             ),
             similar_reports(
                 con,
@@ -484,9 +605,10 @@ def explain(recommendation: Recommendation) -> str:
         f"Predictions used: {rec.level_text}.",
     ]
     if rec.level == LEVEL_TIMETABLE:
+        live = any(option.live is not None for option in rec.options)
         lines.append(
             "There is no delay model and no past observations, so every train is assumed "
-            "to run on time."
+            "to run on time" + (", except those with a live reading." if live else ".")
         )
     if rec.synthetic:
         lines.append(
@@ -516,6 +638,11 @@ def explain(recommendation: Recommendation) -> str:
                 f"{_delay_text(option.arrival_high)}"
             )
         lines.append(arrival + ")")
+        if option.live is not None:
+            lines.append(
+                f"    {live_text(option.live)}, at {option.live.station_code} "
+                f"({option.live.source})"
+            )
         if option.crowding:
             lines.append(
                 f"    crowding {option.crowding.score}/5 {option.crowding.label}: "

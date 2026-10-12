@@ -37,6 +37,10 @@ class RecommendSettings:
     # (invented) data. For testing only. Off by default, so such a model is ignored and
     # predictions fall back to past observations or the timetable.
     allow_synthetic_model: bool = False
+    # SITT_LIVE_MAX_AGE_MINUTES: a reading taken today, no longer ago than this, of a
+    # train at or before the boarding station replaces its predicted delay. 0 turns live
+    # readings off. Readings exist only if `sitt-collect` was run by hand shortly before.
+    live_max_age_minutes: float = 30.0
 
 
 @dataclass(frozen=True)
@@ -257,6 +261,9 @@ def load_recommend_settings() -> RecommendSettings:
         ),
         ladies_special_ok=_flag("SITT_LADIES_SPECIAL_OK"),
         allow_synthetic_model=_flag("SITT_ALLOW_SYNTHETIC_MODEL"),
+        live_max_age_minutes=max(
+            0.0, _number("SITT_LIVE_MAX_AGE_MINUTES", defaults.live_max_age_minutes)
+        ),
     )
 
 
