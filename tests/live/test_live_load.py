@@ -96,3 +96,15 @@ def test_rematch_is_repeatable(con, tmp_path):
     load(con, tmp_path / "obs")
     again = load(con, tmp_path / "obs")
     assert (again.rows, again.trains_matched, again.stations_matched) == (0, 0, 0)
+
+
+def test_load_cli(tmp_path, capsys):
+    from sitt.ingest.live import load as load_module
+
+    db = tmp_path / "sitt.duckdb"
+    assert load_module.main(["--dir", str(tmp_path / "missing"), "--db", str(db)]) == 1
+    assert "No such directory" in capsys.readouterr().err
+    empty = tmp_path / "observations"
+    empty.mkdir()
+    assert load_module.main(["--dir", str(empty), "--db", str(db)]) == 0
+    assert capsys.readouterr().out.startswith("Loaded 0 rows from 0 new file(s)")
