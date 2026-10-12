@@ -72,6 +72,28 @@ To try things without the PDFs, load the small invented sample instead:
 uv run python -m sitt.ingest.timetable tests/fixtures/sample_timetable.csv
 ```
 
+## Ask from the command line
+
+No Telegram needed. `sitt-next` runs the same recommender as the bot's `/next`:
+
+```bash
+uv run sitt-next KYN CSMT
+```
+
+| Option | What it does |
+| --- | --- |
+| `--at 08:00` | Ask as if it were 08:00 (today, or the day given with `--date`) |
+| `--date 2026-10-13` | Ask about another day |
+| `--train 08:12` | Focus on the train leaving at 08:12: its predicted delay, crowding, and whether to take it |
+| `--why` | The full explanation, as `/why` gives it |
+| `-n 8` | Compare 8 trains instead of 5 |
+| `--db path` | Use another database than `SITT_DB_PATH` |
+| `--no-model` | Ignore any saved delay model |
+
+It prints the recommendation, then one row per train: when it leaves, predicted arrival,
+how late it is predicted to leave, estimated crowding, and tags (AC, 15-car, ladies'
+special). It fetches nothing from the network. Exit code 0 means a train was recommended.
+
 ## Run the bot
 
 Set up a Telegram bot token and your user ID as described in
