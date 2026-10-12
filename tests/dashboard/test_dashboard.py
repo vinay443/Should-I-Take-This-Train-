@@ -208,6 +208,51 @@ def test_every_page_runs_and_labels_what_is_not_real(app):
     assert "No trained model in this deployment" in text and "SYNTHETIC RESULTS" in text
 
 
+def test_last_collected_and_age_text(tmp_path):
+    db = tmp_path / "sitt.duckdb"
+    with init_db(db) as con:
+        load_timetable(con, read_timetable(SAMPLE_CSV))
+    assert data.last_collected(db) is None
+    with init_db(db) as con:
+        con.execute(
+            "INSERT INTO observations (observed_at, train_id, station_code, delay_minutes, source)"
+            " VALUES (TIMESTAMPTZ '2026-10-06 07:15:00+00', 'central-90104', 'KYN', 2, 'ntes'),"
+            " (TIMESTAMPTZ '2026-10-09 07:15:00+00', 'central-90104', 'KYN', 2, 'synthetic')"
+        )
+    # Synthetic readings don't count; times are Mumbai time.
+    assert data.last_collected(db) == datetime(2026, 10, 6, 12, 45)
+    now = datetime(2026, 10, 12, 19, 0)
+    assert data.age_text(datetime(2026, 10, 12, 18, 30), now) == "30 min ago"
+    assert data.age_text(datetime(2026, 10, 12, 14, 0), now) == "5 h ago"
+    assert data.age_text(datetime(2026, 10, 6, 12, 45), now) == "6 days ago"
+
+
+def test_the_sidebar_says_when_real_data_was_last_collected(tmp_path, monkeypatch):
+    db = tmp_path / "sitt.duckdb"
+    with init_db(db) as con:
+        load_timetable(con, read_timetable(SAMPLE_CSV))
+        con.execute(
+            "INSERT INTO observations (observed_at, train_id, station_code, delay_minutes, source)"
+            " VALUES (TIMESTAMPTZ '2026-10-06 07:15:00+00', 'central-90104', 'KYN', 2, 'ntes')"
+        )
+    monkeypatch.setenv("SITT_DB_PATH", str(db))
+    monkeypatch.setenv("SITT_DASHBOARD_CACHE", str(tmp_path / "cache"))
+    monkeypatch.setenv("SITT_DASHBOARD_DOWNLOAD", "0")
+    monkeypatch.setenv("SITT_MODEL_DIR", str(tmp_path / "no-model"))
+    monkeypatch.chdir(tmp_path)
+    import streamlit as st
+
+    st.cache_resource.clear()  # another test's data sources may be cached in this process
+    st.cache_data.clear()
+    at = AppTest.from_file(str(APP), default_timeout=120).run()
+    assert not at.exception
+    captions = "\n".join(c.value for c in at.sidebar.caption)
+    assert "Observations: collected." in captions
+    assert "Last collected 06 Oct 12:45" in captions and "--collect" in captions
+    st.cache_resource.clear()  # don't leave these sources for the next app test
+    st.cache_data.clear()
+
+
 def test_requirements_txt_covers_the_projects_dependencies():
     """Streamlit Community Cloud installs requirements.txt, so it must not fall behind."""
     project = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"]
