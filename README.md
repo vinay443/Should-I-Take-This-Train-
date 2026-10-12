@@ -280,6 +280,7 @@ models/           trained models (gitignored)
 | [`expansion-assessment.md`](docs/expansion-assessment.md) | What adding the Harbour and Western lines would take |
 | [`megablocks.md`](docs/megablocks.md) | Megablock announcements and manual entry |
 | [`synthetic-data.md`](docs/synthetic-data.md) | The synthetic generator and its assumptions |
+| [`synthetic-vs-real.md`](docs/synthetic-vs-real.md) | The synthetic generator's delays against the first real readings: the direction is the wrong way round |
 | [`model-results.md`](docs/model-results.md) | Delay model results (synthetic), with one section on real data so far |
 | [`crowding.md`](docs/crowding.md) | The crowding rules, and how reports are matched to trains |
 | [`recommender.md`](docs/recommender.md) | The decision rule and thresholds |

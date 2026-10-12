@@ -9,6 +9,15 @@ item; the next unticked item in PLAN.md is what to do next.
 
 ## 2026-10-12
 
+### Item 11: synthetic vs real (done, doc + tool; generator unchanged)
+- New `python -m sitt.synth.compare`: real vs synthetic delays by direction and fast/slow,
+  restricted to the stations, kinds of day and hours the real data covers.
+- Finding: at Kalyan, real up trains (towards CSMT) were ~11-12 min late (median), down
+  trains ~93% on time; the synthetic data has it the other way round (delay built from
+  each train's origin). Held in both sessions. Write-up: `docs/synthetic-vs-real.md`.
+- Deliberately not retuned: two sessions only, and NTES shows only trains from beyond
+  Kalyan. The doc lists what to change if more data agrees. 3 new tests.
+
 ### Item 10: how live delays drift (done)
 - New `python -m sitt.models.live_drift`: pairs each reading with the run's last reading
   taken within 15 min of the train's time, and summarises drift by lead and by whether the
