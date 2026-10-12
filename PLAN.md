@@ -22,12 +22,12 @@ There are no open GitHub issues and no TODO/FIXME markers in the code.
 
 ## Remaining
 
-### 1. Make the network-guard test hermetic — [ ]
+### 1. Make the network-guard test hermetic — [x]
 `test_a_real_connection_is_refused` fails on any machine with an HTTP(S) proxy set, because
 `httpx.Client()` sends the request to the proxy instead of hitting the guard.
 **Done when:** the test passes with and without `HTTPS_PROXY` set; full suite green.
 
-### 2. `sitt-next` command-line recommender — [ ]
+### 2. `sitt-next` command-line recommender — [x]
 The MVP today needs Telegram or Streamlit. Add `uv run sitt-next KYN CSMT` with
 `--at HH:MM`, `--date YYYY-MM-DD`, `--train HH:MM` (focus on one train), `--why` (full
 explanation), `-n` (how many trains), `--db`.
