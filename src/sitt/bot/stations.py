@@ -8,6 +8,7 @@ What a rider types is matched in this order, ignoring case, spaces and punctuati
 an alias in `ALIASES`, then a station code, then a station name.
 """
 
+import difflib
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -103,6 +104,23 @@ class StationDirectory:
     def lookup(self, text: str) -> Station | None:
         """Find a station by alias, code or name. Case, spaces and punctuation are ignored."""
         return self._lookup.get(_key(text))
+
+    def suggest(self, text: str, n: int = 3) -> list[Station]:
+        """Stations whose alias, code or name looks like `text`, best first: for typos.
+
+        Uses difflib's ratio on the same normalised keys as `lookup`. Short codes need a
+        closer match than names, so "KYM" suggests Kalyan but "X" suggests nothing.
+        """
+        key = _key(text)
+        if not key:
+            return []
+        cutoff = 0.6 if len(key) > 3 else 0.65
+        found: list[Station] = []
+        for match in difflib.get_close_matches(key, self._lookup, n=n * 3, cutoff=cutoff):
+            station = self._lookup[match]
+            if station not in found:
+                found.append(station)
+        return found[:n]
 
     def get(self, code: str) -> Station | None:
         return self._by_code.get(code)

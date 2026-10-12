@@ -99,3 +99,34 @@ def test_directory_comes_from_the_stations_table(tmp_path):
     # The sample timetable spells out CSMT's name; aliases still reach it.
     assert directory.lookup("vt").name == "Chhatrapati Shivaji Maharaj Terminus"
     assert directory.lookup("chhatrapati shivaji maharaj terminus").code == "CSMT"
+
+
+# --- suggestions for typos ---
+
+
+@pytest.mark.parametrize(
+    "typed, first",
+    [
+        ("CSMTT", "CSMT"),
+        ("Thaane", "TNA"),
+        ("kalyn", "KYN"),
+        ("KYM", "KYN"),
+        ("mulnd", "MLND"),
+        ("Ghatkoper", "GC"),
+        ("kurla west", "CLA"),
+    ],
+)
+def test_suggest_finds_the_station_meant(typed, first):
+    from sitt.bot.stations import FALLBACK_DIRECTORY
+
+    suggestions = FALLBACK_DIRECTORY.suggest(typed)
+    assert suggestions and suggestions[0].code == first
+    assert len(suggestions) <= 3
+    assert len({s.code for s in suggestions}) == len(suggestions)  # no duplicates
+
+
+@pytest.mark.parametrize("typed", ["", "X", "Atlantis", "!!"])
+def test_suggest_stays_quiet_for_nonsense(typed):
+    from sitt.bot.stations import FALLBACK_DIRECTORY
+
+    assert FALLBACK_DIRECTORY.suggest(typed) == []

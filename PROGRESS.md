@@ -9,6 +9,11 @@ item; the next unticked item in PLAN.md is what to do next.
 
 ## 2026-10-12
 
+### Item 8: "Did you mean…?" for stations (done)
+- `StationDirectory.suggest` (stdlib difflib over aliases, codes and names); the bot's
+  `/next` and `sitt-next` both add "Did you mean Thane (TNA)?" to the unknown-station error.
+  Real DB: `sitt-next Kalyn Dadr` suggests Kalyan, Kelavli or Kalva. 13 new tests.
+
 ### Item 7: `/next` with a time (done)
 - `sitt.bot.schedule.split_when`: trailing `8:00`, `8 pm`, `8.30am`, `today`, `tomorrow`, in
   either order. A time more than an hour gone today means tomorrow. Bare numbers are not

@@ -348,3 +348,10 @@ def test_next_command_with_a_time(sample_db):
 def test_next_command_without_a_time_has_a_plain_header(sample_db):
     [reply] = _run_next(sample_db, ["KYN", "CSMT"])
     assert reply.splitlines()[0] == "Kalyan → Chhatrapati Shivaji Maharaj Terminus"
+
+
+def test_an_unknown_station_gets_suggestions(sample_db):
+    [reply] = _run_next(sample_db, ["KYN", "Thaane"])
+    assert reply.startswith("I don't know a station called 'Thaane'. Did you mean Thane (TNA)?")
+    [reply] = _run_next(sample_db, ["KYN", "Atlantis"])
+    assert "Did you mean" not in reply
