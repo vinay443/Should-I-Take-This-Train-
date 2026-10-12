@@ -98,7 +98,7 @@ From the real NTES snapshots, measure how a train's reported delay changes over 
 **Done when:** `docs/live-drift.md` with the numbers and caveats (one station, ~17 hours);
 a reproducible command; the recommender's live range uses it or the doc explains why not.
 
-### 11. Synthetic assumptions vs the first real readings — [ ]
+### 11. Synthetic assumptions vs the first real readings — [x]
 Compare the synthetic generator's delay distribution (by hour, fast/slow, direction) with
 the real KYN readings. **Done when:** `docs/synthetic-vs-real.md` with a table and what, if
 anything, to change in the generator; any clear, low-risk fix applied with tests.

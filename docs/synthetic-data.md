@@ -84,6 +84,9 @@ All of these are numbers in `SynthConfig` in
 | Cancellations | 0.4% of trains on an ordinary day. | A guess. |
 | Sunday timetable | Sundays and the six fixed-date holidays in `sitt.holidays` use the Sunday running days. | From Central Railway's holiday list. The movable festivals are not included. |
 
+The first real readings disagree with some of these guesses, most of all about which
+direction is late at Kalyan: see [`synthetic-vs-real.md`](synthetic-vs-real.md).
+
 What the generator does **not** model: individual stations being worse than others, platform
 changes, a late train's rake causing its next trip to start late, bunching after a
 cancellation, festival crowds, or any link between delay and crowding. Real data will have
