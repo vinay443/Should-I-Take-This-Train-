@@ -72,6 +72,10 @@ Try it from your phone:
   ("Take the 08:12 fast: arrives 08:58 ±4 min, …"), then each train with its predicted
   arrival, an estimated crowding level, and tags for ladies' specials, AC and 15-car trains.
   It needs a timetable in the database (see the [README](../README.md#setup)).
+  Add a time and/or day to plan ahead: `/next KYN CSMT 8:00`, `/next KYN CSMT tomorrow 8:12`,
+  `/next KYN CSMT 8 pm`. A time without a day that is more than an hour gone today means
+  tomorrow, so at 7 pm `/next KYN CSMT 8:00` is about tomorrow morning. The reply then says
+  which time it is about.
 - `/why`: explains the last `/next` recommendation: the predicted delay and crowding reasons
   for every train, and the rule that decided it.
 - `/fav add work KYN CSMT 8:12 mon-fri`: save a route. See [Saved routes](#saved-routes).

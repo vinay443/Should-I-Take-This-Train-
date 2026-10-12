@@ -105,7 +105,7 @@ uv run sitt-bot
 
 | Command | What it does |
 | --- | --- |
-| `/next KYN CSMT` | Recommends one of the next trains, and lists each with its predicted arrival, estimated crowding and tags |
+| `/next KYN CSMT` | Recommends one of the next trains, and lists each with its predicted arrival, estimated crowding and tags. `/next KYN CSMT 8:00` or `… tomorrow 8:12` plans ahead |
 | `/why` | Explains the last recommendation |
 | `/log 8:12 fast KYN packed` | Logs how crowded your train was, and says which scheduled train it matched. `/log` on its own asks step by step |
 | `/mylogs` | Your last 10 reports |

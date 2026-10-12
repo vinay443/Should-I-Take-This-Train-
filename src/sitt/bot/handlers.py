@@ -79,16 +79,16 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def next_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     message = update.effective_message
-    pair = schedule.split_stations(context.args or [], _stations(context))
+    words, when = schedule.split_when(context.args or [], datetime.now(IST))
+    pair = schedule.split_stations(words, _stations(context))
     if pair is None:
         await message.reply_text(formatting.NEXT_USAGE)
         return
-    now = datetime.now(IST)
     try:
         recommendation = schedule.recommend_trains(
             context.bot_data[DB_PATH_KEY],
             *pair,
-            now,
+            when.moment,
             settings=context.bot_data.get(RECOMMEND_SETTINGS_KEY),
             model_dir=context.bot_data.get(MODEL_DIR_KEY),
         )
@@ -96,7 +96,9 @@ async def next_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await message.reply_text(f"{exc}\n{formatting.NEXT_USAGE}")
         return
     context.user_data[LAST_RECOMMENDATION_KEY] = recommendation
-    await message.reply_text(formatting.format_recommendation(recommendation))
+    await message.reply_text(
+        formatting.format_recommendation(recommendation, show_time=when.explicit)
+    )
 
 
 async def why_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

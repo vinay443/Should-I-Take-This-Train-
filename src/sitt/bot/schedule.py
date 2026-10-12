@@ -2,9 +2,10 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
+from sitt.bot.parsing import parse_time
 from sitt.bot.stations import Station, StationDirectory, directory_from
 from sitt.config import RecommendSettings
 from sitt.db import connect
@@ -62,6 +63,63 @@ def recommend_trains(
         if start == end:
             raise ScheduleError("Those are the same station.")
         return recommend(con, start.code, end.code, now, settings, model_dir=model_dir)
+
+
+# A time asked for without a day that is more than this far in the past means tomorrow:
+# at 19:00, "/next KYN CSMT 8:00" is about tomorrow morning, but "18:30" is about now-ish.
+PAST_TIME_MEANS_TOMORROW = timedelta(hours=1)
+_DAY_WORDS = {"today": 0, "tomorrow": 1, "tmrw": 1, "tmr": 1}
+
+
+@dataclass(frozen=True)
+class When:
+    """When a `/next` question is about."""
+
+    moment: datetime
+    explicit: bool  # the rider named a time or day; False means "now"
+
+
+def split_when(words: Sequence[str], now: datetime) -> tuple[list[str], When]:
+    """Take a trailing time and/or day off `/next` arguments.
+
+    `["KYN", "CSMT", "8:00"]`, `[..., "tomorrow", "8:00"]`, `[..., "8", "pm"]` and
+    `[..., "tomorrow"]` (this time of day, tomorrow) all work. A time with no day that is
+    more than an hour gone today means tomorrow. Returns the remaining words and the moment
+    asked about, in `now`'s time zone.
+    """
+    rest = list(words)
+    asked_time = None
+    day_offset = None
+    for _ in range(3):  # at most a day word and a time, in either order
+        if not rest:
+            break
+        last = rest[-1].lower()
+        if last in _DAY_WORDS and day_offset is None:
+            day_offset = _DAY_WORDS[last]
+            rest.pop()
+        elif asked_time is None and (found := parse_time(last)) is not None:
+            asked_time = found
+            rest.pop()
+        elif (
+            asked_time is None
+            and last in ("am", "pm")
+            and len(rest) >= 2
+            and (found := parse_time(rest[-2] + last)) is not None
+        ):
+            asked_time = found
+            del rest[-2:]
+        else:
+            break
+    if asked_time is None and day_offset is None:
+        return rest, When(now, explicit=False)
+    day = now.date() + timedelta(days=day_offset or 0)
+    if asked_time is None:
+        moment = now + timedelta(days=day_offset or 0)
+    else:
+        moment = datetime.combine(day, asked_time, now.tzinfo)
+        if day_offset is None and now - moment > PAST_TIME_MEANS_TOMORROW:
+            moment += timedelta(days=1)
+    return rest, When(moment, explicit=True)
 
 
 def split_stations(words: Sequence[str], stations: StationDirectory) -> tuple[str, str] | None:

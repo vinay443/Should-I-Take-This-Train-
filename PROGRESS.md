@@ -9,6 +9,12 @@ item; the next unticked item in PLAN.md is what to do next.
 
 ## 2026-10-12
 
+### Item 7: `/next` with a time (done)
+- `sitt.bot.schedule.split_when`: trailing `8:00`, `8 pm`, `8.30am`, `today`, `tomorrow`, in
+  either order. A time more than an hour gone today means tomorrow. Bare numbers are not
+  times. The reply header then says "…, at 08:00 on Tue 13 Oct".
+- Help text, usage message, bot docs and README updated. 14 new tests.
+
 ### Item 6: `sitt-health` in manual mode (done)
 - `SITT_COLLECT_CADENCE_MINUTES` now defaults to 0 = collection by hand: no expected runs,
   no gaps, no "no successful run" alert; the report shows **Last run** (even before the
