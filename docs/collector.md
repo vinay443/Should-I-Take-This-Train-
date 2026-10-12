@@ -366,10 +366,13 @@ exits with code 2.
 
 How to read it:
 
-- **Runs** counts distinct runs against the number the cadence predicts. The time before the
-  collector's first-ever run isn't counted.
-- **Gaps** are stretches longer than the cadence plus a tolerance (15 + 10 minutes) with no
-  run at all.
+- **Runs** counts distinct runs. With collection by hand (the default,
+  `SITT_COLLECT_CADENCE_MINUTES=0`) that is all, plus **Last run**: when `sitt-collect` last
+  ran, even before the window. With a schedule set (say `15`), runs are compared with the
+  number the cadence predicts; the time before the collector's first-ever run isn't counted.
+- **Gaps**, only with a schedule, are stretches longer than the cadence plus a tolerance
+  (15 + 10 minutes) with no run at all. The "no successful run for 3 hours" alert also only
+  applies with a schedule; source failures are alerted either way.
 - A source is **UP** if its most recent run answered and **DOWN** if it failed. Each run of
   consecutive failures is listed with the last error.
 - **Trains matched / unmatched** counts distinct train numbers seen in the window. NTES lists
@@ -426,7 +429,7 @@ Other settings, all optional:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `SITT_COLLECT_CADENCE_MINUTES` | 15 | How often the collector is scheduled |
+| `SITT_COLLECT_CADENCE_MINUTES` | 0 | How often the collector is scheduled. 0: it isn't, collection is by hand (no gaps, no "no run" alert) |
 | `SITT_HEALTH_GAP_TOLERANCE_MINUTES` | 10 | Lateness allowed before two runs count as having a gap between them |
 | `SITT_TELEGRAM_SEND` | false | Really send Telegram messages |
 

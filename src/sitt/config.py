@@ -63,8 +63,10 @@ class HealthSettings:
     Each can be set with the environment variable named beside it. See docs/collector.md.
     """
 
-    # SITT_COLLECT_CADENCE_MINUTES: how often the collector is scheduled to run.
-    cadence_minutes: float = 15.0
+    # SITT_COLLECT_CADENCE_MINUTES: how often the collector is scheduled to run. 0 (the
+    # default) means it isn't scheduled: runs are by hand, so there are no gaps to count
+    # and no "no recent run" alert.
+    cadence_minutes: float = 0.0
     # SITT_HEALTH_GAP_TOLERANCE_MINUTES: two runs further apart than the cadence plus this
     # have a gap between them. Task Scheduler starts runs a little late, never early.
     gap_tolerance_minutes: float = 10.0
@@ -237,6 +239,11 @@ def _number(name: str, default: float, kind: type = float):
     return value
 
 
+def _cadence(minutes: float) -> float:
+    """0 means manual collection; anything else is at least one minute."""
+    return 0.0 if minutes == 0 else max(1.0, minutes)
+
+
 def _flag(name: str) -> bool:
     return (os.environ.get(name) or "").strip().lower() in ("1", "true", "yes")
 
@@ -288,7 +295,7 @@ def load_block_settings() -> BlockSettings:
 def load_health_settings() -> HealthSettings:
     defaults = HealthSettings()
     return HealthSettings(
-        cadence_minutes=max(1.0, _number("SITT_COLLECT_CADENCE_MINUTES", defaults.cadence_minutes)),
+        cadence_minutes=_cadence(_number("SITT_COLLECT_CADENCE_MINUTES", defaults.cadence_minutes)),
         gap_tolerance_minutes=_number(
             "SITT_HEALTH_GAP_TOLERANCE_MINUTES", defaults.gap_tolerance_minutes
         ),

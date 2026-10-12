@@ -65,6 +65,60 @@ are already in `holidays.toml`, marked tentative.
 `reported`/`confirmed`. Nothing to do before then.
 Checked 2026-10-12: no official 2027 notification found yet, only third-party calendars.
 
+## Round 2 (added 2026-10-12, self-directed)
+
+Picked by value after running `sitt-dq`, `sitt-health` and `sitt-retrain` on a copy of the
+real database. Each item ends with a PR merged on green CI and a PROGRESS.md entry.
+
+### 6. `sitt-health` understands manual collection — [x]
+With no schedule, the health report says "about 96 runs missed" every day, which reads as
+broken. Make the expected cadence optional: `SITT_COLLECT_CADENCE_MINUTES=0` (the new
+default, matching how the project is run) means manual; the report then shows the last
+runs, their sources and data freshness, with no gap accounting and no "no run" alert.
+**Done when:** tests cover manual and scheduled modes; real-DB run reads sensibly; docs say
+how to switch back to a cadence.
+
+### 7. `/next` in the bot accepts a time — [ ]
+`/next KYN CSMT 8:00` (and `tomorrow 8:00`) like `sitt-next --at`. **Done when:** parsing
+tests and a handler test pass; help text and bot docs updated.
+
+### 8. "Did you mean…?" for unknown stations — [ ]
+`sitt-next KYN CSTM` and `/next KYN Thaane` suggest the closest station names/codes
+(stdlib `difflib`). **Done when:** tests for typos, codes and names; both entry points use it.
+
+### 9. `sitt-next --collect` — [ ]
+Runs one manual collection round (same as `sitt-collect`, NTES only unless Mobond is
+permitted) and then recommends, so live readings are fresh. Never scheduled. **Done when:**
+test with a mocked HTTP client (network stays blocked in tests); a failed collection still
+gives a recommendation with a clear note.
+
+### 10. How live delays drift (real-data analysis) — [ ]
+From the real NTES snapshots, measure how a train's reported delay changes over the next
+15/30/45 min, and use the empirical spread to put a range ("±n min") on live predictions.
+**Done when:** `docs/live-drift.md` with the numbers and caveats (one station, ~17 hours);
+a reproducible command; the recommender's live range uses it or the doc explains why not.
+
+### 11. Synthetic assumptions vs the first real readings — [ ]
+Compare the synthetic generator's delay distribution (by hour, fast/slow, direction) with
+the real KYN readings. **Done when:** `docs/synthetic-vs-real.md` with a table and what, if
+anything, to change in the generator; any clear, low-risk fix applied with tests.
+
+### 12. Dashboard: data freshness and live readings — [ ]
+Show when the data was last collected and which trains have live readings.
+**Done when:** dashboard tests cover it; app runs headless without errors.
+
+### 13. Test coverage — [ ]
+Measure coverage (pytest-cov, free), list the weakest modules, add tests where they guard
+real behaviour. **Done when:** coverage figure in PROGRESS.md and README dev section.
+
+### 14. Independent review — [ ]
+A separate Claude Code agent reviews the round's changes cold; real findings get fixed.
+
+### Open data question (not an item)
+NTES reports 95335 leaving Kalyan at 21:54; our timetable has it at 00:18 (from Dadar
+23:23). `sitt-dq` flags it as `schedule_mismatch`. Check against the timetable PDF before
+adding an override.
+
 ## Out of scope / needs you
 
 - Asking Mobond for permission (the adapter stays off until then).
