@@ -19,7 +19,8 @@ Crowd can be 1-5 or empty / seats / standing / packed / can't board.
 /log: log a trip step by step with buttons.
 /mylogs: your last 10 reports.
 /next KYN CSMT: which of the next trains to take, with predicted arrival and \
-crowding for each.
+crowding for each. Add a time or day to plan ahead: /next KYN CSMT 8:00, \
+/next KYN CSMT tomorrow 8:12.
 /why: explain the last /next recommendation.
 /fav add work KYN CSMT 8:12 mon-fri: save a route and your usual train. \
 /fav on its own lists them.
@@ -28,7 +29,10 @@ return leg in the afternoon.
 /cancel: abandon a log in progress.
 /help: show this message."""
 
-NEXT_USAGE = "Tell me where from and to, e.g. /next KYN CSMT or /next Kanjur Marg Thane."
+NEXT_USAGE = (
+    "Tell me where from and to, e.g. /next KYN CSMT or /next Kanjur Marg Thane. "
+    "Add a time to plan ahead: /next KYN CSMT 8:00 or /next KYN CSMT tomorrow 8:00."
+)
 NO_RECOMMENDATION_YET = "Nothing to explain yet. Ask with /next first, e.g. /next KYN CSMT."
 CROWDING_CAVEAT = "Crowding is a rule-of-thumb estimate."
 
@@ -96,10 +100,17 @@ def prediction_footer(recommendation: Recommendation) -> str:
     return f"{basis} {CROWDING_CAVEAT} /why for details."
 
 
-def format_recommendation(recommendation: Recommendation) -> str:
-    """The `/next` reply: the recommendation, then each train with its prediction."""
+def format_recommendation(recommendation: Recommendation, show_time: bool = False) -> str:
+    """The `/next` reply: the recommendation, then each train with its prediction.
+
+    `show_time` adds when the question is about, for a rider who asked about a time other
+    than now.
+    """
     rec = recommendation
-    lines = [f"{rec.origin} → {rec.destination}", "", rec.reason, ""]
+    header = f"{rec.origin} → {rec.destination}"
+    if show_time:
+        header += f", at {rec.asked_at:%H:%M on %a %d %b}"
+    lines = [header, "", rec.reason, ""]
     for i, option in enumerate(rec.options):
         trip = option.trip
         day = "" if trip.departure.date() == rec.asked_at.date() else f"{trip.departure:%a} "

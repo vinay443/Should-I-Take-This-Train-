@@ -297,3 +297,54 @@ def test_ac_weekdays_only_trains_are_not_marked_ac_at_weekends(tmp_path):
     assert [t.runs_ac for t in weekday] == [True, True]
     assert [t.runs_ac for t in weekend] == [False, True]
     assert [formatting.trip_tags(t) for t in weekend] == [[], ["AC"]]
+
+
+# --- /next with a time or day ---
+
+
+def at(day: int, hour: int, minute: int) -> datetime:
+    return datetime(2026, 10, day, hour, minute, tzinfo=IST)
+
+
+EVENING = at(12, 19, 0)  # a Monday
+
+
+@pytest.mark.parametrize(
+    "args, words, moment",
+    [
+        (["KYN", "CSMT"], ["KYN", "CSMT"], EVENING),
+        (["KYN", "CSMT", "19:30"], ["KYN", "CSMT"], at(12, 19, 30)),
+        # Up to an hour ago still means today...
+        (["KYN", "CSMT", "18:15"], ["KYN", "CSMT"], at(12, 18, 15)),
+        # ...further back means tomorrow.
+        (["KYN", "CSMT", "8:00"], ["KYN", "CSMT"], at(13, 8, 0)),
+        (["KYN", "CSMT", "today", "8:00"], ["KYN", "CSMT"], at(12, 8, 0)),
+        (["KYN", "CSMT", "tomorrow", "8:12"], ["KYN", "CSMT"], at(13, 8, 12)),
+        (["KYN", "CSMT", "8:12", "tomorrow"], ["KYN", "CSMT"], at(13, 8, 12)),
+        (["KYN", "CSMT", "tomorrow"], ["KYN", "CSMT"], at(13, 19, 0)),
+        (["KYN", "CSMT", "8", "pm"], ["KYN", "CSMT"], at(12, 20, 0)),
+        (["KYN", "CSMT", "8.30am"], ["KYN", "CSMT"], at(13, 8, 30)),
+        (["Kanjur", "Marg", "Thane", "9:00"], ["Kanjur", "Marg", "Thane"], at(13, 9, 0)),
+        # A bare number is not a time (it could be part of a name or a mistake).
+        (["KYN", "CSMT", "8"], ["KYN", "CSMT", "8"], EVENING),
+    ],
+)  # fmt: skip
+def test_split_when(args, words, moment):
+    from sitt.bot.schedule import split_when
+
+    rest, when = split_when(args, EVENING)
+    assert rest == words
+    assert when.moment == moment
+    assert when.explicit == (moment != EVENING or "tomorrow" in args)
+
+
+def test_next_command_with_a_time(sample_db):
+    [reply] = _run_next(sample_db, ["KYN", "CSMT", "tomorrow", "7:00"])
+    lines = reply.splitlines()
+    assert lines[0].startswith("Kalyan → Chhatrapati Shivaji Maharaj Terminus, at 07:00 on ")
+    assert lines[2].startswith("Wait for the 07:12 fast")
+
+
+def test_next_command_without_a_time_has_a_plain_header(sample_db):
+    [reply] = _run_next(sample_db, ["KYN", "CSMT"])
+    assert reply.splitlines()[0] == "Kalyan → Chhatrapati Shivaji Maharaj Terminus"

@@ -78,7 +78,7 @@ runs, their sources and data freshness, with no gap accounting and no "no run" a
 **Done when:** tests cover manual and scheduled modes; real-DB run reads sensibly; docs say
 how to switch back to a cadence.
 
-### 7. `/next` in the bot accepts a time — [ ]
+### 7. `/next` in the bot accepts a time — [x]
 `/next KYN CSMT 8:00` (and `tomorrow 8:00`) like `sitt-next --at`. **Done when:** parsing
 tests and a handler test pass; help text and bot docs updated.
 
