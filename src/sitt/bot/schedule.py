@@ -138,6 +138,11 @@ def split_stations(words: Sequence[str], stations: StationDirectory) -> tuple[st
     return halves[0]
 
 
+def find_station(stations: StationDirectory, text: str) -> Station:
+    """The station the rider meant. Raises ScheduleError, with suggestions, if unknown."""
+    return _station(stations, text)
+
+
 def _station(stations: StationDirectory, text: str) -> Station:
     station = stations.lookup(text)
     if station is None:

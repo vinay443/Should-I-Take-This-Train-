@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Should I take this train?</title>
+  <meta name="description" content="Which Mumbai local to take: predicted delay and crowding for the next trains.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2316191d'/><circle cx='10' cy='16' r='3' fill='%23ffb020'/><circle cx='16' cy='16' r='3' fill='%23ffb020'/><circle cx='22' cy='16' r='3' fill='%23ffb020'/></svg>">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <a class="skip" href="#trains">Skip to the trains</a>
+  <header class="top">
+    <h1>Should I take this train?</h1>
+    <p class="data-line" id="data-line">Loading the timetable…</p>
+  </header>
+
+  <main>
+    <form class="trip" id="trip" autocomplete="off">
+      <div class="stations">
+        <label class="field">
+          <span>From</span>
+          <input id="from" name="from" list="station-list" required placeholder="Kalyan" spellcheck="false">
+        </label>
+        <button type="button" class="swap" id="swap" aria-label="Swap from and to" title="Swap">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v13m0 0-3-3m3 3 3-3M17 20V7m0 0-3 3m3-3 3 3"/></svg>
+        </button>
+        <label class="field">
+          <span>To</span>
+          <input id="to" name="to" list="station-list" required placeholder="CSMT" spellcheck="false">
+        </label>
+      </div>
+      <datalist id="station-list"></datalist>
+
+      <div class="when" role="radiogroup" aria-label="When">
+        <label class="pill"><input type="radio" name="when" value="now" checked> Leaving now</label>
+        <label class="pill"><input type="radio" name="when" value="later"> Another time</label>
+        <span class="later" id="later" hidden>
+          <input type="time" id="at" aria-label="Time">
+          <input type="date" id="date" aria-label="Date (leave empty for the next one)" title="Leave empty: an earlier time than now means tomorrow">
+        </span>
+      </div>
+
+      <div class="actions">
+        <button type="submit" class="primary" id="go">Show trains</button>
+        <button type="button" class="secondary" id="live" title="Fetch live running status from NTES once, then show trains">Check live first</button>
+        <button type="button" class="link" id="save">Save this route</button>
+      </div>
+      <div class="saved" id="saved" aria-label="Saved routes"></div>
+    </form>
+
+    <p class="message" id="message" role="status" aria-live="polite" hidden></p>
+
+    <section class="answer" id="answer" hidden aria-labelledby="reason">
+      <div class="board" id="board" aria-hidden="true"></div>
+      <p class="reason" id="reason"></p>
+      <p class="basis" id="basis"></p>
+      <ul class="notes" id="notes"></ul>
+
+      <h2 id="trains-heading">The next trains</h2>
+      <ol class="trains" id="trains" aria-labelledby="trains-heading"></ol>
+
+      <details class="why">
+        <summary>Why this train?</summary>
+        <pre id="explanation"></pre>
+      </details>
+    </section>
+
+    <section class="log" aria-labelledby="log-heading">
+      <h2 id="log-heading">How crowded was your train?</h2>
+      <p class="hint">Your reports adjust the crowding estimate for that train and time.</p>
+      <form id="log-form" class="log-form" autocomplete="off">
+        <label class="field">
+          <span>Boarded at</span>
+          <input id="log-station" list="station-list" required placeholder="Kalyan" spellcheck="false">
+        </label>
+        <label class="field small">
+          <span>Leaving at</span>
+          <input id="log-time" type="time" required>
+        </label>
+        <fieldset class="field small">
+          <legend>Train</legend>
+          <div class="toggle">
+            <label><input type="radio" name="service" value="fast" checked> Fast</label>
+            <label><input type="radio" name="service" value="slow"> Slow</label>
+          </div>
+        </fieldset>
+        <fieldset class="crowd-pick">
+          <legend>Crowding</legend>
+          <div class="crowd-options" id="crowd-options"></div>
+        </fieldset>
+        <button type="submit" class="primary">Log crowding</button>
+      </form>
+      <ul class="reports" id="reports"></ul>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>Times come from Central Railway's timetable, adjusted by past and live delays where
+      there are any. Crowding is a rule-of-thumb estimate, adjusted by your reports.
+      Live status is fetched only when you press <em>Check live first</em>.</p>
+    <p><a href="/api/docs">API</a></p>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

@@ -3,6 +3,10 @@
 Helps you decide whether to board the Mumbai local in front of you or wait for the next one.
 The first target is the Central line around Kalyan.
 
+**The easiest way to use it is the web app:** `uv run sitt-web` opens a page in your browser
+where you pick a trip, see which train to take with its predicted delay and crowding, check
+live status on demand, and log how crowded your train was ([`docs/web.md`](docs/web.md)).
+
 Ask the Telegram bot `/next KYN CSMT` and it answers along the lines of:
 
 > Take the 08:12 fast: arrives 08:58 ±4 min, likely packed, but the next best (08:27 fast)
@@ -33,7 +37,13 @@ Wait for the 07:12 fast: arrives 08:19, earliest arrival, likely seats free.
    ...
 ```
 
-Then try `--why`, `--train 07:12`, or another pair such as `Kalyan Thane`. For real trains,
+Then open the web app on the same data:
+
+```bash
+uv run sitt-web
+```
+
+Or try `--why`, `--train 07:12`, or another pair such as `Kalyan Thane` on the command line. For real trains,
 load the official timetable instead ([Load the timetable](#load-the-timetable)), and add
 `--collect` to fetch live running status once before answering.
 
@@ -100,6 +110,17 @@ To try things without the PDFs, load the small invented sample instead:
 ```bash
 uv run python -m sitt.ingest.timetable tests/fixtures/sample_timetable.csv
 ```
+
+## The web app
+
+```bash
+uv run sitt-web
+```
+
+Opens <http://127.0.0.1:8000>: trip picker, the recommended train on an indicator-style
+board, the next trains with predicted delay and crowding, "Check live first", crowd logging
+and saved routes. It works offline and runs until you press Ctrl+C. Details and the JSON API:
+[`docs/web.md`](docs/web.md).
 
 ## Ask from the command line
 
@@ -292,6 +313,7 @@ src/sitt/
   models/         delay features, baselines, LightGBM model, retraining, crowding estimate
   recommend.py    "take this train or wait?"
   next_cli.py     sitt-next: the recommender on the command line
+  web/            sitt-web: JSON API (FastAPI) and the page (static HTML, CSS, JS)
   bot/            Telegram bot: logging, /next, saved routes, /commute, its own messages
   dashboard/      Streamlit app
 scripts/          optional PowerShell scripts for Task Scheduler (not in use: collection is manual)
@@ -322,6 +344,7 @@ models/           trained models (gitignored)
 | [`crowding.md`](docs/crowding.md) | The crowding rules, and how reports are matched to trains |
 | [`recommender.md`](docs/recommender.md) | The decision rule and thresholds |
 | [`bot-setup.md`](docs/bot-setup.md) | Setting up and using the Telegram bot, saved routes and its own messages |
+| [`web.md`](docs/web.md) | The web app (`sitt-web`): what the page does, and its JSON API |
 | [`dashboard.md`](docs/dashboard.md) | Running and deploying the dashboard |
 
 ## Roadmap

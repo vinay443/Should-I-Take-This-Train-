@@ -2,33 +2,33 @@
 
 Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
-## Where this stopped (2026-10-12, end of the autonomous session)
+## Where this stopped (2026-10-13)
 
-All PLAN.md items in rounds 1-4 are done and merged (PRs #1-#21), each through CI, plus two
-independent reviews whose findings were all fixed. 693 tests, ~92% coverage. Only item 5
-(2027 holidays) is open, blocked until Maharashtra publishes the list.
+**The end product is the web app:** `uv run sitt-web` opens http://127.0.0.1:8000 (PR #23).
+Everything in PLAN.md rounds 1-5 is done; only item 5 (2027 holidays) waits on outside data.
 
-What is left needs you, or more data:
+What needs you:
+1. `git pull`, then `uv sync`, then `uv run sitt-web`.
+2. Press **Check live first** once, to try a real NTES fetch from your PC (the cloud
+   workspace can't reach NTES, so that path is tested only against a recorded page).
+3. The newer AC supplement PDF (12 services became AC on 29 June 2026), in `scratch/`.
+4. Collect by hand now and then; re-run the analyses listed in the 2026-10-12 entry.
 
-1. **`git pull` on your PC.** Your local copy is still at 371b022 (before this session).
-2. **The newer AC supplement.** The 12 services converted to AC from 29 June 2026 are not
-   in the timetable. Download Central Railway's latest AC supplement PDF and re-run the
-   converter (README, "Load the timetable"), or say "continue from PROGRESS.md" with the
-   PDF in `scratch/` and I'll do it.
-3. **Collect by hand now and then** (`uv run sitt-next KYN CSMT --collect`, or
-   `sitt-collect`). Then re-run the three analyses, which decide what to change next:
-   `python -m sitt.models.live_drift`, `python -m sitt.models.line_state --by-direction`,
-   `python -m sitt.synth.compare`. Their docs say what result would justify a change.
-4. **Try `--collect` once for real.** It was only tested against a recorded NTES page; the
-   cloud workspace can't reach NTES.
-5. Mobond permission and crowd logging, as before.
+## 2026-10-13
 
-Next code steps once there is more data: add the median drift to delayed live readings
-(docs/live-drift.md), use the line state as a floor for up trains if it keeps winning
-(docs/line-state.md), and retune the synthetic generator's direction pattern
-(docs/synthetic-vs-real.md).
-
-The merged feature branches are still on GitHub; delete them whenever you like.
+### Item 22: web app (done, PR #23)
+- `src/sitt/web/`: FastAPI JSON API (`/api/status`, `/api/stations`, `/api/recommend`,
+  `POST /api/collect`, `GET/POST /api/reports`) and a static page (HTML/CSS/JS, no build
+  step): indicator-board hero, next trains with arrival, delay and a crowding meter, "Why
+  this train?", Check live first (on demand only), crowd logging matched to trains, saved
+  routes. Fonts bundled (OFL), works offline. `uv run sitt-web` (`--host 0.0.0.0` for a phone
+  on the same Wi-Fi). Docs: `docs/web.md`.
+- Checked in Chromium at 390 px and 1280 px, light and dark, on a copy of the real DB, and
+  every interaction clicked through. 22 API tests.
+- Independent review found 8 defects (3 high: mixed DuckDB connections failing under load,
+  a false docs claim about sharing the DB with the bot, crowd reports logged against the
+  wrong station after a swap), all fixed and re-verified by the reviewer; its re-check found
+  one regression ("Another time" ignored the "earlier hour means tomorrow" rule), fixed.
 
 ## 2026-10-12
 
