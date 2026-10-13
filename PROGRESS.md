@@ -4,6 +4,8 @@ Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
 ## Where this stopped (2026-10-13)
 
+**Next session: start with PLAN.md round 6 (items 23-27).** They need nothing from the user.
+
 **The end product is the web app:** `uv run sitt-web` opens http://127.0.0.1:8000 (PR #23).
 Everything in PLAN.md rounds 1-5 is done; only item 5 (2027 holidays) waits on outside data.
 
