@@ -142,8 +142,9 @@ Cover the untested `/log` button flow and the text-message paths in `bot/handler
 News checked 2026-10-12: the 22 extra 15-car services of 15 Aug 2026 are in (the 15-car
 supplement); the 12 services converted to AC from 29 June 2026 are **not** (our AC
 supplement is from April 2025, and no newer one is on your PC). Recorded in the README.
-Needs you: download the newer AC supplement from Central Railway's timetable page and
-re-run the converter (README, "Load the timetable").
+Checked Central Railway's timetable page on 2026-10-13: the main-line AC supplement listed
+is still the one of 16.04.2025, so there is no newer official source yet. Re-check when CR
+publishes one, then re-run the converter (README, "Load the timetable").
 
 ### 20. Baseline and data-quality flags — [x]
 The data-quality doc said the baseline ignored `dq_flags`; it doesn't (it reads the same
