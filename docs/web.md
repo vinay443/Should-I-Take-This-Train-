@@ -11,12 +11,15 @@ uv run sitt-web --host 0.0.0.0       # also reachable from your phone on the sam
 ```
 
 It runs until you stop it with Ctrl+C. **Nothing runs in the background**: live status is
-fetched only when you press **Check live first**, exactly like `sitt-next --collect`.
+fetched only when you press **Check live first**, exactly like `sitt-next --collect`. That
+takes a few seconds, and other requests to the app wait until it is done.
 
 ## What the page does
 
 - **Pick a trip.** From and To accept a name or a code (`Kalyan`, `KYN`); mistyped stations
-  get "Did you mean…?". **Another time** asks about a later time or another day.
+  get "Did you mean…?". **Another time** asks about a later time or another day; leave the
+  date empty and a time earlier than now means tomorrow (at 7 pm, 08:00 is tomorrow
+  morning).
 - **The board** at the top shows the recommended train the way a platform indicator would:
   time, destination, fast or slow, coaches, and whether it is late. Under it, the one-line
   reason and what the times are based on (timetable, past delays, live readings).

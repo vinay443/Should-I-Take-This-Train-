@@ -45,6 +45,17 @@ function mumbaiNow() {
   return { time: `${parts.hour}:${parts.minute}`, date: `${parts.year}-${parts.month}-${parts.day}` };
 }
 
+/** "" for today (Mumbai), " tomorrow", or " on Thu 15 Oct". */
+function whichDay(iso) {
+  const day = iso.slice(0, 10);
+  const today = mumbaiNow().date;
+  const tomorrow = new Date(`${today}T12:00:00+05:30`);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (day === today) return "";
+  if (day === tomorrow.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })) return " tomorrow";
+  return ` on ${new Date(iso).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "Asia/Kolkata" })}`;
+}
+
 function delayText(minutes) {
   if (minutes === 0) return "on time";
   return `${Math.abs(minutes)} min ${minutes > 0 ? "late" : "early"}`;
@@ -219,7 +230,7 @@ function render(answer) {
         : `Times use the ${answer.level_text}${options.some((o) => o.live) ? ", with live readings where marked" : ""}.`;
   $("notes").replaceChildren(...answer.notes.map((n) => el("li", { text: n })));
 
-  $("trains-heading").textContent = `${answer.origin} to ${answer.destination}, from ${hhmm(answer.asked_at)}`;
+  $("trains-heading").textContent = `${answer.origin} to ${answer.destination}, from ${hhmm(answer.asked_at)}${whichDay(answer.asked_at)}`;
   $("trains").replaceChildren(...options.map((o, i) => trainRow(o, i, answer)));
   $("explanation").textContent = answer.explanation;
 }
@@ -386,7 +397,6 @@ function wire() {
       const later = radio.value === "later" && radio.checked;
       if (radio.checked) $("later").hidden = !later;
       if (later && !$("at").value) $("at").value = mumbaiNow().time;
-      if (later && !$("date").value) $("date").value = mumbaiNow().date;
     }));
   $("log-form").addEventListener("submit", logCrowding);
   $("log-time").value = mumbaiNow().time;
