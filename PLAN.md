@@ -164,6 +164,46 @@ trains with delay and crowding, live check, crowd logging and saved routes. Work
 desktop widths, light and dark, against a copy of the real database; README and
 `docs/web.md`; independent review.
 
+## Round 6 (added 2026-10-13): next, all doable without the user
+
+Do these in order; each is a PR merged on green CI with a PROGRESS.md entry. None needs the
+user's PC: work in a cloud clone; a copy of the real database can be staged from the PC with
+device_stage_files (`data\sitt.duckdb`), read-only.
+
+### 23. CI on Windows too — [ ]
+The user runs Windows. Add a `windows-latest` job to `.github/workflows/ci.yml` (free for
+public repos) running `uv sync --locked` and `uv run pytest`. Fix anything Windows-only
+that breaks (paths, file locks, encodings). **Done when:** both jobs green.
+
+### 24. Web app on a phone: installable, offline shell — [ ]
+Add a web app manifest and a small service worker so the page can be added to a phone's
+home screen (with `sitt-web --host 0.0.0.0`) and opens even when the PC is briefly
+unreachable, showing the last answer with a clear "not live" note. No external services.
+**Done when:** Lighthouse-style checks pass in headless Chromium; tests for the manifest and
+offline fallback; docs/web.md updated.
+
+### 25. Delay patterns in the web app — [ ]
+A second view in the web app (`/patterns`): delay by hour and direction from real
+observations, with the honest caveats from docs/live-drift.md; no Streamlit needed.
+**Done when:** API endpoint + view + tests; screenshots at phone and desktop width.
+
+### 26. Harbour line timetable — [ ]
+Central Railway now publishes Harbour line PDFs (w.e.f. 01.05.2026) on its timetable page.
+docs/expansion-assessment.md says the converter reads the layout and fails only on station
+names. Add the Harbour stations and convert; keep it behind a separate `line` so main-line
+results don't change. **Done when:** converter tests on a fixture from the real PDF; a
+Harbour route answers in `sitt-next` and the web app.
+
+### 27. Independent review of rounds 6 — [ ]
+A separate agent reviews cold; fix real findings.
+
+### On the user's PC, only if a working shell is available
+`mcp__remote-devices__device_bash` was blocked by a Windows update on 2026-10-12/13. If it
+works in a later session: `git pull`, `uv sync`, start `uv run sitt-web --no-browser` in the
+background of that shell, open http://127.0.0.1:8000 in Claude in Chrome, press "Check live
+first" and record whether the real NTES fetch works. If it doesn't work, skip this; don't
+use computer-use clicks to run scripts.
+
 ## Out of scope / needs you
 
 - Asking Mobond for permission (the adapter stays off until then).
