@@ -19,6 +19,14 @@ What needs you:
    project ever expands (docs/expansion-assessment.md).
 4. Collect by hand now and then; re-run the analyses listed in the 2026-10-12 entry.
 
+## 2026-10-13 (round 6)
+
+### Item 23: CI on Windows (done, PR #26)
+- New `windows` job in `.github/workflows/ci.yml` (`windows-latest`, `uv sync --locked`,
+  `uv run pytest`), without `PYTHONUTF8`, so encoding bugs a Windows user would hit still
+  show up. Green on the first run: nothing Windows-only needed fixing (all text I/O already
+  passes an explicit encoding). Lint/format stay on the Linux job only.
+
 ## 2026-10-13
 
 ### Item 22: web app (done, PR #23)
