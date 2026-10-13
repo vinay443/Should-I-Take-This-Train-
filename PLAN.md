@@ -153,6 +153,16 @@ feature table). Proven with a test; doc corrected.
 `/next KYN CSMT live` runs one manual collection round first, like `sitt-next --collect`,
 only when asked. **Done when:** handler test with a fake NTES; help text and docs updated.
 
+## Round 5 (added 2026-10-13, at your request): an end product
+
+### 22. Web app: backend and UI — [x]
+`uv run sitt-web`: a FastAPI JSON API over the recommender (status, stations, recommend,
+collect on demand, crowd reports) and a page with an indicator-board design, the next
+trains with delay and crowding, live check, crowd logging and saved routes. Works offline
+(fonts bundled). **Done when:** API tests pass; checked in a real browser at phone and
+desktop widths, light and dark, against a copy of the real database; README and
+`docs/web.md`; independent review.
+
 ## Out of scope / needs you
 
 - Asking Mobond for permission (the adapter stays off until then).

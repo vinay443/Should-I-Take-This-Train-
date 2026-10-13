@@ -6,12 +6,14 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "duckdb>=1.5.5",
+    "fastapi>=0.143.0",
     "httpx>=0.28.1",
     "lightgbm>=4.7.0",
     "pdfplumber>=0.11.10",
     "python-dotenv>=1.2.3",
     "python-telegram-bot[job-queue]>=22.8",
     "streamlit>=1.65.0",
+    "uvicorn>=0.54.0",
 ]
 
 [project.scripts]
@@ -26,6 +28,7 @@ sitt-match-logs = "sitt.matching:main"
 sitt-retrain = "sitt.models.retrain:main"
 sitt-export = "sitt.export:main"
 sitt-next = "sitt.next_cli:main"
+sitt-web = "sitt.web.run:main"
 
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13"]
