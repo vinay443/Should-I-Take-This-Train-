@@ -172,3 +172,69 @@ def test_without_a_database(tmp_path, monkeypatch):
     response = client.get("/api/recommend", params={"from": "KYN", "to": "CSMT"})
     assert response.status_code == 503 and "sitt-init-db" in response.json()["error"]
     assert not (tmp_path / "missing.duckdb").exists()
+
+
+# --- found by review ---
+
+
+def test_reads_and_writes_at_the_same_time_all_succeed(client):
+    import concurrent.futures
+
+    def post(i):
+        body = {"station": "KYN", "departure": "7:12", "service": "fast", "crowd": 1 + i % 5}
+        return client.post("/api/reports", json=body).status_code
+
+    def get(_):
+        return client.get("/api/recommend", params={"from": "KYN", "to": "CSMT"}).status_code
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        codes = list(pool.map(post, range(10))) + list(pool.map(get, range(10)))
+        mixed = [pool.submit(post if i % 2 else get, i) for i in range(16)]
+        codes += [future.result() for future in mixed]
+    assert set(codes) <= {200, 201}, codes
+    assert len(client.get("/api/reports?limit=50").json()) == 18
+
+
+def _hold_database(path, ready, release):
+    import duckdb
+
+    con = duckdb.connect(str(path))  # a writer in another process, like the bot or collector
+    ready.set()
+    release.wait(30)
+    con.close()
+
+
+def test_a_database_held_by_another_process_gives_a_clear_busy_answer(client, db):
+    import multiprocessing
+
+    context = multiprocessing.get_context("spawn")
+    ready, release = context.Event(), context.Event()
+    holder = context.Process(target=_hold_database, args=(db, ready, release))
+    holder.start()
+    try:
+        assert ready.wait(30)
+        response = client.get("/api/recommend", params={"from": "KYN", "to": "CSMT"})
+        assert response.status_code == 503
+        assert "busy" in response.json()["error"]
+    finally:
+        release.set()
+        holder.join(30)
+    assert client.get("/api/recommend", params={"from": "KYN", "to": "CSMT"}).status_code == 200
+
+
+@pytest.mark.parametrize("day", ["9999-12-31", "0001-01-01", "2030-01-01"])
+def test_far_away_dates_are_refused_cleanly(client, day):
+    response = client.get("/api/recommend", params={"from": "KYN", "to": "CSMT", "date": day})
+    assert response.status_code == 400 and "within a year" in response.json()["error"]
+
+
+def test_validation_errors_are_readable(client):
+    response = client.post(
+        "/api/reports",
+        json={"station": "K" * 80, "departure": "7:12", "service": "fast", "crowd": 3},
+    )
+    assert response.status_code == 422
+    error = response.json()["error"]
+    assert error.startswith("station: ") and "60" in error
+    bad_n = client.get("/api/recommend", params={"from": "KYN", "to": "CSMT", "n": 99})
+    assert bad_n.status_code == 422 and bad_n.json()["error"].startswith("n: ")

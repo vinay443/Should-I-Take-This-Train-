@@ -36,6 +36,15 @@ const hhmm = (iso) => iso.slice(11, 16);
 const dayName = (iso) =>
   new Date(iso).toLocaleDateString("en-IN", { weekday: "short", timeZone: "Asia/Kolkata" });
 
+/** Mumbai wall-clock time and date now, whatever the browser's time zone. */
+function mumbaiNow() {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(new Date()).map((p) => [p.type, p.value]));
+  return { time: `${parts.hour}:${parts.minute}`, date: `${parts.year}-${parts.month}-${parts.day}` };
+}
+
 function delayText(minutes) {
   if (minutes === 0) return "on time";
   return `${Math.abs(minutes)} min ${minutes > 0 ? "late" : "early"}`;
@@ -173,7 +182,7 @@ function boardRow(option, kind) {
   const state = option.cancelled ? "CANCELLED" : late ? `${option.departure_delay} LATE` : "ON TIME";
   return el("div", { class: `board-row ${kind}` },
     el("span", { text: hhmm(option.departs) }),
-    el("span", { class: "dest", text: option.destination.toUpperCase() }),
+    el("span", { class: "dest", text: (option.other_day ? `${dayName(option.departs)} ` : "") + option.destination.toUpperCase() }),
     el("span", { text: option.type === "fast" ? "F" : "S" }),
     el("span", { class: "cars", text: String(option.cars) }),
     el("span", { class: `state ${late || option.cancelled ? "late" : ""}` },
@@ -190,7 +199,10 @@ function render(answer) {
   board.replaceChildren();
   if (pick) {
     board.append(boardRow(pick, "pick"));
-    options.filter((o) => o !== pick && !o.cancelled).slice(0, 2).forEach((o) => board.append(boardRow(o, "then")));
+    options
+      .filter((o) => o !== pick && !o.cancelled && o.departs > pick.departs)
+      .slice(0, 2)
+      .forEach((o) => board.append(boardRow(o, "then")));
   } else {
     board.append(el("div", { class: "board-row pick" }, el("span", { class: "dest", text: "NO TRAIN" })));
   }
@@ -217,6 +229,7 @@ function trainRow(o, index, answer) {
   const li = el("li", { class: `train${isPick ? " pick" : ""}${o.cancelled ? " cancelled" : ""}` });
   const more = el("div", { class: "t-more", hidden: true });
   const delayed = o.arrival_delay !== 0;
+  const leavesLate = o.departure_delay !== o.arrival_delay && o.departure_delay > 0;
   const arrival = o.cancelled
     ? el("span", { class: "t-arr" }, el("span", { class: "delay late", text: "Cancelled" }))
     : el("span", { class: "t-arr" },
@@ -225,7 +238,8 @@ function trainRow(o, index, answer) {
         el("strong", { text: hhmm(o.predicted_arrival) }),
         o.margin ? ` ±${o.margin}` : null,
         ", ",
-        el("span", { class: `delay ${o.departure_delay > 0 ? "late" : "ontime"}`, text: delayText(o.departure_delay) }),
+        el("span", { class: `delay ${o.arrival_delay > 0 ? "late" : "ontime"}`, text: delayText(o.arrival_delay) }),
+        leavesLate ? ` (leaves ${o.departure_delay} min late)` : null,
         o.live ? el("span", { class: "badge-live", title: `NTES reading at ${hhmm(o.live.at)}`, text: "live" }) : null,
       );
   const tags = o.tags.length ? el("span", { class: "tags", text: `  ${o.tags.join(", ")}` }) : null;
@@ -264,6 +278,12 @@ function trainRow(o, index, answer) {
   ].filter(Boolean));
   li.append(button, more);
   return li;
+}
+
+/** "Kalyan (KYN)" for a code, as the station boxes show it. */
+function stationText(code) {
+  const s = stations.find((x) => x.code.toLowerCase() === String(code).toLowerCase());
+  return s ? (s.name === s.code ? s.code : `${s.name} (${s.code})`) : String(code);
 }
 
 // ---------- saved routes ----------
@@ -308,7 +328,7 @@ function buildCrowdOptions() {
 }
 
 function prefillLog(option, answer) {
-  $("log-station").value = $("from").value || answer.origin;
+  $("log-station").value = stationText(answer.origin_code);
   $("log-time").value = hhmm(option.departs);
   document.querySelector(`input[name="service"][value="${option.type}"]`).checked = true;
   $("log-heading").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
@@ -365,10 +385,11 @@ function wire() {
     radio.addEventListener("change", () => {
       const later = radio.value === "later" && radio.checked;
       if (radio.checked) $("later").hidden = !later;
-      if (later && !$("at").value) $("at").value = new Date().toTimeString().slice(0, 5);
+      if (later && !$("at").value) $("at").value = mumbaiNow().time;
+      if (later && !$("date").value) $("date").value = mumbaiNow().date;
     }));
   $("log-form").addEventListener("submit", logCrowding);
-  $("log-time").value = new Date().toTimeString().slice(0, 5);
+  $("log-time").value = mumbaiNow().time;
 }
 
 async function start() {
@@ -385,10 +406,7 @@ async function start() {
   }
   const url = new URLSearchParams(location.search);
   const last = store.get("last-route", null);
-  const label = (code) => {
-    const s = stations.find((x) => x.code.toLowerCase() === String(code).toLowerCase());
-    return s ? (s.name === s.code ? s.code : `${s.name} (${s.code})`) : code;
-  };
+  const label = stationText;
   const from = url.get("from") ? label(url.get("from")) : last?.from || label("KYN");
   const to = url.get("to") ? label(url.get("to")) : last?.to || label("CSMT");
   $("from").value = from;

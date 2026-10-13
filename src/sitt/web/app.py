@@ -11,28 +11,33 @@ Endpoints (all JSON):
     GET  /api/reports               the latest crowd reports (from the page or the bot)
     POST /api/reports               log how crowded a train was
 
-It reads the same database as the bot and `sitt-next` (SITT_DB_PATH). Recommendations open
-it read-only, so the bot and the collector can use it at the same time.
+It reads the same database as the bot and `sitt-next` (SITT_DB_PATH). DuckDB lets one
+process write at a time, so every request takes a short turn: requests in this app queue
+behind one lock, and while another process (the bot, the collector) has the file the app
+waits a few seconds and then answers 503 "busy, try again".
 """
 
+import contextlib
+import threading
+from collections.abc import Iterator
 from dataclasses import replace
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 
 import duckdb
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from sitt import next_cli
-from sitt.bot import matchflow
+from sitt import matching, next_cli
 from sitt.bot.formatting import trip_tags
 from sitt.bot.parsing import parse_time
 from sitt.bot.schedule import ScheduleError, find_station
 from sitt.bot.stations import directory_from
 from sitt.config import load_health_settings, load_recommend_settings, load_settings
-from sitt.db import connect
+from sitt.db import DatabaseBusyError, open_with_retry
 from sitt.ingest.live import mobond
 from sitt.models.crowding import CROWD_LABELS
 from sitt.recommend import LEVEL_TIMETABLE, Option, Recommendation, explain, recommend
@@ -60,13 +65,21 @@ def _clock(text: str | None, name: str) -> time | None:
     return parsed
 
 
-def _day(text: str | None) -> date | None:
+# How far from today a question may be about. The timetable repeats weekly, so more than this
+# says nothing new, and far-off dates overflow date arithmetic.
+MAX_DAYS_AWAY = 400
+
+
+def _day(text: str | None, today: date) -> date | None:
     if not text:
         return None
     try:
-        return date.fromisoformat(text)
+        day = date.fromisoformat(text)
     except ValueError:
         raise HTTPException(400, f"date must look like 2026-10-14, not {text!r}.") from None
+    if abs((day - today).days) > MAX_DAYS_AWAY:
+        raise HTTPException(400, f"Pick a date within a year of today, not {text}.")
+    return day
 
 
 def _iso(moment: datetime) -> str:
@@ -148,12 +161,32 @@ def create_app(
 
     app = FastAPI(title="Should I take this train?", docs_url="/api/docs", redoc_url=None)
 
-    def read() -> duckdb.DuckDBPyConnection:
+    # One connection at a time in this process: DuckDB refuses a read-write connection while
+    # a read-only one to the same file is open in the same process, and the other way round.
+    lock = threading.Lock()
+
+    @contextlib.contextmanager
+    def database(write: bool = False) -> Iterator[duckdb.DuckDBPyConnection]:
         if not db.exists():
             raise HTTPException(
                 503, f"No database at {db}. Run `uv run sitt-init-db` and load a timetable."
             )
-        return duckdb.connect(str(db), read_only=True)
+        with lock:
+            try:
+                con = open_with_retry(db, read_only=not write, attempts=4, wait_seconds=0.5)
+            except DatabaseBusyError:
+                raise HTTPException(
+                    503,
+                    "The database is busy (the bot or the collector is using it). "
+                    "Try again in a moment.",
+                ) from None
+            try:
+                yield con
+            finally:
+                con.close()
+
+    def read():
+        return database(write=False)
 
     @app.get("/api/status")
     def status() -> dict:
@@ -171,9 +204,7 @@ def create_app(
             invented = con.execute(
                 "SELECT count(*) FROM trains WHERE number LIKE '901%'"
             ).fetchone()[0]
-        from sitt.dashboard.data import last_collected
-
-        last = last_collected(db) if real else None
+            last = _last_collected(con) if real else None
         return {
             "database": True,
             "trains": trains,
@@ -202,7 +233,10 @@ def create_app(
         train: str | None = None,
         n: int = Query(default=5, ge=1, le=12),
     ) -> dict:
-        asked = next_cli.asked_at(clock(), _clock(at, "at"), _day(day), _clock(train, "train"))
+        now_ = clock()
+        asked = next_cli.asked_at(
+            now_, _clock(at, "at"), _day(day, now_.date()), _clock(train, "train")
+        )
         recommend_settings = replace(load_recommend_settings(), candidates=n)
         with read() as con:
             if not con.execute("SELECT count(*) FROM scheduled_stops").fetchone()[0]:
@@ -236,7 +270,8 @@ def create_app(
         if not db.exists():
             raise HTTPException(503, f"No database at {db}.")
         run = collect or _collect
-        return {"message": run(db, batches)}
+        with lock:  # the collector opens the database itself
+            return {"message": run(db, batches)}
 
     @app.get("/api/reports")
     def reports(limit: int = Query(default=10, ge=1, le=50)) -> list[dict]:
@@ -271,7 +306,7 @@ def create_app(
             except ScheduleError as exc:
                 raise HTTPException(400, str(exc)) from None
         description = f"{departure:%H:%M} {report.service} from {station.code}"
-        with connect(db) as con:
+        with database(write=True) as con:
             (report_id,) = con.execute(
                 "INSERT INTO crowd_reports "
                 "(reported_at, station_code, train_description, crowd_level, source, note) "
@@ -287,7 +322,8 @@ def create_app(
             ).fetchone()
         matched = None
         try:
-            result = matchflow.match_report(db, report_id, settings.match)
+            with database(write=True) as con:
+                result = matching.match_stored(con, report_id, matching.AUTO, settings.match)
             if result is not None and result.train is not None:
                 matched = result.train.describe()
         except Exception:  # the report is saved either way; sitt-match-logs can redo this
@@ -303,12 +339,43 @@ def create_app(
     async def http_error(request, exc: HTTPException):
         return JSONResponse({"error": exc.detail}, status_code=exc.status_code)
 
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(request, exc: RequestValidationError):
+        problems = []
+        for error in exc.errors():
+            field = ".".join(
+                str(part) for part in error.get("loc", ()) if part not in ("body", "query")
+            )
+            problems.append(f"{field or 'request'}: {error.get('msg', 'invalid')}")
+        return JSONResponse({"error": "; ".join(problems) + "."}, status_code=422)
+
     @app.get("/", include_in_schema=False)
     def index() -> FileResponse:
         return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
 
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
     return app
+
+
+def _last_collected(con: duckdb.DuckDBPyConnection) -> datetime | None:
+    """The newest real reading or collector run, in Mumbai time (naive)."""
+    from sitt.models.features import IST_OFFSET_MS
+
+    (reading,) = con.execute(
+        f"SELECT max(make_timestamp((epoch_ms(observed_at) + {IST_OFFSET_MS}) * 1000)) "
+        "FROM observations WHERE source <> 'synthetic'"
+    ).fetchone()
+    has_runs = con.execute(
+        "SELECT count(*) FROM information_schema.tables WHERE table_name = 'collector_runs'"
+    ).fetchone()[0]
+    run = None
+    if has_runs:
+        (run,) = con.execute(
+            f"SELECT max(make_timestamp((epoch_ms(started_at) + {IST_OFFSET_MS}) * 1000)) "
+            "FROM collector_runs"
+        ).fetchone()
+    found = [moment for moment in (reading, run) if moment is not None]
+    return max(found) if found else None
 
 
 def _enabled_sources() -> list[str]:

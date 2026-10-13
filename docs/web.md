@@ -51,7 +51,15 @@ Errors come back as `{"error": "..."}` with a 4xx status, worded for a person.
 ## How it fits with the rest
 
 It reads the same database as the bot, `sitt-next` and the dashboard (`SITT_DB_PATH`, default
-`data/sitt.duckdb`). Recommendations open it read-only, so the bot can run at the same time.
+`data/sitt.duckdb`). DuckDB lets only one process write to the file at a time, so:
+
+- requests inside the app take turns (one connection at a time), so several people using
+  the page at once, say you and your phone, all get answers;
+- while another program has the file (the bot answering a command, `sitt-collect`
+  loading), the app waits a few seconds and retries. If it is still busy, the page says
+  "The database is busy … Try again in a moment." The bot only holds the file for a moment
+  per command, so running both is fine in practice.
+
 Live batches from **Check live first** go beside the database (`data/` by default).
 
 The Streamlit dashboard (`sitt-dashboard`) is still there for exploring the data: delay
