@@ -25,3 +25,19 @@ jobs:
 
       - name: Test
         run: uv run pytest
+
+  # The project is run on Windows, so the tests run there too.
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Test
+        run: uv run pytest

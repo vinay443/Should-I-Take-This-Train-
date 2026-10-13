@@ -170,7 +170,7 @@ Do these in order; each is a PR merged on green CI with a PROGRESS.md entry. Non
 user's PC: work in a cloud clone; a copy of the real database can be staged from the PC with
 device_stage_files (`data\sitt.duckdb`), read-only.
 
-### 23. CI on Windows too — [ ]
+### 23. CI on Windows too — [x]
 The user runs Windows. Add a `windows-latest` job to `.github/workflows/ci.yml` (free for
 public repos) running `uv sync --locked` and `uv run pytest`. Fix anything Windows-only
 that breaks (paths, file locks, encodings). **Done when:** both jobs green.
