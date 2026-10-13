@@ -2,22 +2,26 @@
 
 Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
-## Where this stopped (2026-10-13)
+## Where this stopped (2026-10-13, 22:00 IST, interrupted by the user)
 
-**Next session: start with PLAN.md round 6 (items 23-27).** They need nothing from the user.
+**Next session: finish item 24 on branch `web-offline` (PR #27), then items 25-27.**
+Item 23 (Windows CI) is merged (PR #26).
 
-**The end product is the web app:** `uv run sitt-web` opens http://127.0.0.1:8000 (PR #23).
-Everything in PLAN.md rounds 1-5 is done; only item 5 (2027 holidays) waits on outside data.
-
-What needs you:
-1. `git pull`, then `uv sync`, then `uv run sitt-web`.
-2. Press **Check live first** once, to try a real NTES fetch from your PC (the cloud
-   workspace can't reach NTES, so that path is tested only against a recorded page).
-3. Nothing to fetch for AC yet: Central Railway's timetable page (checked 2026-10-13) still
-   lists the 16.04.2025 AC supplement as the latest; the 29 June 2026 conversions aren't
-   published as a timetable. It also now has Harbour line PDFs (w.e.f. 01.05.2026), if the
-   project ever expands (docs/expansion-assessment.md).
-4. Collect by hand now and then; re-run the analyses listed in the 2026-10-12 entry.
+Item 24 state, on branch `web-offline` (not merged):
+- Done: `manifest.webmanifest`, icons (`scripts/make_web_icons.py`, 192/512 PNG, maskable),
+  `sw.js` (served at `/sw.js`, cache version = hash of static files; keeps only the page
+  shell and `/api/stations`, `/api/status`), page links/meta, offline fallback in `app.js`
+  (last 8 answers kept in localStorage; "Not live" banner when the PC can't be reached;
+  crowd logs refused with a clear note offline), CSS for the banner,
+  `tests/web/test_installable.py` (7 tests, passing).
+- Still to do: a headless-Chromium check (Playwright, system python3): install criteria /
+  service worker active on 127.0.0.1, then stop the server and reload: page opens with the
+  "Not live" banner; screenshots at 390 px and 1280 px, light and dark. Then `docs/web.md`
+  section "On your phone" (note: service workers need https or localhost, so on a phone over
+  `http://<pc-ip>:8000` the saved-answer fallback works while the page is open, but the
+  page itself won't open offline; say so honestly), full test run, CI, merge, tick PLAN.md.
+- Real database: not copied. Folder access to the PC was declined on 2026-10-13; use the
+  sample timetable for screenshots unless a folder is connected.
 
 ## 2026-10-13 (round 6)
 

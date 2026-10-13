@@ -312,3 +312,15 @@ button[disabled] { opacity: .55; cursor: progress; }
   .crowd-options { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .crowd-options label { font-size: .8rem; }
 }
+
+/* Offline: the PC can't be reached, so the answer shown is a saved one. */
+.stale-note {
+  margin: 0 0 .75rem; padding: .7rem 1rem; border-radius: 8px;
+  background: color-mix(in srgb, var(--led) 18%, var(--surface));
+  border-left: 4px solid var(--led);
+  color: var(--ink);
+}
+.stale-note strong { font-weight: 700; }
+.answer.stale .board { filter: grayscale(.7) brightness(.75); }
+.answer.stale .trains { opacity: .8; }
+.data-line.offline { color: var(--central); font-weight: 700; }
