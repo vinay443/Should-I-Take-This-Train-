@@ -11,7 +11,10 @@ What needs you:
 1. `git pull`, then `uv sync`, then `uv run sitt-web`.
 2. Press **Check live first** once, to try a real NTES fetch from your PC (the cloud
    workspace can't reach NTES, so that path is tested only against a recorded page).
-3. The newer AC supplement PDF (12 services became AC on 29 June 2026), in `scratch/`.
+3. Nothing to fetch for AC yet: Central Railway's timetable page (checked 2026-10-13) still
+   lists the 16.04.2025 AC supplement as the latest; the 29 June 2026 conversions aren't
+   published as a timetable. It also now has Harbour line PDFs (w.e.f. 01.05.2026), if the
+   project ever expands (docs/expansion-assessment.md).
 4. Collect by hand now and then; re-run the analyses listed in the 2026-10-12 entry.
 
 ## 2026-10-13
