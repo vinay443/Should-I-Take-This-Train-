@@ -192,8 +192,11 @@ button[disabled] { opacity: .55; cursor: progress; }
 }
 .basis { margin: 0; color: var(--ink-soft); }
 .basis.warn { color: var(--central); font-weight: 700; }
-.notes { margin: .5rem 0 0; padding-left: 1.1rem; color: var(--ink-soft); font-size: .95rem; }
-.notes:empty { display: none; }
+.about { margin-top: .35rem; color: var(--ink-soft); font-size: .95rem; }
+.about summary { cursor: pointer; padding: .3rem 0; width: fit-content; }
+.about summary:hover { color: var(--ink); }
+.notes { margin: .25rem 0 0; padding-left: 1.1rem; }
+.notes li + li { margin-top: .3rem; }
 
 /* ---- train list: timetable rows, not cards ---- */
 .trains { list-style: none; margin: 0; padding: 0; border-top: 2px solid var(--ink); }
@@ -214,6 +217,7 @@ button[disabled] { opacity: .55; cursor: progress; }
 .train.cancelled .t-time, .train.cancelled .t-dest { text-decoration: line-through; color: var(--ink-soft); }
 .t-time { grid-area: time; font-size: 1.45rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .t-time small { display: block; font-size: .78rem; font-weight: 400; color: var(--ink-soft); }
+.t-time.late { color: var(--central); }
 .t-kind {
   grid-area: kind; align-self: start; margin-top: .2rem;
   width: 1.8rem; height: 1.8rem; display: grid; place-items: center; border-radius: 4px;
@@ -225,7 +229,8 @@ button[disabled] { opacity: .55; cursor: progress; }
 .t-dest .tags { font-weight: 400; color: var(--ink-soft); }
 .t-arr { grid-area: arr; color: var(--ink-soft); font-size: .95rem; font-variant-numeric: tabular-nums; }
 .t-arr s { opacity: .7; }
-.delay { font-weight: 700; }
+.delay { font-weight: 700; white-space: nowrap; }
+.badge-live { white-space: nowrap; }
 .delay.late { color: var(--central); }
 .delay.ontime { color: var(--go); }
 .badge-live {
@@ -294,8 +299,19 @@ button[disabled] { opacity: .55; cursor: progress; }
 
 .loading .reason, .loading .trains { opacity: .45; transition: opacity .15s; }
 
+/* The trip folded to one line (small screens only, once there is an answer). */
+.trip-line { display: none; }
+
 /* ---- small screens ---- */
 @media (max-width: 34rem) {
+  .top { padding-top: 1.1rem; }
+  .trip.folded .trip-line {
+    display: flex; justify-content: space-between; align-items: baseline; gap: .75rem;
+    margin: 0;
+  }
+  .trip.folded .trip-line .link { padding: .25rem 0; }
+  .trip.folded .stations, .trip.folded .when { display: none; }
+  .trip.folded .actions { margin-top: .6rem; }
   .stations { grid-template-columns: 1fr auto; }
   .stations .field:last-of-type { grid-column: 1 / 2; }
   .swap { grid-row: 1 / 3; grid-column: 2; align-self: center; }
@@ -375,3 +391,9 @@ button[disabled] { opacity: .55; cursor: progress; }
 .method p { margin: .5rem 0; color: var(--ink-soft); }
 /* Offline: "Check live first" can't work, and says so. Not faded, so it stays readable. */
 .secondary.needs-pc[disabled] { opacity: 1; cursor: not-allowed; border-style: dashed; color: var(--ink-soft); border-color: var(--ink-soft); }
+
+/* Delay patterns headline: each direction as a line on a platform board. */
+.verdict-board { margin-bottom: .75rem; }
+.verdict-board .board-row { grid-template-columns: minmax(0, 1fr) auto; font-size: clamp(1.1rem, .8rem + 1.6vw, 1.7rem); }
+.verdict { font-size: 1.1rem; line-height: 1.45; margin: 0 0 1rem; max-width: 60ch; }
+.chart-note { margin: .25rem 0 .5rem; color: var(--ink-soft); }

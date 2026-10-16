@@ -101,6 +101,14 @@ def delay_patterns(con: duckdb.DuckDBPyConnection) -> dict:
         FROM runs GROUP BY ALL ORDER BY train_type
         """
     ).fetchall()
+    by_direction = con.execute(
+        f"""
+        {_runs_sql()}
+        SELECT direction, count(*), median(delay), quantile_cont(delay, 0.9),
+               avg((delay >= {LATE_MINUTES})::INT)
+        FROM runs GROUP BY ALL ORDER BY direction DESC
+        """
+    ).fetchall()
     return {
         "runs": int(runs),
         "days": int(days),
@@ -117,6 +125,17 @@ def delay_patterns(con: duckdb.DuckDBPyConnection) -> dict:
         ],
         "by_band": [asdict(cell) for cell in bands],
         "by_hour": [asdict(cell) | {"key": int(cell.key)} for cell in hours],
+        "by_direction": [
+            {
+                "direction": direction,
+                "runs": int(n),
+                "median": float(med),
+                "p90": float(p90),
+                "share_late": float(late),
+                "few": int(n) < MIN_RUNS,
+            }
+            for direction, n, med, p90, late in by_direction
+        ],
         "by_type": [
             {"type": kind, "runs": int(n), "median": float(med), "share_late": float(late)}
             for kind, n, med, late in by_type

@@ -46,6 +46,10 @@ def test_each_run_counts_once_with_its_final_delay(loaded):
     assert round(up_7["share_late"], 2) == 0.67 and up_7["few"] is True
     bands = {(c["direction"], c["key"]): c for c in result["by_band"]}
     assert bands[("up", "am_peak")]["runs"] == 3 and bands[("down", "am_peak")]["runs"] == 1
+    directions = {d["direction"]: d for d in result["by_direction"]}
+    assert directions["up"]["runs"] == 3 and directions["up"]["median"] == 6.0
+    assert directions["down"]["runs"] == 1 and directions["down"]["few"] is True
+    assert [d["direction"] for d in result["by_direction"]] == ["up", "down"]
     types = {t["type"]: t for t in result["by_type"]}
     assert types["fast"]["runs"] == 2 and types["slow"]["runs"] == 2
 

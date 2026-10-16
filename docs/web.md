@@ -19,12 +19,15 @@ takes a few seconds, and other requests to the app wait until it is done.
 - **Pick a trip.** From and To accept a name or a code (`Kalyan`, `KYN`); mistyped stations
   get "Did you mean…?". **Another time** asks about a later time or another day; leave the
   date empty and a time earlier than now means tomorrow (at 7 pm, 08:00 is tomorrow
-  morning).
+  morning). On a phone, once there is an answer the form folds into one line ("Kalyan →
+  CSMT, leaving now", **Change**) so the board is in view.
 - **The board** at the top shows the recommended train the way a platform indicator would:
   time, destination, fast or slow, coaches, and whether it is late. Under it, the one-line
   reason and what the times are based on (timetable, past delays, live readings).
-- **The next trains** list each train's predicted arrival and delay, a five-step crowding
-  meter, and tags (AC, 15-car, ladies' special). Tap a train for the details, or to log
+- **The next trains** are listed in the order they are expected to leave. A late train shows
+  its expected leaving time in red with the timetable time struck through (and the board
+  says `EXP 21:10`, like a platform board). Each has its predicted arrival and delay, a
+  five-step crowding meter, and tags (AC, 15-car, ladies' special). Tap a train for the details, or to log
   crowding for it.
 - **Why this train?** shows the full explanation, the same as the bot's `/why`.
 - **How crowded was your train?** saves a crowd report. It is matched to a scheduled train
@@ -33,8 +36,9 @@ takes a few seconds, and other requests to the app wait until it is done.
 
 ## Delay patterns
 
-**Delay patterns** (`/patterns`, linked at the top of the page) shows how late trains have
-really been: the median delay and the share of trains 5+ minutes late by part of the day
+**Delay patterns** (`/patterns`, linked at the top of the page) opens with each direction as a
+line on a platform board ("TOWARDS CSMT  10 LATE") and the same in words, then shows how
+late trains have really been: the median delay and the share of trains 5+ minutes late by part of the day
 (early morning, the two peaks, midday, night) and hour by hour, for each direction, plus
 fast against slow. Hover or tab to a bar for its numbers.
 
