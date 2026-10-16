@@ -301,7 +301,7 @@ function render(answer, savedAt = null) {
       .filter((o) => o !== pick && !o.cancelled && o.departs > pick.departs)
       .slice(0, 2)
       .forEach((o) => board.append(boardRow(o, "then")));
-  } else if (saved && options.length) {
+  } else if (saved && saved.pickGone && options.some((o) => !o.cancelled)) {
     // The picked train has left: list what is still to come, with no pick.
     options.filter((o) => !o.cancelled).slice(0, 3).forEach((o) => board.append(boardRow(o, "then")));
   } else {

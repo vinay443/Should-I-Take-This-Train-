@@ -144,7 +144,7 @@ def format_report(data: dict, markdown: bool = False) -> str:
         if cell is None:
             return "-"
         star = "*" if cell["few"] else ""
-        return f"{_minutes(cell['median'])}, {cell['share_late']:.0%}, {cell['runs']}{star}"
+        return f"{_minutes(cell['median'])}, {_percent(cell['share_late'])}, {cell['runs']}{star}"
 
     header = ["Scheduled", *labels.values()]
     rows = [
@@ -157,7 +157,7 @@ def format_report(data: dict, markdown: bool = False) -> str:
     lines += _table(
         ["Trains", "Median", f"{data['late_minutes']}+ min late", "Trains seen"],
         [
-            [t["type"], _minutes(t["median"]), f"{t['share_late']:.0%}", str(t["runs"])]
+            [t["type"], _minutes(t["median"]), _percent(t["share_late"]), str(t["runs"])]
             for t in data["by_type"]
         ],
         markdown,
@@ -168,6 +168,11 @@ def format_report(data: dict, markdown: bool = False) -> str:
 def _minutes(value: float) -> str:
     """Rounded half up, like the page (Python's round() would make 2.5 into 2)."""
     return f"{math.floor(value + 0.5)} min"
+
+
+def _percent(share: float) -> str:
+    """Rounded half up, like the page: 1 in 8 is 13%, not 12%."""
+    return f"{math.floor(share * 100 + 0.5)}%"
 
 
 def _table(header: list[str], rows: list[list[str]], markdown: bool) -> list[str]:
