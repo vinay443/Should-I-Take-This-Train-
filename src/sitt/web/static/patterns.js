@@ -3,8 +3,8 @@
 
 const $ = (id) => document.getElementById(id);
 const SVG = "http://www.w3.org/2000/svg";
-// Service hours in the order a day of trains runs: 04:00 to 01:00.
-const HOURS = [...Array(22).keys()].map((i) => (i + 4) % 24);
+// All 24 hours, in the order a day of trains runs: 04:00 round to 03:00.
+const HOURS = [...Array(24).keys()].map((i) => (i + 4) % 24);
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);

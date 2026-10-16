@@ -2,6 +2,7 @@
 fallback. The behaviour in a real browser is checked by scripts/check_web_offline.py."""
 
 import json
+import re
 import struct
 from datetime import datetime
 
@@ -65,19 +66,40 @@ def test_the_service_worker_is_served_from_the_root_and_never_cached(client):
 
 
 def test_every_file_the_worker_keeps_exists(client):
-    shell = web.shell_files()
-    assert "/" in shell and "/static/app.js" in shell and "/static/styles.css" in shell
+    version = web.static_version()
+    shell = web.shell_files(version)
+    assert "/" in shell and "/patterns" in shell
+    assert f"/static/app.js?v={version}" in shell and f"/static/styles.css?v={version}" in shell
     assert any(url.endswith(".woff2") for url in shell)
     assert json.dumps(shell) in client.get("/sw.js").text
     for url in shell:
         assert client.get(url).status_code == 200, url
 
 
-def test_the_worker_never_keeps_answers_or_sends_writes_to_its_cache():
-    source = (web.STATIC / "sw.js").read_text("utf-8")
-    # Recommendations and reports always go to the app; the page keeps answers itself.
+def test_pages_load_their_scripts_by_version(client):
+    # A new page must never run with an old script the phone kept: the URLs differ.
+    version = web.static_version()
+    page = client.get("/").text
+    assert f'src="/static/app.js?v={version}"' in page
+    assert f'href="/static/styles.css?v={version}"' in page
+    assert f'src="/static/patterns.js?v={version}"' in client.get("/patterns").text
+    # Every versioned file a page links is one the worker keeps under that same URL.
+    shell = set(web.shell_files(version))
+    for name in ("/", "/patterns"):
+        for url in re.findall(r'(?:src|href)="(/static/[^"]+\?v=[^"]+)"', client.get(name).text):
+            assert url in shell, url
+
+
+def test_the_worker_only_stores_the_apps_own_pages(client):
+    source = client.get("/sw.js").text
+    assert 'const PAGES = ["/", "/patterns"];' in source
+    # Writes and answers always go to the app; the page keeps answers itself.
     assert '"/api/recommend"' not in source and '"/api/reports"' not in source
     assert 'request.method !== "GET"' in source
+    # Other pages (the API docs, raw JSON) fall back to "/" offline but are never stored
+    # under it: storing is only for a page in PAGES. The browser check
+    # (scripts/check_web_offline.py) proves this in Chromium.
+    assert 'networkFirst(request, page ? url.pathname : "/", page)' in source
 
 
 def test_the_cache_version_changes_when_a_static_file_changes(tmp_path, monkeypatch):
