@@ -4,13 +4,21 @@ Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
 ## Where this stopped (2026-10-16)
 
-**Next: PLAN.md round 7 (items 29-31).** Round 6 is done except item 26 (Harbour line),
+**Next: PLAN.md round 7 (items 30-31).** Round 6 is done except item 26 (Harbour line),
 which is blocked on the Harbour PDFs (see PLAN.md).
 
 Real database: not copied (folder access declined on 2026-10-13). Work uses the sample
 timetable unless the user connects the `data` folder.
 
 ## 2026-10-16
+
+### Item 29: saved answers drop trains that have left (done, PR #31)
+- Offline, a saved answer now leaves out trains whose predicted departure is more than a
+  minute past, with a note ("1 train in the saved answer has left since…"). If the picked
+  train has left, the page says so, lists the saved trains still to come on the board with
+  no pick, and hides "Why this train?"; if every train has left it says that.
+- `scripts/check_web_offline.py` moves the browser's clock past the first train and then
+  three days on, and checks both cases at phone and desktop width, light and dark.
 
 ### Item 28: runs grouped the same in any time zone (done, PR #30)
 - A run's service day came from `date_trunc('day', …)` on a TIMESTAMPTZ, which follows

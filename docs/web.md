@@ -63,6 +63,9 @@ phone yet.
 **When the PC can't be reached** (it is asleep, `sitt-web` isn't running, or you've left the
 Wi-Fi), the page shows the last answer it got for that trip, marked **Not live** with the
 time it was saved, and the header says it is offline. The phone keeps the last 8 answers.
+Trains that have left since the answer was saved (predicted departure more than a minute
+ago) are dropped, with a note saying how many; if the recommended train has left, the page
+says so and lists the saved trains still to come, and if all have left it says that too.
 A trip with no saved answer says so. Logging crowding needs the PC; the page tells you the
 report wasn't saved. Nothing is fetched or refreshed in the background: answers are saved
 only when you ask for trains.
@@ -98,7 +101,8 @@ python3 scripts/check_web_offline.py          # needs Playwright + Chromium for 
 
 It builds a throwaway database from the sample timetable, starts `sitt-web`, checks that
 Chrome finds the app installable and that the worker controls the page, stops the server,
-reloads, and checks the "Not live" fallback and that opening other pages (the API docs, raw
+reloads, and checks the "Not live" fallback, that trains drop out of it as the clock moves
+past them, and that opening other pages (the API docs, raw
 JSON) never replaces the kept main page, at phone and desktop width in light and dark,
 saving screenshots to a temp folder. Checked 2026-10-16: all checks pass.
 
