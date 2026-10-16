@@ -4,13 +4,33 @@ Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
 ## Where this stopped (2026-10-16)
 
-**Next: PLAN.md items 26-27** (Harbour line timetable, independent review of round 6).
-Items 23-25 are merged.
+**Next: PLAN.md round 7 (items 28-31).** Round 6 is done except item 26 (Harbour line),
+which is blocked on the Harbour PDFs (see PLAN.md).
 
 Real database: not copied (folder access declined on 2026-10-13). Work uses the sample
 timetable unless the user connects the `data` folder.
 
 ## 2026-10-16
+
+### Item 27: independent review of round 6 (done, PR #29)
+A separate agent reviewed PRs #26-#28 cold, checking the service worker in a real Chromium.
+Five findings, all fixed:
+1. HIGH: the service worker stored *any* page opened in the browser (the API docs, raw JSON
+   from `/api/...`) as the main page, so offline the home-screen icon could open Swagger or
+   JSON. Now only the app's two pages are stored; others fall back to the main page offline.
+   `scripts/check_web_offline.py` now opens the API docs and JSON before going offline and
+   checks `/` is still the app (fails on the old worker, passes on the new one).
+2. MEDIUM: the first load after an update could run the new page with the old cached script.
+   Pages now load styles and scripts as `?v=<hash>` and the worker matches the full URL.
+3. LOW: the hourly chart had no bars for 02:00-03:59; it now shows all 24 hours.
+4. LOW: two tests only grepped source; replaced by checks of what is served, plus the
+   browser check above.
+5. LOW: docs said the page installs full screen from `http://<pc-ip>`; Chrome only treats
+   that as a shortcut. Docs corrected.
+
+### Item 26: Harbour line — blocked
+The cloud workspace can't reach Central Railway's site (proxy 403) and the PC copies need
+folder access. Recorded in PLAN.md with what's needed.
 
 ### Item 25: delay patterns in the web app (done, PR #28)
 - `/patterns` page and `GET /api/patterns` (`src/sitt/patterns.py`): median delay, 90th

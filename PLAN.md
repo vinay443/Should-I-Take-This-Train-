@@ -187,15 +187,41 @@ A second view in the web app (`/patterns`): delay by hour and direction from rea
 observations, with the honest caveats from docs/live-drift.md; no Streamlit needed.
 **Done when:** API endpoint + view + tests; screenshots at phone and desktop width.
 
-### 26. Harbour line timetable — [ ]
+### 26. Harbour line timetable — [ ] (blocked: needs the PDFs)
 Central Railway now publishes Harbour line PDFs (w.e.f. 01.05.2026) on its timetable page.
 docs/expansion-assessment.md says the converter reads the layout and fails only on station
 names. Add the Harbour stations and convert; keep it behind a separate `line` so main-line
 results don't change. **Done when:** converter tests on a fixture from the real PDF; a
 Harbour route answers in `sitt-next` and the web app.
+Blocked 2026-10-16: the cloud workspace can't reach cr.indianrailways.gov.in (the proxy
+answers 403), and the copies on your PC (`scratch/part10/`) need folder access, which was
+declined. **Needs you:** put `DN HB REVISED PTT WEF 01.05.2026.pdf` and the UP file in the
+project folder (or connect the folder). Also note the size: docs/expansion-assessment.md
+puts it at 5-6 days, most of it letting a station belong to more than one line.
 
-### 27. Independent review of rounds 6 — [ ]
-A separate agent reviews cold; fix real findings.
+### 27. Independent review of round 6 — [x]
+A separate agent reviewed cold and found 5 issues, all fixed (PROGRESS.md, 2026-10-16).
+
+## Round 7 (added 2026-10-16, self-directed)
+
+### 28. Run grouping that doesn't depend on the computer's time zone — [ ]
+`live_drift.runs_ctes` groups a train's readings into one run with `date_trunc('day', ...)`
+on a TIMESTAMPTZ, which follows DuckDB's session time zone: the same database can give
+different runs on the PC (IST) and in CI (UTC) for trains near the 03:00 boundary. Use the
+fixed +05:30 offset like the rest of the code. **Done when:** a test that sets a different
+session time zone gets the same runs; drift, line-state and patterns numbers unchanged on the
+sample data.
+
+### 29. Saved answers don't show trains that have already left — [ ]
+Offline, a saved "leaving now" answer from hours ago still lists trains long gone. Drop
+trains whose (predicted) departure has passed, say how many were dropped, and say so plainly
+when none are left. **Done when:** browser check covers it; docs/web.md updated.
+
+### 30. `sitt-patterns` on the command line — [ ]
+The same tables as `/patterns`, printed in the terminal (and `--markdown` for docs).
+**Done when:** CLI tests; README and docs mention it.
+
+### 31. Independent review of round 7 — [ ]
 
 ### On the user's PC, only if a working shell is available
 `mcp__remote-devices__device_bash` was blocked by a Windows update on 2026-10-12/13. If it

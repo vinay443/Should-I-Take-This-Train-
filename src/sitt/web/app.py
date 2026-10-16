@@ -33,7 +33,7 @@ from pathlib import Path
 import duckdb
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -361,13 +361,17 @@ def create_app(
             problems.append(f"{field or 'request'}: {error.get('msg', 'invalid')}")
         return JSONResponse({"error": "; ".join(problems) + "."}, status_code=422)
 
+    # Worked out once, when the app starts: restart it after changing the page.
+    version = static_version()
+    pages = {name: page_html(name, version) for name in ("index.html", "patterns.html")}
+
     @app.get("/", include_in_schema=False)
-    def index() -> FileResponse:
-        return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
+    def index() -> HTMLResponse:
+        return HTMLResponse(pages["index.html"], headers={"Cache-Control": "no-cache"})
 
     @app.get("/patterns", include_in_schema=False)
-    def patterns_page() -> FileResponse:
-        return FileResponse(STATIC / "patterns.html", headers={"Cache-Control": "no-cache"})
+    def patterns_page() -> HTMLResponse:
+        return HTMLResponse(pages["patterns.html"], headers={"Cache-Control": "no-cache"})
 
     @app.get("/manifest.webmanifest", include_in_schema=False)
     def manifest() -> FileResponse:
@@ -378,7 +382,7 @@ def create_app(
         )
 
     # The service worker must be served from the root to look after the whole page.
-    worker = service_worker()
+    worker = service_worker(version)
 
     @app.get("/sw.js", include_in_schema=False)
     def sw() -> Response:
@@ -388,11 +392,35 @@ def create_app(
     return app
 
 
-def shell_files() -> list[str]:
-    """What the service worker keeps so the page opens without the app: the page, its
-    styles, script, fonts, manifest and icons, as the URLs the page uses."""
-    urls = ["/", "/manifest.webmanifest", "/static/styles.css", "/static/app.js"]
-    urls += ["/patterns", "/static/patterns.js"]
+# Pages the service worker keeps, and the styles and scripts they load. The pages load
+# these with ?v=<version>, so a new version of the page never runs an old cached script.
+SHELL_PAGES = ("/", "/patterns")
+VERSIONED = ("/static/styles.css", "/static/app.js", "/static/patterns.js")
+
+
+def static_version() -> str:
+    """A hash of every static file: it changes whenever any part of the page does."""
+    digest = hashlib.sha256()
+    for path in sorted(STATIC.rglob("*")):
+        if path.is_file():
+            digest.update(path.relative_to(STATIC).as_posix().encode())
+            digest.update(path.read_bytes())
+    return digest.hexdigest()[:12]
+
+
+def page_html(name: str, version: str) -> str:
+    """A page with its styles and scripts linked as `?v=<version>`."""
+    html = (STATIC / name).read_text("utf-8")
+    for url in VERSIONED:
+        html = html.replace(f'"{url}"', f'"{url}?v={version}"')
+    return html
+
+
+def shell_files(version: str = "") -> list[str]:
+    """What the service worker keeps so the page opens without the app: the pages, their
+    styles and scripts (as the versioned URLs the pages use), fonts, manifest and icons."""
+    suffix = f"?v={version}" if version else ""
+    urls = [*SHELL_PAGES, "/manifest.webmanifest", *(url + suffix for url in VERSIONED)]
     for folder in ("fonts", "icons"):
         for path in sorted((STATIC / folder).iterdir()):
             if path.suffix in (".woff2", ".png"):
@@ -400,17 +428,15 @@ def shell_files() -> list[str]:
     return urls
 
 
-def service_worker() -> str:
-    """sw.js with its cache version (a hash of every static file, so any change to the
-    page makes phones fetch the new one) and the list of files to keep."""
-    digest = hashlib.sha256()
-    for path in sorted(STATIC.rglob("*")):
-        if path.is_file():
-            digest.update(path.relative_to(STATIC).as_posix().encode())
-            digest.update(path.read_bytes())
+def service_worker(version: str | None = None) -> str:
+    """sw.js with its cache version (so any change to the page makes phones fetch the new
+    one), the pages it keeps and the list of files to keep."""
+    version = version or static_version()
     source = (STATIC / "sw.js").read_text("utf-8")
-    return source.replace("__VERSION__", digest.hexdigest()[:12]).replace(
-        "__SHELL__", json.dumps(shell_files())
+    return (
+        source.replace("__VERSION__", version)
+        .replace("__PAGES__", json.dumps(list(SHELL_PAGES)))
+        .replace("__SHELL__", json.dumps(shell_files(version)))
     )
 
 

@@ -117,8 +117,17 @@ def run(db: Path, out: Path) -> None:
                     check(page.is_hidden("#stale"), "no 'not live' note while the app answers")
                     page.screenshot(path=out / f"{name}-{scheme}-online.png", full_page=True)
 
+                    # Other pages opened while online (the API docs, raw JSON) must never
+                    # take the main page's place in the phone's copy.
+                    page.goto(url + "api/docs")
+                    errors.clear()  # the API docs load Swagger from a CDN, offline here
+                    page.goto(url + "api/patterns")
                     stop(process)  # the PC goes away
-                    page.reload()
+                    page.goto(url)
+                    check(
+                        page.title() == "Should I take this train?",
+                        f"offline, / is still the app after other pages ({page.title()!r})",
+                    )
                     page.wait_for_selector("#stale:not([hidden])", timeout=10_000)
                     stale = page.inner_text("#stale")
                     check(stale.startswith("Not live."), f"saved answer marked: {stale[:60]}…")
