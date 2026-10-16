@@ -131,6 +131,7 @@ function savedAnswer(params) {
 }
 
 let offlineNow = false;
+let busy = false; // a request for trains (or a live check) is running
 
 /** Mark the page as offline (or back online). Offline, "Check live first" can't work (the
  * PC does the fetching), so it is disabled and says so instead of failing when pressed. */
@@ -142,11 +143,12 @@ function setOffline(offline) {
   liveButtonState();
 }
 
-function liveButtonState(busy = false) {
+function liveButtonState() {
   const live = $("live");
   live.disabled = busy || offlineNow;
   live.classList.toggle("needs-pc", offlineNow && !busy);
-  live.textContent = busy ? "Checking live…" : offlineNow ? "Live check needs the PC" : "Check live first";
+  // While busy the label stays as it is ("Checking live…" during a live check).
+  if (!busy) live.textContent = offlineNow ? "Live check needs the PC" : "Check live first";
   live.title = offlineNow
     ? "Live status is fetched by the app on your PC, which can't be reached right now"
     : "Fetch live running status from NTES once, then show trains";
@@ -189,8 +191,12 @@ async function loadStatus() {
       line.append("No live data fetched yet.");
     }
   } catch (error) {
-    if (error instanceof OfflineError) setOffline(true);
-    else $("data-line").textContent = error.message;
+    if (error instanceof OfflineError) {
+      setOffline(true);
+    } else {
+      if (offlineNow) setOffline(false); // the PC answered, with an error
+      $("data-line").textContent = error.message;
+    }
   }
 }
 
@@ -236,18 +242,19 @@ async function showTrains({ live = false } = {}) {
     return;
   }
   const go = $("go");
-  go.disabled = true;
-  $("live").disabled = true;
+  go.disabled = busy = true;
+  liveButtonState();
   $("answer").classList.add("loading");
   showMessage("");
   try {
     if (live) {
-      liveButtonState(true);
+      $("live").textContent = "Checking live…";
       const { message } = await api("/api/collect", { method: "POST" });
       toast(message);
       loadStatus();
     }
     const answer = await api(`/api/recommend?${params}`);
+    if (offlineNow) setOffline(false); // the PC answered
     lastAnswer = answer;
     render(answer);
     saveAnswer(params, answer);
@@ -269,7 +276,7 @@ async function showTrains({ live = false } = {}) {
       showMessage("Can't reach the app on your PC, and there is no saved answer for this trip on this phone yet. Check that the PC is on and sitt-web is running.");
     }
   } finally {
-    go.disabled = false;
+    go.disabled = busy = false;
     liveButtonState();
     $("answer").classList.remove("loading");
   }

@@ -55,7 +55,11 @@ times weighs four times as much there.
 
 Start the app with `uv run sitt-web --host 0.0.0.0`. It prints the address to open on your
 phone (same Wi-Fi), such as `http://192.168.1.23:8000/`, worked out on the PC itself
-without contacting anything; if it can't tell, `ipconfig` on Windows shows it. The first
+without contacting anything. It is a best guess: home Wi-Fi addresses (192.168.x.x) come
+first, a VPN's after them as "if that doesn't load, try…", and Windows' virtual adapters
+(WSL, Hyper-V) are left out. If none works, `ipconfig` on Windows shows the Wi-Fi
+adapter's IPv4 address. Use `0.0.0.0` rather than `::`, which on Windows may accept IPv6
+only. The first
 time, Windows may ask whether Python may accept connections: allow it for private
 networks, or the phone won't load the page. Chrome's menu
 has **Add to Home screen**, and Safari's share sheet has **Add to Home Screen**: that puts
@@ -71,7 +75,9 @@ Trains that have left since the answer was saved (predicted departure more than 
 ago) are dropped, with a note saying how many; if the recommended train has left, the page
 says so and lists the saved trains still to come, and if all have left it says that too.
 A trip with no saved answer says so. **Check live first** turns into a dashed, disabled
-"Live check needs the PC" (the PC does the fetching), and comes back once the PC answers. Logging crowding needs the PC; the page tells you the
+"Live check needs the PC" (the PC does the fetching), and comes back the next time you ask
+for trains and the PC answers (or when the phone reconnects; nothing checks in the
+background). Logging crowding needs the PC; the page tells you the
 report wasn't saved. Nothing is fetched or refreshed in the background: answers are saved
 only when you ask for trains.
 
