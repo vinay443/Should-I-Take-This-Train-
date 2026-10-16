@@ -241,7 +241,22 @@ read either side of midnight counts twice. Use the same 03:00 service-day rule a
 Re-run the README's two-minute quick start in a fresh clone (including `sitt-web` and
 `sitt-patterns`) and fix anything that drifted. **Done when:** every command in it runs.
 
-### 35. Independent review of round 8 — [ ]
+### 35. Independent review of round 8 — [x]
+Four findings fixed (PROGRESS.md, 2026-10-16).
+
+## Round 9 (added 2026-10-16, self-directed): using it from a phone
+
+### 36. `sitt-web --host 0.0.0.0` prints the address to open on the phone — [ ]
+Today it prints 127.0.0.1, which a phone can't use. Print the PC's LAN address(es) (stdlib
+only, no network calls) and a one-line hint. **Done when:** tests with a faked address
+lookup; docs/web.md updated.
+
+### 37. Offline, "Check live first" says why it can't work — [ ]
+Offline the button still looks usable and only explains itself after a press. Disable it
+with a short reason while the app can't be reached, and enable it again when it can.
+**Done when:** browser check covers both states.
+
+### 38. Independent review of round 9 — [ ]
 
 ### On the user's PC, only if a working shell is available
 `mcp__remote-devices__device_bash` was blocked by a Windows update on 2026-10-12/13. If it

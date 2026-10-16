@@ -321,7 +321,9 @@ button[disabled] { opacity: .55; cursor: progress; }
   color: var(--ink);
 }
 .stale-note strong { font-weight: 700; }
-.answer.stale .board { filter: grayscale(.7) brightness(.75); }
+/* Not live: a dashed amber frame round the board. The lamps keep their colours, so the
+   text keeps its contrast (a CSS filter would dim it, and axe-core can't see filters). */
+.answer.stale .board { outline: 2px dashed var(--led); outline-offset: 3px; }
 .data-line.offline { color: var(--central); font-weight: 700; }
 
 /* ---- page links ---- */

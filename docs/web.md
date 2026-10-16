@@ -118,9 +118,13 @@ npm install --prefix /tmp/axe axe-core@4.10.3
 python3 scripts/check_web_a11y.py --axe /tmp/axe/node_modules/axe-core/axe.min.js
 ```
 
-Checked 2026-10-16: no violations at any level. Its first run found the board's later rows
-(2.3:1) and the green "on time" text in light mode (4.2:1) below the 4.5:1 contrast minimum,
-chart bars with a label but no role, and two landmark issues; all fixed.
+Checked 2026-10-16: no violations. axe also lists what it couldn't decide ("check by
+hand"): on Delay patterns that is the chart's axis labels and text under the tooltip, all
+6:1 or better worked out by hand. Its first run found the board's later rows (2.3:1) and
+the green "on time" text in light mode (4.2:1) below the 4.5:1 minimum, chart bars with a
+label but no role, and two landmark issues; all fixed. axe can't see CSS filters, so the
+offline board is marked with a dashed frame rather than dimmed (dimming took its text to
+3:1).
 
 ## Fonts and other sites
 

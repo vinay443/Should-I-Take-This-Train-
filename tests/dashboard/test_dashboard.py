@@ -292,3 +292,30 @@ def test_a_cancellation_read_either_side_of_midnight_is_one_day(tmp_path):
     trains = data.delay_by_train(db)
     (days,) = trains.loc[trains["number"] == "90111", "cancelled_days"]
     assert days == 2
+
+
+def test_cancellations_of_one_run_count_once_like_its_readings(tmp_path):
+    """90103 starts from CSMT at 06:00ish: readings the evening before and that morning are
+    about the same run, as `days` counts them; a fixed 03:00 cut would split them."""
+    from datetime import timedelta
+
+    from sitt.tz import IST
+
+    db = tmp_path / "sitt.duckdb"
+    with init_db(db) as con:
+        load_timetable(con, read_timetable(SAMPLE_CSV))
+        morning = datetime(2026, 10, 7, 6, 0, tzinfo=IST)
+        for observed, cancelled, delay in [
+            (morning + timedelta(hours=1), False, 2),
+            (morning - timedelta(hours=8), True, None),  # 22:00 the evening before
+            (morning - timedelta(minutes=170), True, None),  # 03:10
+            (morning - timedelta(minutes=190), True, None),  # 02:50
+        ]:
+            con.execute(
+                "INSERT INTO observations (observed_at, train_id, station_code, delay_minutes, "
+                "cancelled, source, event) VALUES (?, 'central-90103', 'KYN', ?, ?, 'ntes', ?)",
+                [observed, delay, cancelled, "cancelled" if cancelled else "arrival"],
+            )
+    trains = data.delay_by_train(db)
+    row = trains.loc[trains["number"] == "90103"].iloc[0]
+    assert (row["days"], row["cancelled_days"]) == (1, 1)
