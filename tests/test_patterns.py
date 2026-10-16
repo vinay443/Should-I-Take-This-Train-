@@ -106,3 +106,9 @@ def test_cli(tmp_path, capsys):
     assert re.search(r"Morning peak \(07-11\)\s+8 min, 100%, 2\*\s+-\n", out)
     assert patterns.main(["--db", str(db), "--markdown"]) == 0
     assert "| Morning peak (07-11) | 8 min, 100%, 2* | - |" in capsys.readouterr().out
+
+
+def test_report_rounds_like_the_page():
+    # Math.round on the page: 12.5% -> 13%, 2.5 min -> 3 min (Python's round gives 12 and 2).
+    assert patterns._percent(1 / 8) == "13%" and patterns._percent(5 / 8) == "63%"
+    assert patterns._minutes(2.5) == "3 min" and patterns._minutes(-2.5) == "-2 min"

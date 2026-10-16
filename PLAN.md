@@ -221,7 +221,27 @@ when none are left. **Done when:** browser check covers it; docs/web.md updated.
 The same tables as `/patterns`, printed in the terminal (and `--markdown` for docs).
 **Done when:** CLI tests; README and docs mention it.
 
-### 31. Independent review of round 7 — [ ]
+### 31. Independent review of round 7 — [x]
+Two low findings, both fixed (PROGRESS.md, 2026-10-16).
+
+## Round 8 (added 2026-10-16, self-directed)
+
+### 32. Accessibility check of both pages with axe-core — [ ]
+Run axe-core (free, from npm, injected by Playwright) on the main page and Delay patterns,
+light and dark, phone and desktop, including the expanded train details and the offline
+banner. Fix real violations (contrast, names, roles). **Done when:** a script reports no
+serious or critical violations; colour-contrast fixes checked by eye in both themes.
+
+### 33. Cancelled days counted by service day — [ ]
+The dashboard counts a train's cancelled days by Mumbai calendar date, so a cancellation
+read either side of midnight counts twice. Use the same 03:00 service-day rule as runs.
+**Done when:** a test with readings at 23:50 and 00:10 counts one day.
+
+### 34. Quick start still works from a fresh clone — [ ]
+Re-run the README's two-minute quick start in a fresh clone (including `sitt-web` and
+`sitt-patterns`) and fix anything that drifted. **Done when:** every command in it runs.
+
+### 35. Independent review of round 8 — [ ]
 
 ### On the user's PC, only if a working shell is available
 `mcp__remote-devices__device_bash` was blocked by a Windows update on 2026-10-12/13. If it

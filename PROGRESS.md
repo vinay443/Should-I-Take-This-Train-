@@ -4,13 +4,23 @@ Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
 ## Where this stopped (2026-10-16)
 
-**Next: PLAN.md round 7 (item 31, independent review).** Round 6 is done except item 26 (Harbour line),
+**Next: PLAN.md round 8 (items 32-35).** Rounds 6 and 7 are done (item 26 blocked). Round 6 is done except item 26 (Harbour line),
 which is blocked on the Harbour PDFs (see PLAN.md).
 
 Real database: not copied (folder access declined on 2026-10-13). Work uses the sample
 timetable unless the user connects the `data` folder.
 
 ## 2026-10-16
+
+### Item 31: independent review of round 7 (done, PR #33)
+A cold review (pytest under UTC/IST/Los Angeles, Chromium probes of `render()`) found no
+problem with the time-zone change and two low ones, both fixed:
+1. Offline, a saved answer whose trains were all cancelled showed an empty board (online it
+   says NO TRAIN): the "pick has left" branch ran for every saved answer. Now only when the
+   pick really has left and something is still running. Re-checked with the reviewer's
+   probe: NO TRAIN offline and online.
+2. `sitt-patterns` rounded percentages half-to-even (1 in 8 = 12%) while the page shows 13%.
+   Now half up, with a test.
 
 ### Item 30: `sitt-patterns` (done, PR #32)
 - `uv run sitt-patterns [--db] [--markdown]`: the Delay patterns page as text (summary line,
