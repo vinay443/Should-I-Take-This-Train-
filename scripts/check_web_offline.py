@@ -19,6 +19,7 @@ import sys
 import tempfile
 import time
 import urllib.request
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -80,6 +81,27 @@ def stop(process: subprocess.Popen) -> None:
     process.wait(10)
 
 
+def saved_trains_leave(page, shot: Path) -> None:
+    """Offline, move the clock on: trains that have left drop out of the saved answer."""
+    answers = page.evaluate("JSON.parse(localStorage.getItem('answers'))")
+    answer = max(answers.values(), key=lambda entry: entry["saved_at"])["answer"]
+    shown = page.locator(".trains li").count()
+    first = datetime.fromisoformat(answer["options"][0]["predicted_departure"])
+    page.clock.set_system_time(first + timedelta(minutes=5))
+    page.click("#go")
+    page.wait_for_function(f"document.querySelectorAll('.trains li').length === {shown - 1}")
+    notes = page.inner_text("#notes")
+    check("1 train in the saved answer has left" in notes, f"departed train dropped: {notes!r}")
+    page.screenshot(path=shot, full_page=True)
+    page.clock.set_system_time(first + timedelta(days=3))
+    page.click("#go")
+    page.wait_for_function("document.querySelectorAll('.trains li').length === 0")
+    reason = page.inner_text("#reason")
+    check(reason.startswith("Every train in this saved answer"), f"all gone: {reason[:50]!r}")
+    check(page.is_hidden(".why"), "explanation hidden once the picked train has left")
+    page.clock.set_system_time(datetime.now(UTC))
+
+
 def run(db: Path, out: Path) -> None:
     from playwright.sync_api import sync_playwright
 
@@ -99,6 +121,7 @@ def run(db: Path, out: Path) -> None:
                         has_touch=name == "phone",
                     )
                     page = context.new_page()
+                    page.clock.install()  # real time, but it can be moved forward later
                     errors: list[str] = []
                     page.on("pageerror", lambda e, errors=errors: errors.append(str(e)))
                     page.goto(url)
@@ -135,6 +158,8 @@ def run(db: Path, out: Path) -> None:
                     line = page.inner_text("#data-line")
                     check(line.startswith("Offline"), f"header says offline: {line[:40]}…")
                     page.screenshot(path=out / f"{name}-{scheme}-offline.png", full_page=True)
+
+                    saved_trains_leave(page, out / f"{name}-{scheme}-offline-later.png")
 
                     # A trip with no saved answer says so instead of showing nothing useful.
                     page.fill("#to", "Thane (TNA)")

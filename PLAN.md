@@ -212,7 +212,7 @@ fixed +05:30 offset like the rest of the code. **Done when:** a test that sets a
 session time zone gets the same runs; drift, line-state and patterns numbers unchanged on the
 sample data.
 
-### 29. Saved answers don't show trains that have already left — [ ]
+### 29. Saved answers don't show trains that have already left — [x]
 Offline, a saved "leaving now" answer from hours ago still lists trains long gone. Drop
 trains whose (predicted) departure has passed, say how many were dropped, and say so plainly
 when none are left. **Done when:** browser check covers it; docs/web.md updated.

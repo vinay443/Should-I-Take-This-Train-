@@ -288,6 +288,8 @@ function render(answer, savedAt = null) {
       "Delays and crowding may have changed since: check the station board.",
     );
   }
+  const saved = savedAt ? stillToCome(answer) : null;
+  if (saved) answer = saved.answer;
   const options = answer.options;
   const pick = answer.choice == null ? null : options[answer.choice];
 
@@ -299,11 +301,18 @@ function render(answer, savedAt = null) {
       .filter((o) => o !== pick && !o.cancelled && o.departs > pick.departs)
       .slice(0, 2)
       .forEach((o) => board.append(boardRow(o, "then")));
+  } else if (saved && options.length) {
+    // The picked train has left: list what is still to come, with no pick.
+    options.filter((o) => !o.cancelled).slice(0, 3).forEach((o) => board.append(boardRow(o, "then")));
   } else {
     board.append(el("div", { class: "board-row pick" }, el("span", { class: "dest", text: "NO TRAIN" })));
   }
 
-  $("reason").textContent = answer.reason;
+  $("reason").textContent = !saved || !saved.pickGone
+    ? answer.reason
+    : options.length
+      ? `The train this answer picked (the ${saved.pickGone}) has already left. These saved trains haven't left yet:`
+      : "Every train in this saved answer has already left. Reconnect to the PC for a new answer, or check the station board.";
   const basis = $("basis");
   basis.className = answer.synthetic ? "basis warn" : "basis";
   basis.textContent = answer.synthetic
@@ -313,11 +322,31 @@ function render(answer, savedAt = null) {
       : answer.level === "timetable"
         ? "Timetable times, with live readings where marked."
         : `Times use the ${answer.level_text}${options.some((o) => o.live) ? ", with live readings where marked" : ""}.`;
-  $("notes").replaceChildren(...answer.notes.map((n) => el("li", { text: n })));
+  const notes = [...answer.notes];
+  if (saved && saved.gone && options.length) {
+    notes.unshift(`${saved.gone} train${saved.gone === 1 ? "" : "s"} in the saved answer ${saved.gone === 1 ? "has" : "have"} left since and ${saved.gone === 1 ? "is" : "are"} not shown.`);
+  }
+  $("notes").replaceChildren(...notes.map((n) => el("li", { text: n })));
 
   $("trains-heading").textContent = `${answer.origin} to ${answer.destination}, from ${hhmm(answer.asked_at)}${whichDay(answer.asked_at)}`;
   $("trains").replaceChildren(...options.map((o, i) => trainRow(o, i, answer)));
   $("explanation").textContent = answer.explanation;
+  // The explanation is about the picked train; once it has left it no longer applies.
+  document.querySelector(".why").hidden = Boolean(saved && saved.pickGone);
+}
+
+/** A saved answer without the trains that have left (predicted departure more than a
+ * minute ago). `gone` counts them; `pickGone` names the picked train if it has left. */
+function stillToCome(answer, now = Date.now()) {
+  const left = (o) => new Date(o.predicted_departure).getTime() < now - 60_000;
+  const options = answer.options.filter((o) => !left(o));
+  const pick = answer.choice == null ? null : answer.options[answer.choice];
+  const pickGone = pick && left(pick) ? `${hhmm(pick.departs)} ${pick.type}` : null;
+  return {
+    answer: { ...answer, options, choice: pick && !pickGone ? options.indexOf(pick) : null },
+    gone: answer.options.length - options.length,
+    pickGone,
+  };
 }
 
 function trainRow(o, index, answer) {
