@@ -47,6 +47,7 @@ to go by", and a note at the top says how many trains, days and stations it all 
 With no real readings yet the page says so and how to collect some.
 
 It describes the past; the recommender does the predicting. Code: `src/sitt/patterns.py`.
+The same tables in a terminal: `uv run sitt-patterns` (`--markdown` for docs).
 The Streamlit dashboard's delay heatmaps count every reading instead, so a train seen four
 times weighs four times as much there.
 

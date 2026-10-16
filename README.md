@@ -201,6 +201,7 @@ Keeping an eye on it, and on the data:
 | Command | What it does |
 | --- | --- |
 | `uv run sitt-health` | Runs expected and recorded, gaps, source failures, matched trains, data freshness. `--telegram` sends a daily summary; `--alert-only` sends a message only when something is wrong ([`collector.md`](docs/collector.md#8-the-health-report)) |
+| `uv run sitt-patterns` | How late trains have really been, by part of the day and direction, and fast against slow: the web app's **Delay patterns** page as text. `--markdown` for docs ([`web.md`](docs/web.md#delay-patterns)) |
 | `uv run sitt-dq` | Flags duplicates, implausible delays and timestamp mistakes; lists trains and stations the timetable doesn't know. Deletes nothing ([`data-quality.md`](docs/data-quality.md)) |
 | `uv run sitt-match-logs` | Matches older crowd reports to scheduled trains ([`crowding.md`](docs/crowding.md#matching-a-report-to-a-train)) |
 | `uv run sitt-retrain` | Trains on real data once there is enough, and promotes the model only if it beats the baselines. Until then, says how far along the data is ([`retraining.md`](docs/retraining.md)) |
@@ -316,10 +317,12 @@ src/sitt/
   models/         delay features, baselines, LightGBM model, retraining, crowding estimate
   recommend.py    "take this train or wait?"
   next_cli.py     sitt-next: the recommender on the command line
+  patterns.py     sitt-patterns and /patterns: delay by hour and direction from real readings
   web/            sitt-web: JSON API (FastAPI) and the page (static HTML, CSS, JS)
   bot/            Telegram bot: logging, /next, saved routes, /commute, its own messages
   dashboard/      Streamlit app
-scripts/          optional PowerShell scripts for Task Scheduler (not in use: collection is manual)
+scripts/          web app checks in a real browser and its icons; optional PowerShell scripts
+                  for Task Scheduler (not in use: collection is manual)
 streamlit_app.py  entry point for Streamlit Community Cloud
 tests/
 docs/

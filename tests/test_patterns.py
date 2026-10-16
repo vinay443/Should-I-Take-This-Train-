@@ -1,5 +1,6 @@
 """Delay patterns from real readings (sitt.patterns)."""
 
+import re
 from datetime import datetime, timedelta
 
 from sitt import patterns
@@ -82,3 +83,26 @@ def test_night_band_wraps_midnight():
         assert not covered & set(hours)
         covered |= set(hours)
     assert covered == set(range(24))
+
+
+def test_cli(tmp_path, capsys):
+    from conftest import SAMPLE_CSV
+
+    from sitt.db import init_db
+    from sitt.ingest.timetable import load_timetable, read_timetable
+
+    assert patterns.main(["--db", str(tmp_path / "missing.duckdb")]) == 2
+    db = tmp_path / "sitt.duckdb"
+    with init_db(db) as con:
+        load_timetable(con, read_timetable(SAMPLE_CSV))
+    assert patterns.main(["--db", str(db)]) == 1
+    assert "No real readings yet" in capsys.readouterr().out
+    with init_db(db) as con:
+        run(con, "central-90106", "07:12", 10)
+        run(con, "central-90104", "07:03", 5)  # median 7.5 shows as 8, like the page
+    assert patterns.main(["--db", str(db)]) == 0
+    out = capsys.readouterr().out
+    assert out.startswith("2 trains seen at KYN, 2026-10-06 (1 day).")
+    assert re.search(r"Morning peak \(07-11\)\s+8 min, 100%, 2\*\s+-\n", out)
+    assert patterns.main(["--db", str(db), "--markdown"]) == 0
+    assert "| Morning peak (07-11) | 8 min, 100%, 2* | - |" in capsys.readouterr().out

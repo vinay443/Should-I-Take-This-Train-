@@ -29,6 +29,7 @@ sitt-retrain = "sitt.models.retrain:main"
 sitt-export = "sitt.export:main"
 sitt-next = "sitt.next_cli:main"
 sitt-web = "sitt.web.run:main"
+sitt-patterns = "sitt.patterns:main"
 
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13"]

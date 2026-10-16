@@ -10,6 +10,7 @@ Only real (not synthetic) readings of suburban trains are used. Small cells are 
 marked, so the page can say how little a number rests on.
 """
 
+import math
 from dataclasses import asdict, dataclass
 
 import duckdb
@@ -121,3 +122,93 @@ def delay_patterns(con: duckdb.DuckDBPyConnection) -> dict:
             for kind, n, med, late in by_type
         ],
     }
+
+
+def format_report(data: dict, markdown: bool = False) -> str:
+    """The /patterns page as text: a summary line, the part-of-day table, fast vs slow."""
+    if not data["runs"]:
+        return "No real readings yet: run `uv run sitt-collect` a few times, then try again."
+    labels = {d["key"]: d["label"] for d in data["directions"]}
+    cells = {(c["direction"], c["key"]): c for c in data["by_band"]}
+    span = data["first_day"] + (
+        f" to {data['last_day']}" if data["last_day"] != data["first_day"] else ""
+    )
+    lines = [
+        f"{data['runs']} trains seen at {', '.join(data['stations'])}, {span} "
+        f"({data['days']} day{'s' if data['days'] != 1 else ''}). Median delay; share "
+        f"{data['late_minutes']}+ min late; trains. * = fewer than {data['min_runs']} trains.",
+        "",
+    ]
+
+    def cell_text(cell: dict | None) -> str:
+        if cell is None:
+            return "-"
+        star = "*" if cell["few"] else ""
+        return f"{_minutes(cell['median'])}, {cell['share_late']:.0%}, {cell['runs']}{star}"
+
+    header = ["Scheduled", *labels.values()]
+    rows = [
+        [f"{band['label']} ({band['from']:02d}-{band['to']:02d})"]
+        + [cell_text(cells.get((key, band["key"]))) for key in labels]
+        for band in data["bands"]
+    ]
+    lines += _table(header, rows, markdown)
+    lines.append("")
+    lines += _table(
+        ["Trains", "Median", f"{data['late_minutes']}+ min late", "Trains seen"],
+        [
+            [t["type"], _minutes(t["median"]), f"{t['share_late']:.0%}", str(t["runs"])]
+            for t in data["by_type"]
+        ],
+        markdown,
+    )
+    return "\n".join(lines)
+
+
+def _minutes(value: float) -> str:
+    """Rounded half up, like the page (Python's round() would make 2.5 into 2)."""
+    return f"{math.floor(value + 0.5)} min"
+
+
+def _table(header: list[str], rows: list[list[str]], markdown: bool) -> list[str]:
+    if markdown:
+        return [
+            "| " + " | ".join(header) + " |",
+            "|" + "|".join([" --- "] + [" ---: "] * (len(header) - 1)) + "|",
+            *("| " + " | ".join(row) + " |" for row in rows),
+        ]
+    widths = [max(len(r[i]) for r in [header, *rows]) for i in range(len(header))]
+    fmt = "  ".join(f"{{:<{w}}}" for w in widths)
+    return [fmt.format(*header).rstrip(), *(fmt.format(*row).rstrip() for row in rows)]
+
+
+def main(argv: list[str] | None = None) -> int:
+    """`sitt-patterns`: how late trains have been, from real readings (as /patterns shows)."""
+    import argparse
+    from pathlib import Path
+
+    from sitt.config import load_settings
+    from sitt.db import open_with_retry
+
+    parser = argparse.ArgumentParser(
+        prog="sitt-patterns",
+        description="How late trains have really been, by part of the day and direction.",
+    )
+    parser.add_argument("--db", type=Path, help="database (default SITT_DB_PATH)")
+    parser.add_argument("--markdown", action="store_true", help="Markdown tables, for docs")
+    args = parser.parse_args(argv)
+    db = args.db or load_settings().db_path
+    if not Path(db).exists():
+        print(f"No database at {db}. Run `uv run sitt-init-db` first.")
+        return 2
+    con = open_with_retry(Path(db), read_only=True)
+    try:
+        data = delay_patterns(con)
+    finally:
+        con.close()
+    print(format_report(data, args.markdown))
+    return 0 if data["runs"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -217,7 +217,7 @@ Offline, a saved "leaving now" answer from hours ago still lists trains long gon
 trains whose (predicted) departure has passed, say how many were dropped, and say so plainly
 when none are left. **Done when:** browser check covers it; docs/web.md updated.
 
-### 30. `sitt-patterns` on the command line — [ ]
+### 30. `sitt-patterns` on the command line — [x]
 The same tables as `/patterns`, printed in the terminal (and `--markdown` for docs).
 **Done when:** CLI tests; README and docs mention it.
 
