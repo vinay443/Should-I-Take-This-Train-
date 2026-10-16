@@ -182,7 +182,7 @@ unreachable, showing the last answer with a clear "not live" note. No external s
 **Done when:** Lighthouse-style checks pass in headless Chromium; tests for the manifest and
 offline fallback; docs/web.md updated.
 
-### 25. Delay patterns in the web app — [ ]
+### 25. Delay patterns in the web app — [x]
 A second view in the web app (`/patterns`): delay by hour and direction from real
 observations, with the honest caveats from docs/live-drift.md; no Streamlit needed.
 **Done when:** API endpoint + view + tests; screenshots at phone and desktop width.

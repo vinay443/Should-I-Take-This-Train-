@@ -55,7 +55,8 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   if (request.mode === "navigate") {
-    event.respondWith(networkFirst(request, "/"));
+    // Each page keeps its own copy (with any ?from=…&to= dropped); unknown pages fall back to "/".
+    event.respondWith(networkFirst(request, SHELL.includes(url.pathname) ? url.pathname : "/"));
   } else if (LOOKUPS.includes(url.pathname)) {
     event.respondWith(networkFirst(request));
   } else if (SHELL.includes(url.pathname)) {

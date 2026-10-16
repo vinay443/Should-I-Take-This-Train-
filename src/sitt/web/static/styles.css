@@ -324,3 +324,51 @@ button[disabled] { opacity: .55; cursor: progress; }
 .answer.stale .board { filter: grayscale(.7) brightness(.75); }
 .answer.stale .trains { opacity: .8; }
 .data-line.offline { color: var(--central); font-weight: 700; }
+
+/* ---- page links ---- */
+.nav { display: flex; gap: 1rem; margin-bottom: .75rem; font-size: .95rem; }
+.nav a { color: var(--ink-soft); text-decoration: none; padding: .2rem 0; border-bottom: 2px solid transparent; }
+.nav a:hover { color: var(--ink); }
+.nav a[aria-current="page"] { color: var(--ink); font-weight: 700; border-bottom-color: var(--central); }
+
+/* ---- delay patterns ---- */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.caveat {
+  margin: 0 0 .5rem; padding: .75rem 1rem; border-radius: 8px;
+  background: color-mix(in srgb, var(--led) 14%, var(--surface));
+  border-left: 4px solid var(--led);
+}
+.table-wrap { overflow-x: auto; }
+.bands { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.bands th, .bands td { padding: .6rem .75rem; text-align: left; vertical-align: top; border-top: 1px solid var(--line); }
+.bands thead th { border-top: 0; font-size: .9rem; color: var(--ink-soft); font-weight: 700; }
+.bands tbody th { font-weight: 700; white-space: nowrap; }
+.bands tbody th small { display: block; font-weight: 400; color: var(--ink-soft); font-size: .85rem; }
+.bands .big { display: block; font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.bands .sub { display: block; color: var(--ink-soft); font-size: .85rem; }
+.bands td.few .big { color: var(--ink-soft); }
+.bands .few-note { font-style: italic; }
+.bands td.none { color: var(--ink-soft); font-size: .9rem; }
+
+.charts { display: grid; gap: 1rem; }
+.chart { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: .75rem .75rem .25rem; }
+.chart figcaption { font-size: .95rem; margin-bottom: .25rem; }
+.chart figcaption span { color: var(--ink-soft); }
+.hour-chart { width: 100%; height: auto; display: block; overflow: visible; }
+.hour-chart .grid { stroke: var(--line); stroke-width: 1; }
+.hour-chart .base { stroke: var(--ink-soft); stroke-width: 1; }
+.hour-chart .tick { fill: var(--ink-soft); font: 400 12px var(--sans); }
+.hour-chart .bar { fill: var(--ink); }
+.hour-chart .bar.few { fill: var(--ink); fill-opacity: .3; }
+.hour-chart .hit { fill: transparent; }
+.hour-chart .slot:hover .hit, .hour-chart .slot:focus .hit { fill: color-mix(in srgb, var(--ink) 7%, transparent); }
+.hour-chart .slot:focus { outline: none; }
+.hour-chart .slot:focus-visible .hit { stroke: var(--focus); stroke-width: 2; }
+.tip {
+  position: absolute; z-index: 10; pointer-events: none; max-width: 16rem;
+  background: var(--ink); color: var(--paper); border-radius: 8px; padding: .5rem .7rem;
+  font-size: .85rem; line-height: 1.35; box-shadow: 0 4px 14px rgb(0 0 0 / .2);
+}
+.tip strong, .tip span { display: block; }
+.types { padding-left: 1.1rem; margin: 0; }
+.method p { margin: .5rem 0; color: var(--ink-soft); }
