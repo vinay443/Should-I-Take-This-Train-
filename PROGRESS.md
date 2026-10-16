@@ -4,13 +4,19 @@ Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
 ## Where this stopped (2026-10-16)
 
-**Next: PLAN.md round 7 (items 30-31).** Round 6 is done except item 26 (Harbour line),
+**Next: PLAN.md round 7 (item 31, independent review).** Round 6 is done except item 26 (Harbour line),
 which is blocked on the Harbour PDFs (see PLAN.md).
 
 Real database: not copied (folder access declined on 2026-10-13). Work uses the sample
 timetable unless the user connects the `data` folder.
 
 ## 2026-10-16
+
+### Item 30: `sitt-patterns` (done, PR #32)
+- `uv run sitt-patterns [--db] [--markdown]`: the Delay patterns page as text (summary line,
+  part of day by direction, fast vs slow; `*` marks cells under 5 trains). Exit 0 with data,
+  1 with no real readings, 2 with no database. Rounds half up like the page.
+- README command table and layout updated (the `scripts/` line was also out of date).
 
 ### Item 29: saved answers drop trains that have left (done, PR #31)
 - Offline, a saved answer now leaves out trains whose predicted departure is more than a
