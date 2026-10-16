@@ -373,3 +373,5 @@ button[disabled] { opacity: .55; cursor: progress; }
 .tip strong, .tip span { display: block; }
 .types { padding-left: 1.1rem; margin: 0; }
 .method p { margin: .5rem 0; color: var(--ink-soft); }
+/* Offline: "Check live first" can't work, and says so. Not faded, so it stays readable. */
+.secondary.needs-pc[disabled] { opacity: 1; cursor: not-allowed; border-style: dashed; color: var(--ink-soft); border-color: var(--ink-soft); }

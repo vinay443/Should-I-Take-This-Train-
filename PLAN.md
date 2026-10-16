@@ -251,7 +251,7 @@ Today it prints 127.0.0.1, which a phone can't use. Print the PC's LAN address(e
 only, no network calls) and a one-line hint. **Done when:** tests with a faked address
 lookup; docs/web.md updated.
 
-### 37. Offline, "Check live first" says why it can't work — [ ]
+### 37. Offline, "Check live first" says why it can't work — [x]
 Offline the button still looks usable and only explains itself after a press. Disable it
 with a short reason while the app can't be reached, and enable it again when it can.
 **Done when:** browser check covers both states.
