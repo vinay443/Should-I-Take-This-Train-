@@ -137,6 +137,47 @@ def button_edge_cases(browser, url: str) -> None:
     context.close()
 
 
+def folded_trip_checks(browser, url: str) -> None:
+    """On a phone the trip form folds to one line once there is an answer. The line names the
+    trip really asked about, focus isn't lost, and a failed request unfolds the form."""
+    context = browser.new_context(viewport={"width": 390, "height": 844}, service_workers="block")
+    page = context.new_page()
+    page.goto(url)
+    page.wait_for_selector("#answer:not([hidden]) .trains li")
+    check(page.is_visible("#trip-line") and not page.is_visible("#from"), "phone: trip folded")
+    check("leaving now" in page.inner_text("#trip-text"), "folded line: leaving now")
+
+    page.click("#edit-trip")
+    page.focus("#to")
+    page.keyboard.press("Enter")
+    page.wait_for_function("document.getElementById('trip').classList.contains('folded')")
+    focused = page.evaluate("document.activeElement.id")
+    check(focused == "edit-trip", f"Enter in a field: focus kept on the trip line ({focused!r})")
+
+    page.click("#edit-trip")
+    page.check('input[name="when"][value="later"]')
+    page.fill("#at", "")
+    tomorrow = page.evaluate(
+        "new Date(Date.now() + 864e5).toLocaleDateString('en-CA', {timeZone: 'Asia/Kolkata'})"
+    )
+    page.fill("#date", tomorrow)
+    page.click("#go")
+    page.wait_for_function("document.getElementById('trip').classList.contains('folded')")
+    text = page.inner_text("#trip-text")
+    check("from 00:00 tomorrow" in text, f"date without a time: line says when ({text!r})")
+
+    # Like tapping a saved route while folded: the trip changes without opening the form.
+    page.route("**/api/recommend*", lambda route: route.abort())
+    page.evaluate("document.getElementById('to').value = 'Thane (TNA)'")
+    page.click("#go")
+    page.wait_for_selector("#message:not([hidden])")
+    check(
+        not page.evaluate("document.getElementById('trip').classList.contains('folded')"),
+        "unreachable, nothing saved: the form stays open",
+    )
+    context.close()
+
+
 def run(db: Path, out: Path) -> None:
     from playwright.sync_api import sync_playwright
 
@@ -202,6 +243,8 @@ def run(db: Path, out: Path) -> None:
                     saved_trains_leave(page, out / f"{name}-{scheme}-offline-later.png")
 
                     # A trip with no saved answer says so instead of showing nothing useful.
+                    if page.is_visible("#edit-trip"):  # phone: the form is folded
+                        page.click("#edit-trip")
                     page.fill("#to", "Thane (TNA)")
                     page.click("#go")
                     page.wait_for_selector("#message:not([hidden])")
@@ -221,6 +264,8 @@ def run(db: Path, out: Path) -> None:
                             "back online: live button enabled, no 'not live' note",
                         )
                         button_edge_cases(browser, url)
+                        if name == "phone":
+                            folded_trip_checks(browser, url)
                     check(not errors, f"no script errors ({errors})")
                     context.close()
         browser.close()

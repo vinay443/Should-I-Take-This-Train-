@@ -14,6 +14,22 @@ weekdays and a weekend) so Delay patterns and the model have more than three day
 
 ## 2026-10-16
 
+### Review of the UI pass (PR #43)
+Checked again on the PC at 22:30 (112 readings; the recommended 22:02 fast was 39 min late,
+leaving 22:41: the new leaving-order list showed it correctly). A cold review found five
+issues, all fixed:
+1. "Take" vs "Wait for" was decided by timetable order. Now by expected departure: a late
+   train leaving after the pick isn't waited through, and an on-time train leaving before a
+   late pick is. One old test encoded the wrong wording ("Wait for the 08:25" while the late
+   08:12 left after it); corrected, plus a new test. docs/recommender.md updated.
+2. The folded trip line kept naming the old trip after an offline answer or failure; now it
+   follows the saved answer, and the form opens when nothing could be shown.
+3. With a date and no time the line said "leaving now"; it now uses the time really asked
+   ("from 00:00 tomorrow").
+4. Pressing Enter in a field that then folds away dropped keyboard focus; it moves to Change.
+5. "On time every hour" dropped the hours where some trains were late; the note lists them.
+Browser checks for 2-4 fail on the old code and pass now; axe: no violations.
+
 ### UI pass on real data (PR #42)
 - Checked the running app on the PC through Chrome: real timetable (894 trains), live check
   worked (123 NTES readings). Real finding: trains **towards CSMT** reach Kalyan a median

@@ -264,6 +264,7 @@ async function showTrains({ live = false } = {}) {
     history.replaceState(null, "", `?from=${encodeURIComponent(answer.origin_code)}&to=${encodeURIComponent(answer.destination_code)}`);
   } catch (error) {
     if (!(error instanceof OfflineError)) {
+      unfoldTrip(); // so the trip that was asked about, and the fields to fix it, are in view
       showMessage(error.message);
       return;
     }
@@ -271,9 +272,11 @@ async function showTrains({ live = false } = {}) {
     const saved = savedAnswer(params);
     if (saved) {
       render(saved.answer, saved.saved_at);
+      showTripLine(saved.answer, params);
       if (live) toast("Checking live needs the app on your PC.");
     } else {
       $("answer").hidden = true;
+      unfoldTrip();
       showMessage("Can't reach the app on your PC, and there is no saved answer for this trip on this phone yet. Check that the PC is on and sitt-web is running.");
     }
   } finally {
@@ -286,11 +289,21 @@ async function showTrains({ live = false } = {}) {
 /** Once there is an answer, small screens fold the trip form into one line ("Kalyan → CSMT,
  * leaving now · Change") so the board is in view; the buttons stay. */
 function showTripLine(answer, params) {
-  const when = params.get("at")
-    ? `at ${params.get("at")}${params.get("date") ? ` on ${new Date(`${params.get("date")}T12:00:00+05:30`).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "Asia/Kolkata" })}` : ""}`
+  // The time the answer is really about (a date alone means from midnight; an earlier time
+  // than now means tomorrow), as the trains heading says it.
+  const when = params.get("at") || params.get("date")
+    ? `from ${hhmm(answer.asked_at)}${whichDay(answer.asked_at)}`
     : "leaving now";
   $("trip-text").replaceChildren(el("strong", { text: `${answer.origin} → ${answer.destination}` }), `, ${when}`);
-  $("trip").classList.add("folded");
+  const trip = $("trip");
+  const focusWasInside = trip.contains(document.activeElement);
+  trip.classList.add("folded");
+  // If the field being typed in has just been folded away, keep focus on the trip line.
+  if (focusWasInside && document.activeElement.offsetParent === null) $("edit-trip").focus();
+}
+
+function unfoldTrip() {
+  $("trip").classList.remove("folded");
 }
 
 // ---------- rendering ----------
@@ -569,7 +582,7 @@ function wire() {
     }));
   $("log-form").addEventListener("submit", logCrowding);
   $("edit-trip").addEventListener("click", () => {
-    $("trip").classList.remove("folded");
+    unfoldTrip();
     $("from").focus();
   });
   $("log-time").value = mumbaiNow().time;

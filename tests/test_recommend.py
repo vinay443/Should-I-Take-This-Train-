@@ -194,10 +194,22 @@ def test_a_very_late_train_is_passed_over_if_another_arrives_soon_after():
     options = [option("08:12", "08:50", late=20), option("08:25", "09:16")]
     number, rule, reason = pick(options)
     assert (number, rule) == ("0825", "very_late")
+    # "Take", not "Wait for": the late 08:12 is expected to leave at 08:32, after the 08:25.
     assert reason == (
-        "Wait for the 08:25 fast: arrives 09:16, the 08:12 fast is running about 20 min late, "
+        "Take the 08:25 fast: arrives 09:16, the 08:12 fast is running about 20 min late, "
         "so its arrival is less certain."
     )
+
+
+def test_wait_for_a_late_pick_when_another_train_leaves_before_it():
+    # The 08:02 runs 39 late (leaves 08:41) and still arrives first; the on-time 08:29 leaves
+    # before it, so the rider waits for the 08:02, though nothing earlier is timetabled.
+    options = [option("08:02", "08:40", late=39), option("08:29", "09:31")]
+    number, rule, reason = pick(options)
+    assert number == "0802"
+    assert reason.startswith("Wait for the 08:02 fast")
+    on_time = [option("08:02", "08:40"), option("08:29", "09:31")]
+    assert pick(on_time)[2].startswith("Take the 08:02 fast")
 
 
 def test_a_very_late_train_is_still_taken_when_the_alternative_is_much_later():
