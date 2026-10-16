@@ -238,3 +238,27 @@ def test_validation_errors_are_readable(client):
     assert error.startswith("station: ") and "60" in error
     bad_n = client.get("/api/recommend", params={"from": "KYN", "to": "CSMT", "n": 99})
     assert bad_n.status_code == 422 and bad_n.json()["error"].startswith("n: ")
+
+
+def test_patterns_page_and_api(client, db):
+    page = client.get("/patterns")
+    assert page.status_code == 200 and "How late have trains been?" in page.text
+    assert client.get("/static/patterns.js").status_code == 200
+    empty = client.get("/api/patterns").json()
+    assert empty["runs"] == 0 and empty["by_hour"] == [] and empty["min_runs"] == 5
+
+    from sitt.db import init_db
+
+    with init_db(db) as con:
+        # 90106 due at Kalyan 07:12, last read close to its time 8 minutes late.
+        con.execute(
+            "INSERT INTO observations (observed_at, train_id, station_code, "
+            "actual_or_expected_time, time_kind, delay_minutes, source, event) VALUES "
+            "(?, 'central-90106', 'KYN', ?, 'expected', 8, 'ntes', 'departure')",
+            [NOW + timedelta(minutes=17), NOW + timedelta(minutes=20)],
+        )
+    data = client.get("/api/patterns").json()
+    assert data["runs"] == 1 and data["stations"] == ["KYN"]
+    (cell,) = data["by_hour"]
+    assert (cell["direction"], cell["key"], cell["median"], cell["few"]) == ("up", 7, 8.0, True)
+    assert [b["key"] for b in data["bands"]][:2] == ["early", "am_peak"]

@@ -31,6 +31,25 @@ takes a few seconds, and other requests to the app wait until it is done.
   and adjusts the crowding estimate, the same as the bot's `/log`.
 - **Save this route** keeps your usual trips as one-tap buttons (stored in this browser).
 
+## Delay patterns
+
+**Delay patterns** (`/patterns`, linked at the top of the page) shows how late trains have
+really been: the median delay and the share of trains 5+ minutes late by part of the day
+(early morning, the two peaks, midday, night) and hour by hour, for each direction, plus
+fast against slow. Hover or tab to a bar for its numbers.
+
+Each train counts once per station and day, with the delay of its **last** reading, and
+only if that reading was taken within 15 minutes of the train's time: the same rule as
+[`live-drift.md`](live-drift.md), because earlier readings often say "on time" for trains
+that end up late. Only real readings of suburban trains are used, never synthetic data.
+Hours or parts of the day resting on fewer than 5 trains are drawn pale and marked "too few
+to go by", and a note at the top says how many trains, days and stations it all rests on.
+With no real readings yet the page says so and how to collect some.
+
+It describes the past; the recommender does the predicting. Code: `src/sitt/patterns.py`.
+The Streamlit dashboard's delay heatmaps count every reading instead, so a train seen four
+times weighs four times as much there.
+
 ## On your phone
 
 Start the app with `uv run sitt-web --host 0.0.0.0`, then on your phone (same Wi-Fi) open
@@ -90,6 +109,7 @@ yourself. Interactive docs are at <http://127.0.0.1:8000/api/docs>.
 | `GET /api/stations` | Every station in the timetable, in line order |
 | `GET /api/recommend?from=KYN&to=CSMT` | The recommendation and the next trains. Optional `at=08:00`, `date=2026-10-14`, `train=08:12`, `n=8` |
 | `POST /api/collect` | One live collection round (NTES; Mobond only if both its switches are on) |
+| `GET /api/patterns` | Delay by hour, part of the day and direction, from real readings (the **Delay patterns** page) |
 | `GET /api/reports` | The latest crowd reports |
 | `POST /api/reports` | Log crowding: `{"station": "KYN", "departure": "08:12", "service": "fast", "crowd": 4}` |
 

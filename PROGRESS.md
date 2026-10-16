@@ -4,13 +4,24 @@ Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
 ## Where this stopped (2026-10-16)
 
-**Next: PLAN.md items 25-27** (web `/patterns` view, Harbour line timetable, independent
-review of round 6). Items 23 and 24 are merged.
+**Next: PLAN.md items 26-27** (Harbour line timetable, independent review of round 6).
+Items 23-25 are merged.
 
 Real database: not copied (folder access declined on 2026-10-13). Work uses the sample
 timetable unless the user connects the `data` folder.
 
 ## 2026-10-16
+
+### Item 25: delay patterns in the web app (done, PR #28)
+- `/patterns` page and `GET /api/patterns` (`src/sitt/patterns.py`): median delay, 90th
+  percentile and share 5+ min late, by part of the day and by hour, per direction, plus fast
+  vs slow. Each run counts once with its last reading taken close to the train's time
+  (the live-drift rule, now shared as `live_drift.runs_ctes`); real suburban readings only;
+  cells under 5 trains drawn pale and marked; a caveat says how much it rests on.
+- Charts are plain SVG drawn at the width shown (labels stay readable at 390 px), with
+  hover/focus tooltips. Checked in headless Chromium at 390 and 1280 px, light and dark, on
+  an invented demo database (569 runs) and on one with no readings (empty state); no script
+  errors, no sideways scrolling. 6 new tests.
 
 ### Item 24: web app on a phone (done, PR #27)
 - `manifest.webmanifest` + icons (`scripts/make_web_icons.py`, 192/512, maskable), `/sw.js`

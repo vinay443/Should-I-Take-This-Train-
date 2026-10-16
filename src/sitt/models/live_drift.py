@@ -63,11 +63,13 @@ def _bucket_sql() -> str:
     return f"CASE WHEN lead < 0 THEN {AFTER} {cases} ELSE {BUCKETS[-1]} END"
 
 
-def drift_pairs_sql(suburban_only: bool = True) -> str:
-    """One row per (earlier reading, final reading) pair: lead, said_on_time, drift."""
+def runs_ctes(suburban_only: bool = True) -> str:
+    """Two CTEs, `r` (every usable reading) and `final` (one row per run whose last reading
+    was taken close to the train's time: its delay `d_final`, `last_seen`, and the run's
+    `scheduled` time). Shared with sitt.patterns, so both use the same idea of a run."""
     where_suburban = "AND train_id IN (SELECT train_id FROM trains)" if suburban_only else ""
     return f"""
-        WITH r AS (
+        r AS (
             SELECT train_id, station_code, observed_at,
                    actual_or_expected_time AS t, delay_minutes AS d,
                    actual_or_expected_time - to_minutes(CAST(delay_minutes AS BIGINT))
@@ -83,10 +85,17 @@ def drift_pairs_sql(suburban_only: bool = True) -> str:
               {where_suburban}
         ), final AS (
             SELECT train_id, station_code, run_key,
-                   arg_max(d, observed_at) AS d_final, max(observed_at) AS last_seen
+                   arg_max(d, observed_at) AS d_final, max(observed_at) AS last_seen,
+                   arg_max(scheduled, observed_at) AS scheduled
             FROM r GROUP BY ALL
             HAVING max(observed_at) >= arg_max(t, observed_at) - INTERVAL {CLOSE_MINUTES} MINUTE
-        )
+        )"""
+
+
+def drift_pairs_sql(suburban_only: bool = True) -> str:
+    """One row per (earlier reading, final reading) pair: lead, said_on_time, drift."""
+    return f"""
+        WITH {runs_ctes(suburban_only)}
         SELECT round(r.d) <= 0 AS said_on_time,
                (epoch(r.scheduled) - epoch(r.observed_at)) / 60 AS lead,
                f.d_final - r.d AS drift

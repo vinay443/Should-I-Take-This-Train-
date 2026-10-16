@@ -5,7 +5,8 @@ The first target is the Central line around Kalyan.
 
 **The easiest way to use it is the web app:** `uv run sitt-web` opens a page in your browser
 where you pick a trip, see which train to take with its predicted delay and crowding, check
-live status on demand, and log how crowded your train was. It can go on your phone's home
+live status on demand, log how crowded your train was, and see how late trains have really
+been by hour (**Delay patterns**). It can go on your phone's home
 screen and still shows the last answer if the PC drops off ([`docs/web.md`](docs/web.md)).
 
 Ask the Telegram bot `/next KYN CSMT` and it answers along the lines of:

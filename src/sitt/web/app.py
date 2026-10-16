@@ -8,6 +8,7 @@ Endpoints (all JSON):
     GET  /api/stations              every station in the timetable, in line order
     GET  /api/recommend?from=KYN&to=CSMT[&at=08:00][&date=2026-10-14][&train=08:12][&n=5]
     POST /api/collect               one live collection round, only when asked (never scheduled)
+    GET  /api/patterns              delay by hour and direction, from real readings (/patterns)
     GET  /api/reports               the latest crowd reports (from the page or the bot)
     POST /api/reports               log how crowded a train was
 
@@ -36,7 +37,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from sitt import matching, next_cli
+from sitt import matching, next_cli, patterns
 from sitt.bot.formatting import trip_tags
 from sitt.bot.parsing import parse_time
 from sitt.bot.schedule import ScheduleError, find_station
@@ -278,6 +279,12 @@ def create_app(
         with lock:  # the collector opens the database itself
             return {"message": run(db, batches)}
 
+    @app.get("/api/patterns")
+    def delay_patterns() -> dict:
+        """How late trains have really been, by hour and direction (real readings only)."""
+        with read() as con:
+            return patterns.delay_patterns(con)
+
     @app.get("/api/reports")
     def reports(limit: int = Query(default=10, ge=1, le=50)) -> list[dict]:
         with read() as con:
@@ -358,6 +365,10 @@ def create_app(
     def index() -> FileResponse:
         return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
 
+    @app.get("/patterns", include_in_schema=False)
+    def patterns_page() -> FileResponse:
+        return FileResponse(STATIC / "patterns.html", headers={"Cache-Control": "no-cache"})
+
     @app.get("/manifest.webmanifest", include_in_schema=False)
     def manifest() -> FileResponse:
         return FileResponse(
@@ -381,6 +392,7 @@ def shell_files() -> list[str]:
     """What the service worker keeps so the page opens without the app: the page, its
     styles, script, fonts, manifest and icons, as the URLs the page uses."""
     urls = ["/", "/manifest.webmanifest", "/static/styles.css", "/static/app.js"]
+    urls += ["/patterns", "/static/patterns.js"]
     for folder in ("fonts", "icons"):
         for path in sorted((STATIC / folder).iterdir()):
             if path.suffix in (".woff2", ".png"):

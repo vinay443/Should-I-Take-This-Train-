@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Delay patterns · Should I take this train?</title>
+  <meta name="description" content="How late Mumbai locals have really been, by hour and direction, from real readings.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2316191d'/><circle cx='10' cy='16' r='3' fill='%23ffb020'/><circle cx='16' cy='16' r='3' fill='%23ffb020'/><circle cx='22' cy='16' r='3' fill='%23ffb020'/></svg>">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#16191d">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="top">
+    <nav class="nav" aria-label="Pages"><a href="/">Which train?</a><a href="/patterns" aria-current="page">Delay patterns</a></nav>
+    <h1>How late have trains been?</h1>
+    <p class="data-line" id="summary">Loading the readings…</p>
+  </header>
+
+  <main>
+    <p class="message" id="message" role="status" hidden></p>
+
+    <section id="content" hidden>
+      <aside class="caveat" id="caveat"></aside>
+
+      <h2>By part of the day</h2>
+      <p class="hint">Median delay of each train when it reached the station, and how often it
+        was <span id="late-def">5+ minutes</span> late.</p>
+      <div class="table-wrap">
+        <table class="bands" id="bands"></table>
+      </div>
+
+      <h2>Hour by hour</h2>
+      <p class="hint">Median delay by scheduled hour at the station. Pale bars rest on fewer
+        than <span id="min-runs">5</span> trains: don't read much into them.</p>
+      <div class="charts" id="charts"></div>
+
+      <h2>Fast and slow</h2>
+      <ul class="types" id="types"></ul>
+
+      <details class="why">
+        <summary>How these numbers are worked out</summary>
+        <div class="method">
+          <p>NTES's live board is read only when someone presses <em>Check live first</em> or
+            runs <code>sitt-collect</code>, so a train is usually seen a few times as it
+            approaches, not at the moment it leaves.</p>
+          <p>Each train at a station on a day counts <strong>once</strong>, with the delay of
+            its <strong>last</strong> reading, and only if that reading was taken within
+            <span id="close">15</span> minutes of the train's time. Earlier readings often say
+            "on time" for trains that end up late (see <code>docs/live-drift.md</code>), so
+            using them would make things look better than they were.</p>
+          <p>Only real readings of suburban trains are used, never the synthetic test data.</p>
+        </div>
+      </details>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>Patterns from the readings collected so far. They are a description of the past, not a
+      forecast: the recommender on the <a href="/">main page</a> does the predicting.</p>
+  </footer>
+
+  <div class="tip" id="tip" role="tooltip" hidden></div>
+  <script src="/static/patterns.js" defer></script>
+</body>
+</html>
