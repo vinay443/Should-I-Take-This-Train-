@@ -87,7 +87,9 @@ function hourChart(data, direction, width) {
   const slot = plotW / HOURS.length;
   const y = (v) => top + plotH - (Math.max(0, v) / max) * plotH;
 
-  const chart = svg("svg", { viewBox: `0 0 ${W} ${H}`, class: "hour-chart", role: "img",
+  // A group, not an image: an image's children are presentational, so screen readers that
+  // follow the spec would drop the bars' own labels.
+  const chart = svg("svg", { viewBox: `0 0 ${W} ${H}`, class: "hour-chart", role: "group",
     "aria-label": `Median delay by hour, ${direction.label.toLowerCase()}` });
   for (let v = 0; v <= max; v += step) {
     chart.append(svg("line", { x1: left, x2: W - right, y1: y(v), y2: y(v), class: v === 0 ? "base" : "grid" }));
@@ -103,7 +105,9 @@ function hourChart(data, direction, width) {
       chart.append(label);
     }
     const cell = cells.get(hour);
-    const group = svg("g", { class: "slot", tabindex: cell ? "0" : "-1" });
+    const group = cell
+      ? svg("g", { class: "slot", tabindex: "0" })
+      : svg("g", { class: "slot", "aria-hidden": "true" }); // an hour with no trains
     // A hit area wider and taller than the bar.
     group.append(svg("rect", { x, y: top, width: slot, height: plotH, class: "hit" }));
     if (cell) {

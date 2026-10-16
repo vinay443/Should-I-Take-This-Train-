@@ -58,7 +58,12 @@ def add_readings(db: Path) -> None:
 
 def audit(page, axe: str, label: str, problems: list[str]) -> None:
     page.add_script_tag(content=axe)
-    result = page.evaluate("axe.run(document, {resultTypes: ['violations']})")
+    result = page.evaluate("axe.run(document)")
+    # "Incomplete": axe couldn't decide (text over an overlapping tooltip, SVG text). Listed
+    # so they can be checked by hand; not counted as violations.
+    for item in result["incomplete"]:
+        nodes = [node["target"][0] for node in item["nodes"]][:3]
+        print(f"  {label}: (check by hand) {item['id']}: {len(item['nodes'])} node(s) {nodes}")
     for violation in result["violations"]:
         nodes = [node["target"][0] for node in violation["nodes"]][:4]
         line = f"{label}: [{violation['impact']}] {violation['id']}: {violation['help']} {nodes}"
@@ -91,8 +96,10 @@ def run(db: Path, axe: str) -> list[str]:
                     audit(page, axe, f"{tag} main", problems)
                     page.goto(url + "patterns")
                     page.wait_for_selector("#content:not([hidden])")
-                    page.focus(".hour-chart .slot[tabindex='0']")  # tooltip shown
+                    page.click(".why summary")  # "How these numbers are worked out"
                     audit(page, axe, f"{tag} patterns", problems)
+                    page.focus(".hour-chart .slot[tabindex='0']")  # with a tooltip showing
+                    audit(page, axe, f"{tag} patterns+tooltip", problems)
                     page.goto(url)
                     page.wait_for_selector("#answer:not([hidden]) .trains li")
                     page.evaluate("navigator.serviceWorker.ready")

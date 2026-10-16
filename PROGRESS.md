@@ -4,13 +4,27 @@ Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
 ## Where this stopped (2026-10-16)
 
-**Next: PLAN.md round 8 (item 35, independent review).** Rounds 6 and 7 are done (item 26 blocked). Round 6 is done except item 26 (Harbour line),
+**Next: PLAN.md round 9 (items 36-38).** Rounds 6 and 7 are done (item 26 blocked). Round 6 is done except item 26 (Harbour line),
 which is blocked on the Harbour PDFs (see PLAN.md).
 
 Real database: not copied (folder access declined on 2026-10-13). Work uses the sample
 timetable unless the user connects the `data` folder.
 
 ## 2026-10-16
+
+### Item 35: independent review of round 8 (done, PR #37)
+Four findings, all fixed:
+1. MEDIUM: the offline board was dimmed with a CSS filter, which took its text to about
+   3:1, and axe-core can't see filters. Now the board keeps full colours and gets a dashed
+   amber frame; the "Not live" banner says the rest.
+2. The hourly chart was `role="img"` with labelled bars inside; an image's children are
+   presentational, so spec-following screen readers could drop the bar labels. The chart
+   is now `role="group"`; empty hours are `aria-hidden`.
+3. The a11y script dropped axe's "incomplete" results and never opened the patterns
+   page's details. It now lists them as "check by hand" (only axis labels and text under
+   the tooltip, all 6:1+ by hand) and audits with details open and with a tooltip showing.
+4. Cancelled days used a fixed 03:00 cut, while the same table's `days` uses each run's
+   start time. Now both use the run's start (test fails on the 03:00 rule).
 
 ### Item 34: quick start re-checked in a fresh clone (done, PR #36)
 - Fresh `git clone` + `uv sync`: every quick-start command runs as written (`sitt-init-db`,

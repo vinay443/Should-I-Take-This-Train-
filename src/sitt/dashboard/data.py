@@ -304,11 +304,21 @@ def delay_by_train(db: Path) -> pd.DataFrame:
                        quantile_cont(delay_minutes, 0.9) AS p90_delay,
                        max(delay_minutes) AS worst_delay, count(*) AS readings
                 FROM obs GROUP BY train_id
-            ), cancelled AS (  -- by service day, 03:00 to 03:00 Mumbai time, like runs
+            ), cancelled_at AS (
+                -- Cancellation readings, given the service day of the run they are about,
+                -- the same way as `days` above (features.prepare): the run that starts
+                -- within 12 hours of the reading.
+                SELECT o.train_id, {mumbai_sql("o.observed_at")} AS local_ts,
+                       ((hour(local_ts) * 60 + minute(local_ts) - r.run_start_min) % 1440 + 1440)
+                           % 1440 AS since
+                FROM observations o JOIN run_info r USING (train_id)
+                WHERE coalesce(o.cancelled, false)
+            ), cancelled AS (
                 SELECT train_id,
-                       count(DISTINCT CAST({mumbai_sql("observed_at")} - INTERVAL 3 HOUR AS DATE))
+                       count(DISTINCT CAST(local_ts - to_minutes(
+                           CASE WHEN since > 720 THEN since - 1440 ELSE since END) AS DATE))
                            AS cancelled_days
-                FROM observations WHERE coalesce(cancelled, false) GROUP BY train_id
+                FROM cancelled_at GROUP BY train_id
             )
             SELECT t.number, t.service_code, t.train_type, t.direction, t.label AS destination,
                    strftime(CAST('2000-01-01' AS DATE) + first_stop.departs, '%H:%M') AS departs,
