@@ -232,7 +232,7 @@ light and dark, phone and desktop, including the expanded train details and the 
 banner. Fix real violations (contrast, names, roles). **Done when:** a script reports no
 serious or critical violations; colour-contrast fixes checked by eye in both themes.
 
-### 33. Cancelled days counted by service day — [ ]
+### 33. Cancelled days counted by service day — [x]
 The dashboard counts a train's cancelled days by Mumbai calendar date, so a cancellation
 read either side of midnight counts twice. Use the same 03:00 service-day rule as runs.
 **Done when:** a test with readings at 23:50 and 00:10 counts one day.
