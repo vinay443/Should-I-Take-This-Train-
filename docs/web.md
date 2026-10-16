@@ -53,8 +53,11 @@ times weighs four times as much there.
 
 ## On your phone
 
-Start the app with `uv run sitt-web --host 0.0.0.0`, then on your phone (same Wi-Fi) open
-`http://<your PC's address>:8000` (`ipconfig` on Windows shows the address). Chrome's menu
+Start the app with `uv run sitt-web --host 0.0.0.0`. It prints the address to open on your
+phone (same Wi-Fi), such as `http://192.168.1.23:8000/`, worked out on the PC itself
+without contacting anything; if it can't tell, `ipconfig` on Windows shows it. The first
+time, Windows may ask whether Python may accept connections: allow it for private
+networks, or the phone won't load the page. Chrome's menu
 has **Add to Home screen**, and Safari's share sheet has **Add to Home Screen**: that puts
 an icon on the home screen that opens the page. Over plain `http://` to the PC's address,
 Chrome treats it as a shortcut, so it opens in a normal browser tab; opening full screen as

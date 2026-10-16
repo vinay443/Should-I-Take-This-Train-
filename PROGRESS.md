@@ -4,13 +4,22 @@ Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
 ## Where this stopped (2026-10-16)
 
-**Next: PLAN.md round 9 (items 36-38).** Rounds 6 and 7 are done (item 26 blocked). Round 6 is done except item 26 (Harbour line),
+**Next: PLAN.md round 9 (items 37-38).** Rounds 6 and 7 are done (item 26 blocked). Round 6 is done except item 26 (Harbour line),
 which is blocked on the Harbour PDFs (see PLAN.md).
 
 Real database: not copied (folder access declined on 2026-10-13). Work uses the sample
 timetable unless the user connects the `data` folder.
 
 ## 2026-10-16
+
+### Item 36: `sitt-web --host 0.0.0.0` prints the phone address (done, PR #38)
+- Prints e.g. "On your phone (same Wi-Fi), open http://192.168.1.23:8000/", from local
+  lookups only (the computer name's addresses and the route the system would use; a UDP
+  "connect" sends nothing). Only home-network ranges (10/8, 172.16/12, 192.168/16), so
+  loopback, link-local and documentation addresses are never suggested. Falls back to the
+  `ipconfig` hint; mentions the Windows firewall prompt. 5 new tests.
+- Not tried on the real PC (no shell there); the cloud container has no home network, so
+  it printed the fallback, as expected.
 
 ### Item 35: independent review of round 8 (done, PR #37)
 Four findings, all fixed:
