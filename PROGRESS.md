@@ -2,15 +2,21 @@
 
 Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
-## Where this stopped (2026-10-16, night)
+## Where this stopped (2026-10-16, 23:30)
 
-**The app runs on your PC and the real live check works** (first real NTES fetch through the
-app, 16 Oct 21:08: 123 readings, 4 trains marked live). UI pass done on your real data
-(PR #42). PLAN.md rounds 6-9 done; item 26 (Harbour) blocked on the PDFs; round 10 has item
-40 (waits on data) and 41 (review).
+**Everything is merged (PRs #26-#44) and running on your PC.** Live checks through the app
+worked three times tonight (21:08: 123 readings, 22:30: 112, 23:21: 88), on the latest
+version. PLAN.md rounds 6-9 are done.
 
-What helps most now: keep pressing **Check live first** now and then (morning and evening,
-weekdays and a weekend) so Delay patterns and the model have more than three days.
+Nothing self-directed is left that is worth doing before one of these happens:
+1. **More readings.** Press **Check live first** at different times over the next week or
+   two, including a weekend. Then: item 40 (weekday vs weekend in Delay patterns), and
+   `uv run sitt-retrain` once it says there is enough real data for a model.
+2. **Harbour line (item 26).** Put the two Harbour PDFs (`DN HB REVISED PTT WEF
+   01.05.2026.pdf` and the UP one, from Central Railway's timetable page) in the project
+   folder, or connect the folder to the session; this workspace can't reach that site.
+   Expect several days of work (docs/expansion-assessment.md).
+3. **Mobond permission**, for live CSMT-Kalyan locals (docs/data-sources.md).
 
 ## 2026-10-16
 
