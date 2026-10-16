@@ -237,7 +237,7 @@ The dashboard counts a train's cancelled days by Mumbai calendar date, so a canc
 read either side of midnight counts twice. Use the same 03:00 service-day rule as runs.
 **Done when:** a test with readings at 23:50 and 00:10 counts one day.
 
-### 34. Quick start still works from a fresh clone — [ ]
+### 34. Quick start still works from a fresh clone — [x]
 Re-run the README's two-minute quick start in a fresh clone (including `sitt-web` and
 `sitt-patterns`) and fix anything that drifted. **Done when:** every command in it runs.
 

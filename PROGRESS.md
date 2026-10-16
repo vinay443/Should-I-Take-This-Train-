@@ -4,13 +4,20 @@ Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
 ## Where this stopped (2026-10-16)
 
-**Next: PLAN.md round 8 (items 34-35).** Rounds 6 and 7 are done (item 26 blocked). Round 6 is done except item 26 (Harbour line),
+**Next: PLAN.md round 8 (item 35, independent review).** Rounds 6 and 7 are done (item 26 blocked). Round 6 is done except item 26 (Harbour line),
 which is blocked on the Harbour PDFs (see PLAN.md).
 
 Real database: not copied (folder access declined on 2026-10-13). Work uses the sample
 timetable unless the user connects the `data` folder.
 
 ## 2026-10-16
+
+### Item 34: quick start re-checked in a fresh clone (done, PR #36)
+- Fresh `git clone` + `uv sync`: every quick-start command runs as written (`sitt-init-db`,
+  loading the sample, `sitt-next KYN CSMT --at 07:00` with the documented output,
+  `--train 07:12 --why`, `Kalyan Thane`); `sitt-web` serves `/`, `/patterns`, `/sw.js`,
+  the manifest and the APIs; `sitt-patterns` says there are no real readings yet (exit 1).
+- README now says Delay patterns stays empty with the sample data.
 
 ### Item 33: cancelled days by service day (done, PR #35)
 - The dashboard's per-train "cancelled days" now uses the 03:00-03:00 Mumbai service day,
