@@ -4,13 +4,23 @@ Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
 ## Where this stopped (2026-10-16)
 
-**Next: PLAN.md round 8 (items 32-35).** Rounds 6 and 7 are done (item 26 blocked). Round 6 is done except item 26 (Harbour line),
+**Next: PLAN.md round 8 (items 33-35).** Rounds 6 and 7 are done (item 26 blocked). Round 6 is done except item 26 (Harbour line),
 which is blocked on the Harbour PDFs (see PLAN.md).
 
 Real database: not copied (folder access declined on 2026-10-13). Work uses the sample
 timetable unless the user connects the `data` folder.
 
 ## 2026-10-16
+
+### Item 32: accessibility check with axe-core (done, PR #34)
+- `scripts/check_web_a11y.py` (axe-core 4.10.3 from npm, injected by Playwright): main page
+  with details open, offline view, Delay patterns; 390/1280 px; light/dark.
+- First run: 12 serious findings in 4 kinds, all fixed: board's later rows 2.3:1 (now
+  `#b07d20`, 4.9:1); light-mode green "on time" 4.2:1 on the page (now `#126b42`, 5.6:1);
+  the offline view's 80% opacity on the train list dropped contrast (removed; the banner
+  and greyed board say "not live"); chart bars had aria-label without a role (now
+  `role="img"`). Two moderate landmark issues fixed too. Now: no violations at any level.
+  Checked by eye in both themes.
 
 ### Item 31: independent review of round 7 (done, PR #33)
 A cold review (pytest under UTC/IST/Los Angeles, Chromium probes of `render()`) found no

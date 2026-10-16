@@ -107,6 +107,21 @@ past them, and that opening other pages (the API docs, raw
 JSON) never replaces the kept main page, at phone and desktop width in light and dark,
 saving screenshots to a temp folder. Checked 2026-10-16: all checks pass.
 
+## Accessibility
+
+`scripts/check_web_a11y.py` runs [axe-core](https://github.com/dequelabs/axe-core) (free, from
+npm) on the main page with a train's details and "Why this train?" open, on the offline
+"Not live" view and on Delay patterns, at phone and desktop width, light and dark:
+
+```bash
+npm install --prefix /tmp/axe axe-core@4.10.3
+python3 scripts/check_web_a11y.py --axe /tmp/axe/node_modules/axe-core/axe.min.js
+```
+
+Checked 2026-10-16: no violations at any level. Its first run found the board's later rows
+(2.3:1) and the green "on time" text in light mode (4.2:1) below the 4.5:1 contrast minimum,
+chart bars with a label but no role, and two landmark issues; all fixed.
+
 ## Fonts and other sites
 
 The page needs no internet connection: the fonts (Atkinson Hyperlegible and Doto, both

@@ -113,6 +113,7 @@ function hourChart(data, direction, width) {
         d: roundedTop(x + 2, y(0) - height, barW, height, Math.min(4, barW / 2)),
         class: cell.few ? "bar few" : "bar",
       }));
+      group.setAttribute("role", "img");
       group.setAttribute("aria-label", cellLines(cell, `${hourLabel(hour)}`).join(". "));
       const lines = cellLines(cell, `${hourLabel(hour)}–${hourLabel((hour + 1) % 24)}, ${direction.label}`);
       group.addEventListener("pointerenter", () => showTip(group, lines));
