@@ -15,10 +15,10 @@
   --ink-soft: #4d5a6b;
   --line: #c9d1da;
   --central: #c8102e;      /* Central line red */
-  --go: #17804f;           /* signal green */
+  --go: #126b42;           /* signal green, 5.5:1 on the page */
   --board: #16191d;
   --led: #ffb020;          /* indicator amber */
-  --led-dim: #6b4e17;
+  --led-dim: #b07d20;      /* later trains: dimmer, still 4.8:1 on the board */
   --led-red: #ff5a4a;
   --crowd-1: #2f9e6a;
   --crowd-2: #8bb83a;
@@ -322,7 +322,6 @@ button[disabled] { opacity: .55; cursor: progress; }
 }
 .stale-note strong { font-weight: 700; }
 .answer.stale .board { filter: grayscale(.7) brightness(.75); }
-.answer.stale .trains { opacity: .8; }
 .data-line.offline { color: var(--central); font-weight: 700; }
 
 /* ---- page links ---- */

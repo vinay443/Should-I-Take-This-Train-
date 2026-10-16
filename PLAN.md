@@ -226,7 +226,7 @@ Two low findings, both fixed (PROGRESS.md, 2026-10-16).
 
 ## Round 8 (added 2026-10-16, self-directed)
 
-### 32. Accessibility check of both pages with axe-core — [ ]
+### 32. Accessibility check of both pages with axe-core — [x]
 Run axe-core (free, from npm, injected by Playwright) on the main page and Delay patterns,
 light and dark, phone and desktop, including the expanded train details and the offline
 banner. Fix real violations (contrast, names, roles). **Done when:** a script reports no
