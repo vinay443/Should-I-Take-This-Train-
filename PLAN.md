@@ -261,7 +261,7 @@ Five findings fixed (PROGRESS.md, 2026-10-16).
 
 ## Round 10 (added 2026-10-16, for the next session)
 
-### 39. Quiet the test client deprecation warning — [ ]
+### 39. Quiet the test client deprecation warning — [x]
 Every test run warns that Starlette's TestClient over `httpx` is deprecated. Move to what
 Starlette recommends (or pin) so real warnings stand out. **Done when:** `pytest` runs with
 no warnings, on Linux and Windows CI.

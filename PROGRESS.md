@@ -8,7 +8,7 @@ Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 open, blocked on the Harbour PDFs. Every round ended with an independent review whose
 findings were fixed. CI runs on Linux and Windows; 742 tests.
 
-**Next session: PLAN.md round 10** (items 39-41, small and self-directed). Before that, the
+**Next session: PLAN.md round 10** (item 40 waits on data; item 41 reviews round 10). Before that, the
 things that need you give far more value than any self-directed item:
 1. On your PC: `git pull`, `uv sync`, `uv run sitt-web --host 0.0.0.0`, open the printed
    address on your phone, add it to the home screen, and press **Check live first** once
@@ -23,6 +23,11 @@ Real database: not copied (folder access declined on 2026-10-13); work used the 
 timetable and an invented demo database for screenshots (never committed).
 
 ## 2026-10-16
+
+### Item 39: no more test warning (done, PR #41)
+- Starlette 1.7's TestClient wants `httpx2`; added as a dev-only dependency (`uv add --dev`),
+  so tests run with no warnings and a new warning will stand out. The app itself still
+  uses `httpx`; `requirements.txt` (runtime only) is unchanged.
 
 ### Item 38: independent review of round 9 (done, PR #40)
 Five findings, all fixed:
