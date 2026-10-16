@@ -1,3 +1,4 @@
+import os
 import socket
 from pathlib import Path
 
@@ -26,6 +27,22 @@ def _host_of(address) -> str | None:
     return None  # e.g. a Unix socket path: local by definition
 
 
+# The dashboard downloads Central Railway's PDFs unless told not to. Its Streamlit test
+# harness can keep a thread running after a test ends, after that test's own settings are
+# undone and between tests, where the guard below is not in place. So no download, ever,
+# for the whole run; tests of the download path pass allow_download=True with a fake client.
+os.environ["SITT_DASHBOARD_DOWNLOAD"] = "0"
+
+PROXY_VARIABLES = (
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+)
+
+
 @pytest.fixture(autouse=True)
 def blocked_network(request, monkeypatch):
     """Block real network access; yield the list of hosts a test tried to reach.
@@ -35,6 +52,10 @@ def blocked_network(request, monkeypatch):
     if this list is not empty when it finishes.
     """
     attempts: list[str] = []
+    # With a proxy configured, HTTP clients connect to the proxy (often on this machine) and
+    # the guard would never see the real host. Without one, every attempt reaches the guard.
+    for name in PROXY_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
     real_connect = socket.socket.connect
     real_connect_ex = socket.socket.connect_ex
     real_getaddrinfo = socket.getaddrinfo
