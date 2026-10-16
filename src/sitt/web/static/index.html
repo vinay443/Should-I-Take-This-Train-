@@ -6,6 +6,12 @@
   <title>Should I take this train?</title>
   <meta name="description" content="Which Mumbai local to take: predicted delay and crowding for the next trains.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2316191d'/><circle cx='10' cy='16' r='3' fill='%23ffb020'/><circle cx='16' cy='16' r='3' fill='%23ffb020'/><circle cx='22' cy='16' r='3' fill='%23ffb020'/></svg>">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#16191d">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Which train?">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
@@ -52,6 +58,7 @@
     <p class="message" id="message" role="status" aria-live="polite" hidden></p>
 
     <section class="answer" id="answer" hidden aria-labelledby="reason">
+      <p class="stale-note" id="stale" role="alert" hidden></p>
       <div class="board" id="board" aria-hidden="true"></div>
       <p class="reason" id="reason"></p>
       <p class="basis" id="basis"></p>

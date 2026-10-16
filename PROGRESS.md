@@ -2,22 +2,30 @@
 
 Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
-## Where this stopped (2026-10-13)
+## Where this stopped (2026-10-16)
 
-**Next session: start with PLAN.md round 6 (items 23-27).** They need nothing from the user.
+**Next: PLAN.md items 25-27** (web `/patterns` view, Harbour line timetable, independent
+review of round 6). Items 23 and 24 are merged.
 
-**The end product is the web app:** `uv run sitt-web` opens http://127.0.0.1:8000 (PR #23).
-Everything in PLAN.md rounds 1-5 is done; only item 5 (2027 holidays) waits on outside data.
+Real database: not copied (folder access declined on 2026-10-13). Work uses the sample
+timetable unless the user connects the `data` folder.
 
-What needs you:
-1. `git pull`, then `uv sync`, then `uv run sitt-web`.
-2. Press **Check live first** once, to try a real NTES fetch from your PC (the cloud
-   workspace can't reach NTES, so that path is tested only against a recorded page).
-3. Nothing to fetch for AC yet: Central Railway's timetable page (checked 2026-10-13) still
-   lists the 16.04.2025 AC supplement as the latest; the 29 June 2026 conversions aren't
-   published as a timetable. It also now has Harbour line PDFs (w.e.f. 01.05.2026), if the
-   project ever expands (docs/expansion-assessment.md).
-4. Collect by hand now and then; re-run the analyses listed in the 2026-10-12 entry.
+## 2026-10-16
+
+### Item 24: web app on a phone (done, PR #27)
+- `manifest.webmanifest` + icons (`scripts/make_web_icons.py`, 192/512, maskable), `/sw.js`
+  (cache version = hash of the static files; keeps only the page shell, station list and
+  status line; never recommendations or writes), page meta for Android and iOS.
+- Offline fallback in the page: the last 8 answers are kept in the browser; when the app
+  can't be reached the saved answer is shown with a **Not live** note and the time it was
+  saved; trips with no saved answer and crowd logs say clearly what happened.
+- Honest limit, in `docs/web.md`: service workers need https or localhost, so on a phone
+  over `http://<pc-ip>` the page itself can't open with the PC off; the saved-answer
+  fallback works while the page is open.
+- Checked in headless Chromium with `scripts/check_web_offline.py` (new): Chrome reports no
+  installability errors, the worker controls the page, and after stopping the server the
+  reload shows the saved answer; phone and desktop width, light and dark, no script errors.
+  7 new tests (`tests/web/test_installable.py`).
 
 ## 2026-10-13 (round 6)
 

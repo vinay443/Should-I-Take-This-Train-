@@ -11,6 +11,9 @@ Endpoints (all JSON):
     GET  /api/reports               the latest crowd reports (from the page or the bot)
     POST /api/reports               log how crowded a train was
 
+Also /manifest.webmanifest and /sw.js, so a phone can keep the page on its home screen and
+open it when the PC can't be reached (see docs/web.md).
+
 It reads the same database as the bot and `sitt-next` (SITT_DB_PATH). DuckDB lets one
 process write at a time, so every request takes a short turn: requests in this app queue
 behind one lock, and while another process (the bot, the collector) has the file the app
@@ -18,6 +21,8 @@ waits a few seconds and then answers 503 "busy, try again".
 """
 
 import contextlib
+import hashlib
+import json
 import threading
 from collections.abc import Iterator
 from dataclasses import replace
@@ -27,7 +32,7 @@ from pathlib import Path
 import duckdb
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -353,8 +358,48 @@ def create_app(
     def index() -> FileResponse:
         return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
 
+    @app.get("/manifest.webmanifest", include_in_schema=False)
+    def manifest() -> FileResponse:
+        return FileResponse(
+            STATIC / "manifest.webmanifest",
+            media_type="application/manifest+json",
+            headers={"Cache-Control": "no-cache"},
+        )
+
+    # The service worker must be served from the root to look after the whole page.
+    worker = service_worker()
+
+    @app.get("/sw.js", include_in_schema=False)
+    def sw() -> Response:
+        return Response(worker, media_type="text/javascript", headers={"Cache-Control": "no-cache"})
+
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
     return app
+
+
+def shell_files() -> list[str]:
+    """What the service worker keeps so the page opens without the app: the page, its
+    styles, script, fonts, manifest and icons, as the URLs the page uses."""
+    urls = ["/", "/manifest.webmanifest", "/static/styles.css", "/static/app.js"]
+    for folder in ("fonts", "icons"):
+        for path in sorted((STATIC / folder).iterdir()):
+            if path.suffix in (".woff2", ".png"):
+                urls.append(f"/static/{folder}/{path.name}")
+    return urls
+
+
+def service_worker() -> str:
+    """sw.js with its cache version (a hash of every static file, so any change to the
+    page makes phones fetch the new one) and the list of files to keep."""
+    digest = hashlib.sha256()
+    for path in sorted(STATIC.rglob("*")):
+        if path.is_file():
+            digest.update(path.relative_to(STATIC).as_posix().encode())
+            digest.update(path.read_bytes())
+    source = (STATIC / "sw.js").read_text("utf-8")
+    return source.replace("__VERSION__", digest.hexdigest()[:12]).replace(
+        "__SHELL__", json.dumps(shell_files())
+    )
 
 
 def _last_collected(con: duckdb.DuckDBPyConnection) -> datetime | None:

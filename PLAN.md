@@ -175,7 +175,7 @@ The user runs Windows. Add a `windows-latest` job to `.github/workflows/ci.yml` 
 public repos) running `uv sync --locked` and `uv run pytest`. Fix anything Windows-only
 that breaks (paths, file locks, encodings). **Done when:** both jobs green.
 
-### 24. Web app on a phone: installable, offline shell — [ ]
+### 24. Web app on a phone: installable, offline shell — [x]
 Add a web app manifest and a small service worker so the page can be added to a phone's
 home screen (with `sitt-web --host 0.0.0.0`) and opens even when the PC is briefly
 unreachable, showing the last answer with a clear "not live" note. No external services.

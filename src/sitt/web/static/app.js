@@ -36,12 +36,12 @@ const hhmm = (iso) => iso.slice(11, 16);
 const dayName = (iso) =>
   new Date(iso).toLocaleDateString("en-IN", { weekday: "short", timeZone: "Asia/Kolkata" });
 
-/** Mumbai wall-clock time and date now, whatever the browser's time zone. */
-function mumbaiNow() {
+/** Mumbai wall-clock time and date (now by default), whatever the browser's time zone. */
+function mumbaiNow(moment = new Date()) {
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit",
     hour: "2-digit", minute: "2-digit", hourCycle: "h23",
-  }).formatToParts(new Date()).map((p) => [p.type, p.value]));
+  }).formatToParts(moment).map((p) => [p.type, p.value]));
   return { time: `${parts.hour}:${parts.minute}`, date: `${parts.year}-${parts.month}-${parts.day}` };
 }
 
@@ -73,18 +73,67 @@ function stationQuery(text) {
   return m ? m[1] : t;
 }
 
-async function api(path, options = {}) {
-  const response = await fetch(path, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
+/** The app on the PC can't be reached: it is stopped, the PC is asleep, or the phone has
+ * left the Wi-Fi. Not the same as the app answering with an error. */
+class OfflineError extends Error {
+  constructor() { super("Can't reach the app on your PC."); this.name = "OfflineError"; }
+}
+
+/** {body, offline}: offline is true when the service worker answered from its saved copy. */
+async function request(path, options = {}) {
+  let response;
+  try {
+    response = await fetch(path, { headers: { "Content-Type": "application/json" }, ...options });
+  } catch {
+    throw new OfflineError();
+  }
   let body = null;
   try { body = await response.json(); } catch { /* not JSON */ }
   if (!response.ok) {
     throw new Error((body && (body.error || (body.detail && JSON.stringify(body.detail)))) ||
       `The server answered ${response.status}.`);
   }
-  return body;
+  return { body, offline: response.headers.get("X-Sitt-Offline") === "1" };
+}
+
+async function api(path, options = {}) {
+  return (await request(path, options)).body;
+}
+
+// ---------- saved answers (for when the PC can't be reached) ----------
+
+const KEEP_ANSWERS = 8;
+
+/** A station as typed, as its code when it is a known name or code. */
+function canonicalStation(text) {
+  const t = stationQuery(text).toLowerCase();
+  const s = stations.find((x) => x.code.toLowerCase() === t || x.name.toLowerCase() === t);
+  return s ? s.code : t;
+}
+
+function tripKey(from, to, params) {
+  return [canonicalStation(from), canonicalStation(to), params.get("at") || "", params.get("date") || ""].join("|");
+}
+
+function saveAnswer(params, answer) {
+  const all = store.get("answers", {});
+  const entry = { saved_at: new Date().toISOString(), answer };
+  all[tripKey(params.get("from"), params.get("to"), params)] = entry;
+  all[tripKey(answer.origin_code, answer.destination_code, params)] = entry;
+  const newest = Object.entries(all)
+    .sort((a, b) => b[1].saved_at.localeCompare(a[1].saved_at))
+    .slice(0, KEEP_ANSWERS * 2); // each answer is kept under up to two keys
+  store.set("answers", Object.fromEntries(newest));
+}
+
+function savedAnswer(params) {
+  return store.get("answers", {})[tripKey(params.get("from"), params.get("to"), params)] || null;
+}
+
+function setOffline(offline) {
+  const line = $("data-line");
+  line.classList.toggle("offline", offline);
+  if (offline) line.textContent = "Offline: can't reach the app on your PC. Showing what was saved on this phone.";
 }
 
 function showMessage(text) {
@@ -106,8 +155,10 @@ function toast(text) {
 
 async function loadStatus() {
   try {
-    const s = await api("/api/status");
+    const { body: s, offline } = await request("/api/status");
+    if (offline) { setOffline(true); return; }
     const line = $("data-line");
+    line.classList.remove("offline");
     line.replaceChildren();
     if (!s.database || !s.trains) {
       line.textContent = "No timetable loaded yet. Run uv run sitt-init-db and load one (see the README).";
@@ -122,7 +173,8 @@ async function loadStatus() {
       line.append("No live data fetched yet.");
     }
   } catch (error) {
-    $("data-line").textContent = error.message;
+    if (error instanceof OfflineError) setOffline(true);
+    else $("data-line").textContent = error.message;
   }
 }
 
@@ -135,7 +187,13 @@ function friendlyAge(iso) {
 }
 
 async function loadStations() {
-  stations = await api("/api/stations");
+  try {
+    stations = await api("/api/stations");
+    store.set("stations", stations);
+  } catch (error) {
+    stations = store.get("stations", []);
+    if (!(error instanceof OfflineError) || !stations.length) throw error;
+  }
   $("station-list").replaceChildren(
     ...stations.map((s) => el("option", { value: s.name === s.code ? s.code : `${s.name} (${s.code})` })),
   );
@@ -175,10 +233,24 @@ async function showTrains({ live = false } = {}) {
     const answer = await api(`/api/recommend?${params}`);
     lastAnswer = answer;
     render(answer);
+    saveAnswer(params, answer);
+    if ($("data-line").classList.contains("offline")) loadStatus(); // the PC is back
     store.set("last-route", { from: $("from").value, to: $("to").value });
     history.replaceState(null, "", `?from=${encodeURIComponent(answer.origin_code)}&to=${encodeURIComponent(answer.destination_code)}`);
   } catch (error) {
-    showMessage(error.message);
+    if (!(error instanceof OfflineError)) {
+      showMessage(error.message);
+      return;
+    }
+    setOffline(true);
+    const saved = savedAnswer(params);
+    if (saved) {
+      render(saved.answer, saved.saved_at);
+      if (live) toast("Checking live needs the app on your PC.");
+    } else {
+      $("answer").hidden = true;
+      showMessage("Can't reach the app on your PC, and there is no saved answer for this trip on this phone yet. Check that the PC is on and sitt-web is running.");
+    }
   } finally {
     go.disabled = liveButton.disabled = false;
     liveButton.textContent = "Check live first";
@@ -201,8 +273,21 @@ function boardRow(option, kind) {
   );
 }
 
-function render(answer) {
+/** Show an answer. `savedAt` (ISO) marks one kept from earlier, shown because the PC
+ * can't be reached: it is labelled as not live. */
+function render(answer, savedAt = null) {
   $("answer").hidden = false;
+  $("answer").classList.toggle("stale", Boolean(savedAt));
+  const stale = $("stale");
+  stale.hidden = !savedAt;
+  if (savedAt) {
+    const at = mumbaiNow(new Date(savedAt));
+    stale.replaceChildren(
+      el("strong", { text: "Not live. " }),
+      `Can't reach the app on your PC, so this is the answer saved at ${at.time}${whichDay(`${at.date}T${at.time}`)}. `,
+      "Delays and crowding may have changed since: check the station board.",
+    );
+  }
   const options = answer.options;
   const pick = answer.choice == null ? null : options[answer.choice];
 
@@ -366,7 +451,9 @@ async function logCrowding(event) {
     crowd.checked = false;
     loadReports();
   } catch (error) {
-    toast(error.message);
+    toast(error instanceof OfflineError
+      ? "Can't reach the app on your PC, so this wasn't saved. Log it again when the PC is back."
+      : error.message);
   }
 }
 
@@ -403,6 +490,12 @@ function wire() {
 }
 
 async function start() {
+  // Keeps the page on the phone for when the PC can't be reached. Browsers only allow this
+  // on https:// or localhost; elsewhere the page still falls back to saved answers while open.
+  if ("serviceWorker" in navigator && window.isSecureContext) {
+    navigator.serviceWorker.register("/sw.js").catch(() => { /* the page works without it */ });
+  }
+  window.addEventListener("online", loadStatus);
   wire();
   buildCrowdOptions();
   renderSaved();

@@ -5,7 +5,8 @@ The first target is the Central line around Kalyan.
 
 **The easiest way to use it is the web app:** `uv run sitt-web` opens a page in your browser
 where you pick a trip, see which train to take with its predicted delay and crowding, check
-live status on demand, and log how crowded your train was ([`docs/web.md`](docs/web.md)).
+live status on demand, and log how crowded your train was. It can go on your phone's home
+screen and still shows the last answer if the PC drops off ([`docs/web.md`](docs/web.md)).
 
 Ask the Telegram bot `/next KYN CSMT` and it answers along the lines of:
 
@@ -345,7 +346,7 @@ models/           trained models (gitignored)
 | [`crowding.md`](docs/crowding.md) | The crowding rules, and how reports are matched to trains |
 | [`recommender.md`](docs/recommender.md) | The decision rule and thresholds |
 | [`bot-setup.md`](docs/bot-setup.md) | Setting up and using the Telegram bot, saved routes and its own messages |
-| [`web.md`](docs/web.md) | The web app (`sitt-web`): what the page does, and its JSON API |
+| [`web.md`](docs/web.md) | The web app (`sitt-web`): what the page does, using it on a phone, and its JSON API |
 | [`dashboard.md`](docs/dashboard.md) | Running and deploying the dashboard |
 
 ## Roadmap
