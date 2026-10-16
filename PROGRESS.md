@@ -14,6 +14,17 @@ weekdays and a weekend) so Delay patterns and the model have more than three day
 
 ## 2026-10-16
 
+### Tests could reach Central Railway's site (fixed, PR #44)
+- Seen in the cloud workspace's proxy log: a full `pytest` run made one request to
+  cr.indianrailways.gov.in. Cause: the dashboard's Streamlit test harness can leave a thread
+  running after a test, after the test's `SITT_DASHBOARD_DOWNLOAD=0` is undone and between
+  tests, where the network guard isn't in place, so it tried to download the timetable PDFs.
+  With a proxy configured the guard also couldn't see the real host (clients connect to the
+  proxy on this machine).
+- Now `tests/conftest.py` turns dashboard downloads off for the whole run and strips proxy
+  settings in every test. Verified: the request appears with the old setup and not with the
+  new one. On your PC this would have been a real download during tests.
+
 ### Review of the UI pass (PR #43)
 Checked again on the PC at 22:30 (112 readings; the recommended 22:02 fast was 39 min late,
 leaving 22:41: the new leaving-order list showed it correctly). A cold review found five
