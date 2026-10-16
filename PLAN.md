@@ -246,7 +246,7 @@ Four findings fixed (PROGRESS.md, 2026-10-16).
 
 ## Round 9 (added 2026-10-16, self-directed): using it from a phone
 
-### 36. `sitt-web --host 0.0.0.0` prints the address to open on the phone — [ ]
+### 36. `sitt-web --host 0.0.0.0` prints the address to open on the phone — [x]
 Today it prints 127.0.0.1, which a phone can't use. Print the PC's LAN address(es) (stdlib
 only, no network calls) and a one-line hint. **Done when:** tests with a faked address
 lookup; docs/web.md updated.
