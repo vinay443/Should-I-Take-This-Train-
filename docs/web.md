@@ -31,9 +31,53 @@ takes a few seconds, and other requests to the app wait until it is done.
   and adjusts the crowding estimate, the same as the bot's `/log`.
 - **Save this route** keeps your usual trips as one-tap buttons (stored in this browser).
 
-The page works offline: the fonts (Atkinson Hyperlegible and Doto, both under the SIL Open
-Font License, in `src/sitt/web/static/fonts/`) are bundled, and nothing is loaded from
-other sites.
+## On your phone
+
+Start the app with `uv run sitt-web --host 0.0.0.0`, then on your phone (same Wi-Fi) open
+`http://<your PC's address>:8000` (`ipconfig` on Windows shows the address). Chrome's menu
+has **Add to Home screen** (**Install app** where it is offered), and Safari's share sheet
+has **Add to Home Screen**. It opens full screen with its own icon.
+
+**When the PC can't be reached** (it is asleep, `sitt-web` isn't running, or you've left the
+Wi-Fi), the page shows the last answer it got for that trip, marked **Not live** with the
+time it was saved, and the header says it is offline. The phone keeps the last 8 answers.
+A trip with no saved answer says so. Logging crowding needs the PC; the page tells you the
+report wasn't saved. Nothing is fetched or refreshed in the background: answers are saved
+only when you ask for trains.
+
+**What can open with the PC off depends on the address.** Browsers only let a page keep its
+own files (a *service worker*) on `https://` or `localhost`:
+
+| Opened as | Page opens with the PC off | Saved answers shown when the PC drops |
+| --- | --- | --- |
+| `http://127.0.0.1:8000` on the PC itself | yes | yes |
+| `http://192.168.x.x:8000` on a phone | no: the browser shows its own "can't connect" page | yes, while the page is already open |
+
+So on a phone over plain Wi-Fi the useful part is the second column: open the page at home,
+and if the PC goes away while you're on the platform, the answer stays readable and is
+labelled as not live. Serving the app over `https` on your home network would allow the
+first column too, but needs a certificate the phone trusts; that isn't set up.
+
+The manifest is at `/manifest.webmanifest`, the service worker at `/sw.js` (it keeps only the
+page, its fonts, icons, the station list and the status line; answers are kept by the page
+in the browser's storage). Icons are drawn by `scripts/make_web_icons.py`.
+
+To check all of this in a real browser:
+
+```bash
+python3 scripts/check_web_offline.py          # needs Playwright + Chromium for that python3
+```
+
+It builds a throwaway database from the sample timetable, starts `sitt-web`, checks that
+Chrome finds the app installable and that the worker controls the page, stops the server,
+reloads, and checks the "Not live" fallback, at phone and desktop width in light and dark,
+saving screenshots to a temp folder. Checked 2026-10-16: all checks pass.
+
+## Fonts and other sites
+
+The page needs no internet connection: the fonts (Atkinson Hyperlegible and Doto, both
+under the SIL Open Font License, in `src/sitt/web/static/fonts/`) are bundled, and nothing
+is loaded from other sites.
 
 ## The API
 

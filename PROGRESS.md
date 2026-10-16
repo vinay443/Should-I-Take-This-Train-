@@ -2,26 +2,30 @@
 
 Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
-## Where this stopped (2026-10-13, 22:00 IST, interrupted by the user)
+## Where this stopped (2026-10-16)
 
-**Next session: finish item 24 on branch `web-offline` (PR #27), then items 25-27.**
-Item 23 (Windows CI) is merged (PR #26).
+**Next: PLAN.md items 25-27** (web `/patterns` view, Harbour line timetable, independent
+review of round 6). Items 23 and 24 are merged.
 
-Item 24 state, on branch `web-offline` (not merged):
-- Done: `manifest.webmanifest`, icons (`scripts/make_web_icons.py`, 192/512 PNG, maskable),
-  `sw.js` (served at `/sw.js`, cache version = hash of static files; keeps only the page
-  shell and `/api/stations`, `/api/status`), page links/meta, offline fallback in `app.js`
-  (last 8 answers kept in localStorage; "Not live" banner when the PC can't be reached;
-  crowd logs refused with a clear note offline), CSS for the banner,
-  `tests/web/test_installable.py` (7 tests, passing).
-- Still to do: a headless-Chromium check (Playwright, system python3): install criteria /
-  service worker active on 127.0.0.1, then stop the server and reload: page opens with the
-  "Not live" banner; screenshots at 390 px and 1280 px, light and dark. Then `docs/web.md`
-  section "On your phone" (note: service workers need https or localhost, so on a phone over
-  `http://<pc-ip>:8000` the saved-answer fallback works while the page is open, but the
-  page itself won't open offline; say so honestly), full test run, CI, merge, tick PLAN.md.
-- Real database: not copied. Folder access to the PC was declined on 2026-10-13; use the
-  sample timetable for screenshots unless a folder is connected.
+Real database: not copied (folder access declined on 2026-10-13). Work uses the sample
+timetable unless the user connects the `data` folder.
+
+## 2026-10-16
+
+### Item 24: web app on a phone (done, PR #27)
+- `manifest.webmanifest` + icons (`scripts/make_web_icons.py`, 192/512, maskable), `/sw.js`
+  (cache version = hash of the static files; keeps only the page shell, station list and
+  status line; never recommendations or writes), page meta for Android and iOS.
+- Offline fallback in the page: the last 8 answers are kept in the browser; when the app
+  can't be reached the saved answer is shown with a **Not live** note and the time it was
+  saved; trips with no saved answer and crowd logs say clearly what happened.
+- Honest limit, in `docs/web.md`: service workers need https or localhost, so on a phone
+  over `http://<pc-ip>` the page itself can't open with the PC off; the saved-answer
+  fallback works while the page is open.
+- Checked in headless Chromium with `scripts/check_web_offline.py` (new): Chrome reports no
+  installability errors, the worker controls the page, and after stopping the server the
+  reload shows the saved answer; phone and desktop width, light and dark, no script errors.
+  7 new tests (`tests/web/test_installable.py`).
 
 ## 2026-10-13 (round 6)
 
