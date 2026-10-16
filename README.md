@@ -45,6 +45,9 @@ Then open the web app on the same data:
 uv run sitt-web
 ```
 
+(Its **Delay patterns** page, and `uv run sitt-patterns`, stay empty until real readings
+have been collected: the sample timetable comes with none.)
+
 Or try `--why`, `--train 07:12`, or another pair such as `Kalyan Thane` on the command line. For real trains,
 load the official timetable instead ([Load the timetable](#load-the-timetable)), and add
 `--collect` to fetch live running status once before answering.
