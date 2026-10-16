@@ -25,6 +25,12 @@ from pathlib import Path
 
 import duckdb
 
+from sitt.tz import mumbai_sql
+
+# A reading's scheduled time as Mumbai wall-clock time: runs are grouped by Mumbai service
+# day whatever time zone the computer (and so DuckDB's session) is in.
+SCHEDULED_LOCAL = mumbai_sql("actual_or_expected_time - to_minutes(CAST(delay_minutes AS BIGINT))")
+
 # The last reading counts as "what happened" only if taken this close to the train's time.
 CLOSE_MINUTES = 15
 # Lead buckets, in minutes before the train's scheduled time: after it (< 0), [0, 15),
@@ -76,8 +82,7 @@ def runs_ctes(suburban_only: bool = True) -> str:
                        AS scheduled,
                    -- One run of a train: readings whose scheduled time falls on the same
                    -- service day (shifted 3 h so late-night runs stay together).
-                   date_trunc('day', actual_or_expected_time
-                       - to_minutes(CAST(delay_minutes AS BIGINT)) - INTERVAL 3 HOUR) AS run_key
+                   date_trunc('day', {SCHEDULED_LOCAL} - INTERVAL 3 HOUR) AS run_key
             FROM observations
             WHERE delay_minutes IS NOT NULL AND actual_or_expected_time IS NOT NULL
               AND NOT coalesce(cancelled, false) AND event IN ('arrival', 'departure')

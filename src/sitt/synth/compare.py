@@ -25,6 +25,11 @@ import duckdb
 
 from sitt.holidays import is_sunday_schedule
 from sitt.models.live_drift import CLOSE_MINUTES
+from sitt.tz import mumbai_sql
+
+# A reading's scheduled time as Mumbai wall-clock time: runs are grouped by Mumbai service
+# day whatever time zone the computer (and so DuckDB's session) is in.
+SCHEDULED_LOCAL = mumbai_sql("actual_or_expected_time - to_minutes(CAST(delay_minutes AS BIGINT))")
 
 GROUP_STATS = """
     count(*) AS runs, avg(d) AS mean, quantile_cont(d, 0.5) AS median,
@@ -53,8 +58,7 @@ def real_runs(con: duckdb.DuckDBPyConnection) -> list[tuple]:
         WITH r AS (
             SELECT train_id, station_code, event, observed_at,
                    actual_or_expected_time AS t, delay_minutes AS d,
-                   date_trunc('day', actual_or_expected_time
-                       - to_minutes(CAST(delay_minutes AS BIGINT)) - INTERVAL 3 HOUR) AS run_key
+                   date_trunc('day', {SCHEDULED_LOCAL} - INTERVAL 3 HOUR) AS run_key
             FROM observations
             WHERE delay_minutes IS NOT NULL AND actual_or_expected_time IS NOT NULL
               AND NOT coalesce(cancelled, false) AND event IN ('arrival', 'departure')
