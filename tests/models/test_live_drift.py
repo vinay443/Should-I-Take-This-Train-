@@ -79,3 +79,22 @@ def test_cli(tmp_path, capsys):
     assert live_drift.main(["--db", str(db)]) == 0
     assert "| on time | 30-60 min | 1 |" in capsys.readouterr().out
     assert live_drift.main(["--db", str(tmp_path / "missing.duckdb")]) == 2
+
+
+def test_runs_are_grouped_the_same_in_any_time_zone(loaded):
+    """Arrival due 08:29 and departure due 08:31 are one run. With DuckDB's session in UTC
+    the old day boundary (03:00 UTC) fell at 08:30 Mumbai time and split them."""
+    reading(loaded, "central-90105", "07:40", "08:29", 0, event="arrival")
+    reading(loaded, "central-90105", "08:30", "08:31", 0)  # close to its time: final
+    results = []
+    for zone in ("UTC", "Asia/Kolkata", "America/Los_Angeles"):
+        loaded.execute(f"SET TimeZone = '{zone}'")
+        runs = loaded.execute(
+            f"WITH {live_drift.runs_ctes()} "
+            "SELECT count(*), CAST(min(run_key) AS VARCHAR) FROM final"
+        ).fetchone()
+        results.append((runs, [(r.lead_label, r.readings) for r in live_drift.drift_table(loaded)]))
+    assert results[0] == results[1] == results[2]
+    (count, day), drift = results[0]
+    assert count == 1 and str(day).startswith("2026-10-06")
+    assert drift == [("30-60 min", 1)]  # the 07:40 arrival reading pairs with the departure

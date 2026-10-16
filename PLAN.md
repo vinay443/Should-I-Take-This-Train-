@@ -204,7 +204,7 @@ A separate agent reviewed cold and found 5 issues, all fixed (PROGRESS.md, 2026-
 
 ## Round 7 (added 2026-10-16, self-directed)
 
-### 28. Run grouping that doesn't depend on the computer's time zone — [ ]
+### 28. Run grouping that doesn't depend on the computer's time zone — [x]
 `live_drift.runs_ctes` groups a train's readings into one run with `date_trunc('day', ...)`
 on a TIMESTAMPTZ, which follows DuckDB's session time zone: the same database can give
 different runs on the PC (IST) and in CI (UTC) for trains near the 03:00 boundary. Use the

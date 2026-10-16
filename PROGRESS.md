@@ -4,13 +4,23 @@ Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
 ## Where this stopped (2026-10-16)
 
-**Next: PLAN.md round 7 (items 28-31).** Round 6 is done except item 26 (Harbour line),
+**Next: PLAN.md round 7 (items 29-31).** Round 6 is done except item 26 (Harbour line),
 which is blocked on the Harbour PDFs (see PLAN.md).
 
 Real database: not copied (folder access declined on 2026-10-13). Work uses the sample
 timetable unless the user connects the `data` folder.
 
 ## 2026-10-16
+
+### Item 28: runs grouped the same in any time zone (done, PR #30)
+- A run's service day came from `date_trunc('day', …)` on a TIMESTAMPTZ, which follows
+  DuckDB's session time zone. On the PC (IST) the day starts at 03:00 Mumbai time as
+  intended; in CI (UTC) it started at **08:30** Mumbai time, so a train due to arrive 08:29
+  and leave 08:31 became two runs there. New `sitt.tz.mumbai_sql()` uses the fixed +05:30
+  offset; used by live_drift, line_state, synth compare, patterns and the dashboard's
+  cancelled-days count.
+- Numbers in docs are unchanged: they were computed on the PC, where the session was IST.
+- New test runs the same data under UTC, IST and Los Angeles; it fails on the old code.
 
 ### Item 27: independent review of round 6 (done, PR #29)
 A separate agent reviewed PRs #26-#28 cold, checking the service worker in a real Chromium.

@@ -37,6 +37,7 @@ from sitt.ingest.timetable import load_timetable, read_timetable
 from sitt.models.features import IST_OFFSET_MS, prepare
 from sitt.synth import SOURCE as SYNTHETIC_SOURCE
 from sitt.synth import build_database
+from sitt.tz import mumbai_sql
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SAMPLE_TIMETABLE = REPO_ROOT / "tests" / "fixtures" / "sample_timetable.csv"
@@ -296,7 +297,7 @@ def delay_by_train(db: Path) -> pd.DataFrame:
     with _read(db) as con:
         prepare(con)
         return con.execute(
-            """
+            f"""
             WITH runs AS (
                 SELECT train_id, count(DISTINCT service_day) AS days,
                        median(delay_minutes) AS median_delay,
@@ -304,7 +305,8 @@ def delay_by_train(db: Path) -> pd.DataFrame:
                        max(delay_minutes) AS worst_delay, count(*) AS readings
                 FROM obs GROUP BY train_id
             ), cancelled AS (
-                SELECT train_id, count(DISTINCT CAST(observed_at AS DATE)) AS cancelled_days
+                SELECT train_id, count(DISTINCT CAST({mumbai_sql("observed_at")} AS DATE))
+                       AS cancelled_days
                 FROM observations WHERE coalesce(cancelled, false) GROUP BY train_id
             )
             SELECT t.number, t.service_code, t.train_type, t.direction, t.label AS destination,

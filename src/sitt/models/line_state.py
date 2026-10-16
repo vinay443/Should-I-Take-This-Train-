@@ -29,6 +29,13 @@ from pathlib import Path
 import duckdb
 
 from sitt.models.live_drift import CLOSE_MINUTES
+from sitt.tz import mumbai_sql
+
+# A reading's scheduled time as Mumbai wall-clock time: runs are grouped by Mumbai service
+# day whatever time zone the computer (and so DuckDB's session) is in.
+SCHEDULED_LOCAL = mumbai_sql(
+    "o.actual_or_expected_time - to_minutes(CAST(o.delay_minutes AS BIGINT))"
+)
 
 LINE_WINDOW_MINUTES = 30
 LEADS = (15, 30, 45, 60)
@@ -49,14 +56,13 @@ def _prepare(con: duckdb.DuckDBPyConnection) -> None:
     # One row per reading, with the train's *scheduled* time (expected time minus delay):
     # questions are asked relative to that, never to the outcome.
     con.execute(
-        """
+        f"""
         CREATE OR REPLACE TEMP TABLE ls_readings AS
         SELECT o.train_id, t.direction, o.station_code, o.observed_at,
                o.actual_or_expected_time AS t, o.delay_minutes AS d,
                o.actual_or_expected_time - to_minutes(CAST(o.delay_minutes AS BIGINT))
                    AS scheduled,
-               date_trunc('day', o.actual_or_expected_time
-                   - to_minutes(CAST(o.delay_minutes AS BIGINT)) - INTERVAL 3 HOUR) AS run_key
+               date_trunc('day', {SCHEDULED_LOCAL} - INTERVAL 3 HOUR) AS run_key
         FROM observations o JOIN trains t USING (train_id)
         WHERE o.delay_minutes IS NOT NULL AND o.actual_or_expected_time IS NOT NULL
           AND NOT coalesce(o.cancelled, false) AND o.event IN ('arrival', 'departure')

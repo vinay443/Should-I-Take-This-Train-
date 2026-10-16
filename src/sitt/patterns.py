@@ -14,8 +14,8 @@ from dataclasses import asdict, dataclass
 
 import duckdb
 
-from sitt.models.features import IST_OFFSET_MS
 from sitt.models.live_drift import CLOSE_MINUTES, runs_ctes
+from sitt.tz import mumbai_sql
 
 # A cell with fewer runs than this is shown, but marked as too few to read much into.
 MIN_RUNS = 5
@@ -56,7 +56,7 @@ def _band_sql() -> str:
 
 def _runs_sql() -> str:
     """One row per run: direction, train type, station, scheduled local hour, final delay."""
-    local = f"make_timestamp((epoch_ms(f.scheduled) + {IST_OFFSET_MS}) * 1000)"
+    local = mumbai_sql("f.scheduled")
     return f"""
         WITH {runs_ctes(suburban_only=True)}, runs AS (
             SELECT t.direction, t.train_type, f.station_code, f.d_final AS delay,
