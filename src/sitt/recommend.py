@@ -238,8 +238,7 @@ def choose(options: list[Option], settings: RecommendSettings) -> tuple[int | No
     # when it is expected to leave, not by the timetable (a late train can leave after the
     # pick, and an on-time one listed later can leave before it).
     waiting = any(
-        i != pick and options[i].predicted_departure < chosen.predicted_departure
-        for i in running
+        i != pick and options[i].predicted_departure < chosen.predicted_departure for i in running
     )
     head = f"{'Wait for' if waiting else 'Take'} the {chosen.name}: {_arrival_text(chosen)}"
     crowd = chosen.crowding.label if chosen.crowding else None
