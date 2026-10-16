@@ -258,6 +258,7 @@ async function showTrains({ live = false } = {}) {
     lastAnswer = answer;
     render(answer);
     saveAnswer(params, answer);
+    showTripLine(answer, params);
     if ($("data-line").classList.contains("offline")) loadStatus(); // the PC is back
     store.set("last-route", { from: $("from").value, to: $("to").value });
     history.replaceState(null, "", `?from=${encodeURIComponent(answer.origin_code)}&to=${encodeURIComponent(answer.destination_code)}`);
@@ -282,11 +283,22 @@ async function showTrains({ live = false } = {}) {
   }
 }
 
+/** Once there is an answer, small screens fold the trip form into one line ("Kalyan → CSMT,
+ * leaving now · Change") so the board is in view; the buttons stay. */
+function showTripLine(answer, params) {
+  const when = params.get("at")
+    ? `at ${params.get("at")}${params.get("date") ? ` on ${new Date(`${params.get("date")}T12:00:00+05:30`).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "Asia/Kolkata" })}` : ""}`
+    : "leaving now";
+  $("trip-text").replaceChildren(el("strong", { text: `${answer.origin} → ${answer.destination}` }), `, ${when}`);
+  $("trip").classList.add("folded");
+}
+
 // ---------- rendering ----------
 
 function boardRow(option, kind) {
   const late = option.departure_delay > 0;
-  const state = option.cancelled ? "CANCELLED" : late ? `${option.departure_delay} LATE` : "ON TIME";
+  // Like a platform board: the timetable time, and "EXP" with the expected time when late.
+  const state = option.cancelled ? "CANCELLED" : late ? `EXP ${hhmm(option.predicted_departure)}` : "ON TIME";
   return el("div", { class: `board-row ${kind}` },
     el("span", { text: hhmm(option.departs) }),
     el("span", { class: "dest", text: (option.other_day ? `${dayName(option.departs)} ` : "") + option.destination.toUpperCase() }),
@@ -321,13 +333,13 @@ function render(answer, savedAt = null) {
   board.replaceChildren();
   if (pick) {
     board.append(boardRow(pick, "pick"));
-    options
-      .filter((o) => o !== pick && !o.cancelled && o.departs > pick.departs)
+    byLeaving(options)
+      .filter((o) => o !== pick && !o.cancelled && o.predicted_departure > pick.predicted_departure)
       .slice(0, 2)
       .forEach((o) => board.append(boardRow(o, "then")));
   } else if (saved && saved.pickGone && options.some((o) => !o.cancelled)) {
     // The picked train has left: list what is still to come, with no pick.
-    options.filter((o) => !o.cancelled).slice(0, 3).forEach((o) => board.append(boardRow(o, "then")));
+    byLeaving(options).filter((o) => !o.cancelled).slice(0, 3).forEach((o) => board.append(boardRow(o, "then")));
   } else {
     board.append(el("div", { class: "board-row pick" }, el("span", { class: "dest", text: "NO TRAIN" })));
   }
@@ -351,9 +363,15 @@ function render(answer, savedAt = null) {
     notes.unshift(`${saved.gone} train${saved.gone === 1 ? "" : "s"} in the saved answer ${saved.gone === 1 ? "has" : "have"} left since and ${saved.gone === 1 ? "is" : "are"} not shown.`);
   }
   $("notes").replaceChildren(...notes.map((n) => el("li", { text: n })));
+  $("about").hidden = !notes.length;
+  // Offline, "N trains have left since" matters more than the rest: show the notes open.
+  $("about").open = Boolean(saved && saved.gone && options.length);
+  $("about-summary").textContent = `About these times (${notes.length} note${notes.length === 1 ? "" : "s"})`;
 
   $("trains-heading").textContent = `${answer.origin} to ${answer.destination}, from ${hhmm(answer.asked_at)}${whichDay(answer.asked_at)}`;
-  $("trains").replaceChildren(...options.map((o, i) => trainRow(o, i, answer)));
+  // Listed in the order they will really leave: a train running 36 min late comes after
+  // the on-time ones that leave before it.
+  $("trains").replaceChildren(...byLeaving(options).map((o) => trainRow(o, o === pick, answer)));
   $("explanation").textContent = answer.explanation;
   // The explanation is about the picked train; once it has left it no longer applies.
   document.querySelector(".why").hidden = Boolean(saved && saved.pickGone);
@@ -373,12 +391,18 @@ function stillToCome(answer, now = Date.now()) {
   };
 }
 
-function trainRow(o, index, answer) {
-  const isPick = index === answer.choice;
+/** Trains in the order they are expected to leave (cancelled ones by timetable time). */
+function byLeaving(options) {
+  const leaves = (o) => (o.cancelled ? o.departs : o.predicted_departure);
+  return [...options].sort((a, b) => (leaves(a) < leaves(b) ? -1 : leaves(a) > leaves(b) ? 1 : 0));
+}
+
+function trainRow(o, isPick, answer) {
   const li = el("li", { class: `train${isPick ? " pick" : ""}${o.cancelled ? " cancelled" : ""}` });
   const more = el("div", { class: "t-more", hidden: true });
   const delayed = o.arrival_delay !== 0;
-  const leavesLate = o.departure_delay !== o.arrival_delay && o.departure_delay > 0;
+  // Running late: the time shown is when it is expected to leave, the timetable time struck.
+  const leavesLater = !o.cancelled && o.departure_delay > 0;
   const arrival = o.cancelled
     ? el("span", { class: "t-arr" }, el("span", { class: "delay late", text: "Cancelled" }))
     : el("span", { class: "t-arr" },
@@ -388,21 +412,26 @@ function trainRow(o, index, answer) {
         o.margin ? ` ±${o.margin}` : null,
         ", ",
         el("span", { class: `delay ${o.arrival_delay > 0 ? "late" : "ontime"}`, text: delayText(o.arrival_delay) }),
-        leavesLate ? ` (leaves ${o.departure_delay} min late)` : null,
         o.live ? el("span", { class: "badge-live", title: `NTES reading at ${hhmm(o.live.at)}`, text: "live" }) : null,
       );
   const tags = o.tags.length ? el("span", { class: "tags", text: `  ${o.tags.join(", ")}` }) : null;
   const button = el("button", {
     type: "button",
     "aria-expanded": "false",
-    "aria-label": `${hhmm(o.departs)} ${o.type} to ${o.destination}${isPick ? ", recommended" : ""}`,
+    "aria-label": `${hhmm(o.departs)} ${o.type} to ${o.destination}`
+      + (leavesLater ? `, expected to leave ${hhmm(o.predicted_departure)}` : "")
+      + (isPick ? ", recommended" : ""),
     onclick: () => {
       const open = more.hidden;
       more.hidden = !open;
       button.setAttribute("aria-expanded", String(open));
     },
   },
-    el("span", { class: "t-time" }, hhmm(o.departs), o.other_day ? el("small", { text: dayName(o.departs) }) : null),
+    leavesLater
+      ? el("span", { class: "t-time late" },
+          hhmm(o.predicted_departure),
+          el("small", {}, el("s", { text: hhmm(o.departs) }), o.other_day ? ` ${dayName(o.departs)}` : null))
+      : el("span", { class: "t-time" }, hhmm(o.departs), o.other_day ? el("small", { text: dayName(o.departs) }) : null),
     el("span", { class: `t-kind ${o.type}`, title: o.type === "fast" ? "Fast" : "Slow", text: o.type === "fast" ? "F" : "S" }),
     el("span", { class: "t-dest" }, isPick ? "Take this: " : null, o.destination, tags),
     arrival,
@@ -539,6 +568,10 @@ function wire() {
       if (later && !$("at").value) $("at").value = mumbaiNow().time;
     }));
   $("log-form").addEventListener("submit", logCrowding);
+  $("edit-trip").addEventListener("click", () => {
+    $("trip").classList.remove("folded");
+    $("from").focus();
+  });
   $("log-time").value = mumbaiNow().time;
 }
 

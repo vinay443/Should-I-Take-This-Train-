@@ -24,6 +24,10 @@
 
   <main>
     <form class="trip" id="trip" autocomplete="off">
+      <p class="trip-line" id="trip-line">
+        <span id="trip-text"></span>
+        <button type="button" class="link" id="edit-trip" aria-controls="trip">Change</button>
+      </p>
       <div class="stations">
         <label class="field">
           <span>From</span>
@@ -63,7 +67,10 @@
       <div class="board" id="board" aria-hidden="true"></div>
       <p class="reason" id="reason"></p>
       <p class="basis" id="basis"></p>
-      <ul class="notes" id="notes"></ul>
+      <details class="about" id="about">
+        <summary id="about-summary">About these times</summary>
+        <ul class="notes" id="notes"></ul>
+      </details>
 
       <h2 id="trains-heading">The next trains</h2>
       <ol class="trains" id="trains" aria-labelledby="trains-heading"></ol>

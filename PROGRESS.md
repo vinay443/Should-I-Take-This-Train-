@@ -2,27 +2,31 @@
 
 Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
-## Where this stopped (2026-10-16, evening)
+## Where this stopped (2026-10-16, night)
 
-**PLAN.md rounds 6-9 are done and merged (PRs #26-#40).** Only item 26 (Harbour line) is
-open, blocked on the Harbour PDFs. Every round ended with an independent review whose
-findings were fixed. CI runs on Linux and Windows; 742 tests.
+**The app runs on your PC and the real live check works** (first real NTES fetch through the
+app, 16 Oct 21:08: 123 readings, 4 trains marked live). UI pass done on your real data
+(PR #42). PLAN.md rounds 6-9 done; item 26 (Harbour) blocked on the PDFs; round 10 has item
+40 (waits on data) and 41 (review).
 
-**Next session: PLAN.md round 10** (item 40 waits on data; item 41 reviews round 10). Before that, the
-things that need you give far more value than any self-directed item:
-1. On your PC: `git pull`, `uv sync`, `uv run sitt-web --host 0.0.0.0`, open the printed
-   address on your phone, add it to the home screen, and press **Check live first** once
-   (the cloud workspace can't reach NTES, so the real fetch from your PC is still untried).
-2. Collect by hand now and then (Check live first, or `uv run sitt-collect`): Delay patterns,
-   live drift and the model all need more than the two days of 5-6 October.
-3. For the Harbour line (item 26): put the two Harbour PDFs in the project folder, or
-   connect the folder. Expect several days of work (docs/expansion-assessment.md).
-4. Mobond permission, if you ever want CSMT-Kalyan locals live (docs/data-sources.md).
-
-Real database: not copied (folder access declined on 2026-10-13); work used the sample
-timetable and an invented demo database for screenshots (never committed).
+What helps most now: keep pressing **Check live first** now and then (morning and evening,
+weekdays and a weekend) so Delay patterns and the model have more than three days.
 
 ## 2026-10-16
+
+### UI pass on real data (PR #42)
+- Checked the running app on the PC through Chrome: real timetable (894 trains), live check
+  worked (123 NTES readings). Real finding: trains **towards CSMT** reach Kalyan a median
+  6-17 min late (52-74% 5+ min late by part of day); trains **away from CSMT** are on time.
+- Main page: trains listed in the order they will **really leave** (the 20:34 running 36 late
+  now sits after the 21:08, shown as 21:10 in red with 20:34 struck); the board says
+  `EXP 21:10` for late trains and picks its next rows by expected time; on phones the form
+  folds to one line once there's an answer, so the board is in view; the four notes moved
+  into "About these times" (opened automatically offline when trains have left).
+- Delay patterns: opens with each direction as a board line ("TOWARDS CSMT 10 LATE") and a
+  sentence; a direction that is on time every hour gets a sentence, not a flat chart. New
+  `by_direction` in `/api/patterns` (tested).
+- Re-rendered with the real numbers at 390/1280 px, light/dark; browser check and axe pass.
 
 ### Item 39: no more test warning (done, PR #41)
 - Starlette 1.7's TestClient wants `httpx2`; added as a dev-only dependency (`uv add --dev`),

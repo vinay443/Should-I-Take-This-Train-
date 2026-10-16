@@ -127,6 +127,14 @@ function hourChart(data, direction, width) {
     }
     chart.append(group);
   });
+  if ([...cells.values()].every((c) => Math.round(c.median) < 1)) {
+    // Nothing to draw: say it instead of showing a flat line.
+    return el("figure", { class: "chart" },
+      el("figcaption", {}, el("strong", { text: direction.label })),
+      el("p", { class: "chart-note", text: cells.size
+        ? `On time (median 0 min) in every hour with trains: ${[...cells.keys()].sort((a, b) => HOURS.indexOf(a) - HOURS.indexOf(b)).map((h) => String(h).padStart(2, "0")).join(", ")}.`
+        : "No trains seen in this direction yet." }));
+  }
   return el("figure", { class: "chart" },
     el("figcaption", {}, el("strong", { text: direction.label }), el("span", { text: " · minutes late, by scheduled hour" })),
     chart);
@@ -145,6 +153,25 @@ function drawCharts(data) {
   // The figure's inner width, now that it is laid out (padding 0.75rem each side).
   const inner = charts.firstElementChild.clientWidth - 24;
   charts.replaceChildren(...data.directions.map((d) => hourChart(data, d, inner)));
+}
+
+/** The headline: each direction as a line on a platform board, then the same in words. */
+function verdict(data) {
+  const label = (key) => data.directions.find((d) => d.key === key).label;
+  const at = data.stations.length === 1 ? ` at ${data.stations[0]}` : "";
+  const rows = data.by_direction.map((d) => {
+    const late = Math.round(d.median) >= 1;
+    return el("div", { class: "board-row" },
+      el("span", { class: "dest", text: label(d.direction).toUpperCase() }),
+      el("span", { class: `state${Math.round(d.median) >= data.late_minutes ? " late" : ""}`, text: late ? `${Math.round(d.median)} LATE` : "ON TIME" }));
+  });
+  $("verdict-board").replaceChildren(...rows);
+  $("verdict").textContent = data.by_direction.map((d) => {
+    const typical = Math.round(d.median) >= 1
+      ? `half the trains were at least ${minutes(d.median)} late${at}`
+      : `trains were typically on time${at}`;
+    return `${label(d.direction)}, ${typical}, and ${pct(d.share_late)} were ${data.late_minutes}+ min late (${d.runs} train${d.runs === 1 ? "" : "s"}${d.few ? ", too few to go by" : ""}).`;
+  }).join(" ");
 }
 
 // ---------- page ----------
@@ -168,6 +195,7 @@ function render(data) {
     thin ? "One bad morning can move these numbers a lot, and weekdays, weekends and monsoon days aren't told apart yet. " : "",
     "Delays are what NTES last said before the train's time, not measured departures.",
   );
+  verdict(data);
   $("content").hidden = false; // before drawing: the charts are sized to the page
   bandTable(data);
   drawCharts(data);
