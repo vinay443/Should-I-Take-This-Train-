@@ -102,6 +102,41 @@ def saved_trains_leave(page, shot: Path) -> None:
     page.clock.set_system_time(datetime.now(UTC))
 
 
+def button_edge_cases(browser, url: str) -> None:
+    """The live button with the app reachable: an erroring status check must not leave it
+    stuck on "needs the PC", and it must stay disabled while a request is running.
+
+    Without a service worker (as on a phone over plain http://): Playwright can't intercept
+    requests a service worker makes, so faked answers would never reach the page."""
+    context = browser.new_context(service_workers="block")
+    page = context.new_page()
+    page.goto(url)
+    page.wait_for_selector("#answer:not([hidden]) .trains li")
+    live = page.locator("#live")
+    page.evaluate("setOffline(true)")
+    page.route("**/api/status", lambda route: route.fulfill(status=500, body="{}"))
+    page.click("#go")
+    page.wait_for_function("!document.getElementById('go').disabled")
+    page.wait_for_timeout(300)  # let the follow-up status check finish
+    check(live.is_enabled(), "PC answers but its status check fails: live button usable")
+    page.unroute("**/api/status")
+
+    def slow(route):
+        page.wait_for_timeout(1500)
+        route.continue_()
+
+    page.route("**/api/recommend*", slow)
+    page.evaluate("setOffline(true)")
+    page.click("#go")
+    page.evaluate("window.dispatchEvent(new Event('online'))")  # re-checks the status
+    page.wait_for_timeout(700)
+    check(live.is_disabled(), "live button stays disabled while a request is running")
+    page.wait_for_function("!document.getElementById('go').disabled")
+    page.unroute("**/api/recommend*")
+    check(live.is_enabled(), "and usable again afterwards")
+    context.close()
+
+
 def run(db: Path, out: Path) -> None:
     from playwright.sync_api import sync_playwright
 
@@ -185,6 +220,7 @@ def run(db: Path, out: Path) -> None:
                             live.is_enabled() and page.is_hidden("#stale"),
                             "back online: live button enabled, no 'not live' note",
                         )
+                        button_edge_cases(browser, url)
                     check(not errors, f"no script errors ({errors})")
                     context.close()
         browser.close()

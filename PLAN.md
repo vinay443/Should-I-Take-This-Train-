@@ -256,7 +256,21 @@ Offline the button still looks usable and only explains itself after a press. Di
 with a short reason while the app can't be reached, and enable it again when it can.
 **Done when:** browser check covers both states.
 
-### 38. Independent review of round 9 — [ ]
+### 38. Independent review of round 9 — [x]
+Five findings fixed (PROGRESS.md, 2026-10-16).
+
+## Round 10 (added 2026-10-16, for the next session)
+
+### 39. Quiet the test client deprecation warning — [ ]
+Every test run warns that Starlette's TestClient over `httpx` is deprecated. Move to what
+Starlette recommends (or pin) so real warnings stand out. **Done when:** `pytest` runs with
+no warnings, on Linux and Windows CI.
+
+### 40. Delay patterns: weekdays vs weekends — [ ] (waits on data)
+Once real readings cover at least two weekends, add a weekday/weekend toggle to `/patterns`
+and `sitt-patterns`. Not before: with two days of data it would only show noise.
+
+### 41. Independent review of round 10 — [ ]
 
 ### On the user's PC, only if a working shell is available
 `mcp__remote-devices__device_bash` was blocked by a Windows update on 2026-10-12/13. If it

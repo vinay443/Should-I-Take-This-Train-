@@ -2,15 +2,43 @@
 
 Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
-## Where this stopped (2026-10-16)
+## Where this stopped (2026-10-16, evening)
 
-**Next: PLAN.md round 9 (item 38, independent review).** Rounds 6 and 7 are done (item 26 blocked). Round 6 is done except item 26 (Harbour line),
-which is blocked on the Harbour PDFs (see PLAN.md).
+**PLAN.md rounds 6-9 are done and merged (PRs #26-#40).** Only item 26 (Harbour line) is
+open, blocked on the Harbour PDFs. Every round ended with an independent review whose
+findings were fixed. CI runs on Linux and Windows; 742 tests.
 
-Real database: not copied (folder access declined on 2026-10-13). Work uses the sample
-timetable unless the user connects the `data` folder.
+**Next session: PLAN.md round 10** (items 39-41, small and self-directed). Before that, the
+things that need you give far more value than any self-directed item:
+1. On your PC: `git pull`, `uv sync`, `uv run sitt-web --host 0.0.0.0`, open the printed
+   address on your phone, add it to the home screen, and press **Check live first** once
+   (the cloud workspace can't reach NTES, so the real fetch from your PC is still untried).
+2. Collect by hand now and then (Check live first, or `uv run sitt-collect`): Delay patterns,
+   live drift and the model all need more than the two days of 5-6 October.
+3. For the Harbour line (item 26): put the two Harbour PDFs in the project folder, or
+   connect the folder. Expect several days of work (docs/expansion-assessment.md).
+4. Mobond permission, if you ever want CSMT-Kalyan locals live (docs/data-sources.md).
+
+Real database: not copied (folder access declined on 2026-10-13); work used the sample
+timetable and an invented demo database for screenshots (never committed).
 
 ## 2026-10-16
+
+### Item 38: independent review of round 9 (done, PR #40)
+Five findings, all fixed:
+1. MEDIUM: if the PC answered but its status check failed (e.g. database busy), the live
+   button stayed on "needs the PC". Now any answer from the PC clears the offline state.
+2. The live button could be re-enabled mid-request (a status check finishing during a
+   slow answer). A single `busy` flag now governs it.
+   Both are covered in `check_web_offline.py`, run without a service worker (Playwright
+   can't intercept a worker's requests: the first version of these checks passed on the old
+   code for that reason; now they fail on it and pass on the fix).
+3. Windows: a VPN's address could be printed first and WSL/Hyper-V adapters (172.16-31.x)
+   offered to the phone. Now 192.168.x first, others as "if that doesn't load, try…",
+   virtual 172.x adapters dropped when there is anything better.
+4. `--host ::` printed `http://:::8000/`; now `http://[::1]:8000/`, with the phone hint and
+   a note that `::` may be IPv6-only on Windows.
+5. A host name too long for the lookup raised UnicodeError; now skipped like OSError.
 
 ### Item 37: offline, the live button says it needs the PC (done, PR #39)
 - While the app can't be reached, "Check live first" is disabled and reads "Live check
