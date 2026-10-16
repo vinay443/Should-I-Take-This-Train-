@@ -98,8 +98,10 @@ so live readings mostly help for journeys from Kalyan or further out.
 4. If another train arrives **within 5 minutes** of the pick and is **at least one crowding
    level emptier**, prefer it. Among several, the emptiest, then the earliest to arrive.
 
-The reply says "Wait for…" when following it means letting an earlier train go, and
-"Take…" otherwise.
+The reply says "Wait for…" when following it means letting a train that leaves earlier go,
+and "Take…" otherwise. "Earlier" is by when trains are expected to leave, not by the
+timetable: a train 20 minutes late that leaves after the pick isn't one you wait through,
+and an on-time train timetabled after a late pick but leaving before it is.
 
 ## Thresholds
 

@@ -234,8 +234,12 @@ def choose(options: list[Option], settings: RecommendSettings) -> tuple[int | No
 
     chosen = options[pick]
     first = options[0]
-    # "Wait" when the rider would let an earlier train that is running go by.
-    waiting = any(i < pick for i in running)
+    # "Wait" when the rider would let a running train that leaves earlier go by: earlier by
+    # when it is expected to leave, not by the timetable (a late train can leave after the
+    # pick, and an on-time one listed later can leave before it).
+    waiting = any(
+        i != pick and options[i].predicted_departure < chosen.predicted_departure for i in running
+    )
     head = f"{'Wait for' if waiting else 'Take'} the {chosen.name}: {_arrival_text(chosen)}"
     crowd = chosen.crowding.label if chosen.crowding else None
 

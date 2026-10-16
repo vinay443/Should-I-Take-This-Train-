@@ -131,13 +131,21 @@ function hourChart(data, direction, width) {
     // Nothing to draw: say it instead of showing a flat line.
     return el("figure", { class: "chart" },
       el("figcaption", {}, el("strong", { text: direction.label })),
-      el("p", { class: "chart-note", text: cells.size
-        ? `On time (median 0 min) in every hour with trains: ${[...cells.keys()].sort((a, b) => HOURS.indexOf(a) - HOURS.indexOf(b)).map((h) => String(h).padStart(2, "0")).join(", ")}.`
-        : "No trains seen in this direction yet." }));
+      el("p", { class: "chart-note", text: cells.size ? onTimeNote(cells, data) : "No trains seen in this direction yet." }));
   }
   return el("figure", { class: "chart" },
     el("figcaption", {}, el("strong", { text: direction.label }), el("span", { text: " · minutes late, by scheduled hour" })),
     chart);
+}
+
+/** Every hour's median is on time: say so, and keep the hours where some trains were late. */
+function onTimeNote(cells, data) {
+  const ordered = [...cells.values()].sort((a, b) => HOURS.indexOf(a.key) - HOURS.indexOf(b.key));
+  const hours = ordered.map((c) => String(c.key).padStart(2, "0")).join(", ");
+  const late = ordered.filter((c) => c.share_late > 0)
+    .map((c) => `${hourLabel(c.key)} ${pct(c.share_late)} of ${c.runs}`);
+  return `Typically on time (median 0 min) in every hour with trains: ${hours}.`
+    + (late.length ? ` Some were ${data.late_minutes}+ min late: ${late.join(", ")}.` : "");
 }
 
 /** A bar with rounded top corners, square at the baseline. */
