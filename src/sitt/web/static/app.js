@@ -130,10 +130,26 @@ function savedAnswer(params) {
   return store.get("answers", {})[tripKey(params.get("from"), params.get("to"), params)] || null;
 }
 
+let offlineNow = false;
+
+/** Mark the page as offline (or back online). Offline, "Check live first" can't work (the
+ * PC does the fetching), so it is disabled and says so instead of failing when pressed. */
 function setOffline(offline) {
+  offlineNow = offline;
   const line = $("data-line");
   line.classList.toggle("offline", offline);
   if (offline) line.textContent = "Offline: can't reach the app on your PC. Showing what was saved on this phone.";
+  liveButtonState();
+}
+
+function liveButtonState(busy = false) {
+  const live = $("live");
+  live.disabled = busy || offlineNow;
+  live.classList.toggle("needs-pc", offlineNow && !busy);
+  live.textContent = busy ? "Checking live…" : offlineNow ? "Live check needs the PC" : "Check live first";
+  live.title = offlineNow
+    ? "Live status is fetched by the app on your PC, which can't be reached right now"
+    : "Fetch live running status from NTES once, then show trains";
 }
 
 function showMessage(text) {
@@ -158,7 +174,7 @@ async function loadStatus() {
     const { body: s, offline } = await request("/api/status");
     if (offline) { setOffline(true); return; }
     const line = $("data-line");
-    line.classList.remove("offline");
+    if (offlineNow) setOffline(false);
     line.replaceChildren();
     if (!s.database || !s.trains) {
       line.textContent = "No timetable loaded yet. Run uv run sitt-init-db and load one (see the README).";
@@ -219,13 +235,14 @@ async function showTrains({ live = false } = {}) {
     showMessage("Pick where you're starting and where you're going.");
     return;
   }
-  const go = $("go"), liveButton = $("live");
-  go.disabled = liveButton.disabled = true;
+  const go = $("go");
+  go.disabled = true;
+  $("live").disabled = true;
   $("answer").classList.add("loading");
   showMessage("");
   try {
     if (live) {
-      liveButton.textContent = "Checking live…";
+      liveButtonState(true);
       const { message } = await api("/api/collect", { method: "POST" });
       toast(message);
       loadStatus();
@@ -252,8 +269,8 @@ async function showTrains({ live = false } = {}) {
       showMessage("Can't reach the app on your PC, and there is no saved answer for this trip on this phone yet. Check that the PC is on and sitt-web is running.");
     }
   } finally {
-    go.disabled = liveButton.disabled = false;
-    liveButton.textContent = "Check live first";
+    go.disabled = false;
+    liveButtonState();
     $("answer").classList.remove("loading");
   }
 }

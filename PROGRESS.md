@@ -4,13 +4,20 @@ Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
 ## Where this stopped (2026-10-16)
 
-**Next: PLAN.md round 9 (items 37-38).** Rounds 6 and 7 are done (item 26 blocked). Round 6 is done except item 26 (Harbour line),
+**Next: PLAN.md round 9 (item 38, independent review).** Rounds 6 and 7 are done (item 26 blocked). Round 6 is done except item 26 (Harbour line),
 which is blocked on the Harbour PDFs (see PLAN.md).
 
 Real database: not copied (folder access declined on 2026-10-13). Work uses the sample
 timetable unless the user connects the `data` folder.
 
 ## 2026-10-16
+
+### Item 37: offline, the live button says it needs the PC (done, PR #39)
+- While the app can't be reached, "Check live first" is disabled and reads "Live check
+  needs the PC" (dashed, not faded, so it stays readable), with a tooltip saying why. It
+  comes back as soon as an answer arrives from the PC. One place now sets its state.
+- Browser check: offline state, then the server is restarted on the same port and the
+  page asked again: button back, "Not live" note gone. axe: no violations offline.
 
 ### Item 36: `sitt-web --host 0.0.0.0` prints the phone address (done, PR #38)
 - Prints e.g. "On your phone (same Wi-Fi), open http://192.168.1.23:8000/", from local

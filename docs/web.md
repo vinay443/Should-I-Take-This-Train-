@@ -70,7 +70,8 @@ time it was saved, and the header says it is offline. The phone keeps the last 8
 Trains that have left since the answer was saved (predicted departure more than a minute
 ago) are dropped, with a note saying how many; if the recommended train has left, the page
 says so and lists the saved trains still to come, and if all have left it says that too.
-A trip with no saved answer says so. Logging crowding needs the PC; the page tells you the
+A trip with no saved answer says so. **Check live first** turns into a dashed, disabled
+"Live check needs the PC" (the PC does the fetching), and comes back once the PC answers. Logging crowding needs the PC; the page tells you the
 report wasn't saved. Nothing is fetched or refreshed in the background: answers are saved
 only when you ask for trains.
 

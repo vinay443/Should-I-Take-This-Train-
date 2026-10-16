@@ -159,6 +159,11 @@ def run(db: Path, out: Path) -> None:
                     check(line.startswith("Offline"), f"header says offline: {line[:40]}…")
                     page.screenshot(path=out / f"{name}-{scheme}-offline.png", full_page=True)
 
+                    live = page.locator("#live")
+                    check(
+                        live.is_disabled() and live.inner_text() == "Live check needs the PC",
+                        f"offline, the live button says it needs the PC ({live.inner_text()!r})",
+                    )
                     saved_trains_leave(page, out / f"{name}-{scheme}-offline-later.png")
 
                     # A trip with no saved answer says so instead of showing nothing useful.
@@ -169,6 +174,17 @@ def run(db: Path, out: Path) -> None:
                         "no saved answer" in page.inner_text("#message"),
                         "unsaved trip offline gets a clear message",
                     )
+                    # The PC comes back: asking again gets a live answer and the button back.
+                    with server(db, port):
+                        page.fill("#to", "CSMT")
+                        page.click("#go")
+                        page.wait_for_function(
+                            "document.getElementById('live').textContent === 'Check live first'"
+                        )
+                        check(
+                            live.is_enabled() and page.is_hidden("#stale"),
+                            "back online: live button enabled, no 'not live' note",
+                        )
                     check(not errors, f"no script errors ({errors})")
                     context.close()
         browser.close()
