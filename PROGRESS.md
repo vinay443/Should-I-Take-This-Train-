@@ -4,13 +4,19 @@ Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
 ## Where this stopped (2026-10-16)
 
-**Next: PLAN.md round 8 (items 33-35).** Rounds 6 and 7 are done (item 26 blocked). Round 6 is done except item 26 (Harbour line),
+**Next: PLAN.md round 8 (items 34-35).** Rounds 6 and 7 are done (item 26 blocked). Round 6 is done except item 26 (Harbour line),
 which is blocked on the Harbour PDFs (see PLAN.md).
 
 Real database: not copied (folder access declined on 2026-10-13). Work uses the sample
 timetable unless the user connects the `data` folder.
 
 ## 2026-10-16
+
+### Item 33: cancelled days by service day (done, PR #35)
+- The dashboard's per-train "cancelled days" now uses the 03:00-03:00 Mumbai service day,
+  like runs: a cancellation read at 23:50 and again at 00:10 is one day, not two. Test fails
+  on the old code. The recommender's own cancellation check uses a time window and was
+  already fine.
 
 ### Item 32: accessibility check with axe-core (done, PR #34)
 - `scripts/check_web_a11y.py` (axe-core 4.10.3 from npm, injected by Playwright): main page

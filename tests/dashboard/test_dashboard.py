@@ -266,3 +266,29 @@ def test_requirements_txt_covers_the_projects_dependencies():
             assert "apscheduler" in pinned, "the job-queue extra is missing; run `uv export`"
     assert (REPO / "packages.txt").read_text(encoding="utf-8").split() == ["libgomp1"]
     assert (REPO / "streamlit_app.py").exists()
+
+
+def test_a_cancellation_read_either_side_of_midnight_is_one_day(tmp_path):
+    from datetime import timedelta
+
+    from sitt.tz import IST
+
+    db = tmp_path / "sitt.duckdb"
+    with init_db(db) as con:
+        load_timetable(con, read_timetable(SAMPLE_CSV))
+        night = datetime(2026, 10, 6, 23, 50, tzinfo=IST)
+        rows = [
+            (night - timedelta(hours=2), False, 3),  # a normal reading, so the train is listed
+            (night, True, None),  # "cancelled" at 23:50 ...
+            (night + timedelta(minutes=20), True, None),  # ... and again at 00:10
+            (night + timedelta(days=2), True, None),  # two nights later: a second day
+        ]
+        for observed, cancelled, delay in rows:
+            con.execute(
+                "INSERT INTO observations (observed_at, train_id, station_code, delay_minutes, "
+                "cancelled, source, event) VALUES (?, 'central-90111', 'KYN', ?, ?, 'ntes', ?)",
+                [observed, delay, cancelled, "cancelled" if cancelled else "arrival"],
+            )
+    trains = data.delay_by_train(db)
+    (days,) = trains.loc[trains["number"] == "90111", "cancelled_days"]
+    assert days == 2
