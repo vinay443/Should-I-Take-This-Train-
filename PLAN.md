@@ -371,6 +371,10 @@ No data-loss defects; five small findings fixed (PROGRESS.md).
 `sitt-next` prints the two commands to ask each part of a journey with a change; the bot
 the two `/next` messages, like the web page's buttons.
 
+### 55. Docs say what is true after the Harbour work — [x]
+README's "What is real" table (Harbour trains, readings so far, answers between lines), the
+Harbour UP note, and docs/data-sources.md's list of PDFs.
+
 ### On the user's PC, only if a working shell is available
 `mcp__remote-devices__device_bash` was blocked by a Windows update on 2026-10-12/13. If it
 works in a later session: `git pull`, `uv sync`, start `uv run sitt-web --no-browser` in the

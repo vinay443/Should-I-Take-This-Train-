@@ -28,7 +28,9 @@ Research spike, **2026-09-27**. Every "tested" note below comes from a real requ
   | `…/1786691264142-PTT%20OF%2015%20CAR%20TT%20ON%20MAINLINE%20WEF%2015%20AUG%2026.pdf` | 15.08.2026 | Which main-line services run as 15-car rakes |
   | `…/1640859089146-ABBREVIATIONS.pdf` | n/a | Service codes (A = Ambernath, K = Kalyan, KP = Khopoli…) and day markers |
   | `…/1763721416458-list%20of%20holidays%20for%20website.pdf` | n/a | Holidays that follow the Sunday schedule |
-  | Harbour, Trans-Harbour and Port line PTTs | various | Not needed for Kalyan |
+  | Harbour line DOWN PTT (`DN HB REVISED PTT WEF 01.05.2026.pdf`) | 01.05.2026 | Harbour trains away from CSMT (optional; `sitt-timetable-reload` loads it if present) |
+  | Harbour line UP PTT (`UP HB REVISED PTT WEF 01.05.2026.pdf`) | 01.05.2026 | Harbour trains towards CSMT: **not in the project yet** (PLAN.md item 26b) |
+  | Trans-Harbour and Port line PTTs | various | Not used |
 
   (`…` = `https://cr.indianrailways.gov.in/cris//uploads/files/`)
 - **What it gives:**
