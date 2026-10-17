@@ -112,6 +112,17 @@ the line's timetable for that direction isn't loaded (only the Harbour line's DO
 so nothing runs towards CSMT on it), or no single train calls at both (Bandra and Vashi,
 on two branches of the Harbour line). The web page then shows only that sentence.
 
+For stations on different lines it also names the quickest journey with one change, by
+the timetable: "Quickest with one change on these two lines, by the timetable: the 08:04
+fast, changing at Kurla (arrives 08:46) to the 08:53 slow, at Panvel 09:45. Ask for each
+part to see delays and crowding." (Kalyan → Panvel, Monday 08:00, real timetable). It tries
+the first 6 trains to each station where the lines meet, allows at least 5 minutes to
+change (`CHANGE_MINUTES`, a guess) and at most 60 minutes of waiting, leaves out ladies'
+specials, and picks the earliest arrival (on a tie, the one that leaves latest). It knows
+only the Central and Harbour lines: for Dadar → Goregaon it suggests going via Sandhurst
+Road, where in practice the Western line is quicker. Delays and crowding aren't used,
+which is why it asks you to look at each part.
+
 ## Thresholds
 
 Set these in `.env` (see [`.env.example`](../.env.example)). They are read by

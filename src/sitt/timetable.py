@@ -168,7 +168,10 @@ def line_name(line: str) -> str:
 
 
 def no_train_reason(
-    con: duckdb.DuckDBPyConnection, origin_code: str, destination_code: str
+    con: duckdb.DuckDBPyConnection,
+    origin_code: str,
+    destination_code: str,
+    when: datetime | None = None,
 ) -> str | None:
     """Why no train in the timetable goes from `origin_code` to `destination_code`, or None
     if some train does (and there is simply none in the time looked at).
@@ -177,6 +180,9 @@ def no_train_reason(
     meet), or the timetable loaded for their line can lack that direction (only the
     Harbour line's DOWN PDF is loaded, so nothing runs towards CSMT on it), or no single
     train calls at both (two branches of one line).
+
+    For stations on different lines, given `when` (naive Mumbai time), it also names the
+    quickest journey with one change by the timetable (see `one_change`).
     """
     from sitt.routes import station_places_sql
 
@@ -228,6 +234,18 @@ def no_train_reason(
             f"{destination} on the {_lines_text(lines_of[destination_code])}"
         )
         where = f" They meet at {_and(meet)}: ask for each part separately." if meet else ""
+        codes = {name: code for code, name in names.items()}
+        best = one_change(con, origin_code, destination_code, when, [codes[m] for m in meet])
+        if best is not None:
+            first, change_at, second = best
+            where = (
+                " Quickest with one change on these two lines, by the timetable: the "
+                f"{first.departure:%H:%M} {first.train_type}"
+                f"{_day_after(first.departure, when)}, changing at "
+                f"{names.get(change_at, change_at)} (arrives {first.arrival:%H:%M}) to the "
+                f"{second.departure:%H:%M} {second.train_type}, at {destination} "
+                f"{second.arrival:%H:%M}. Ask for each part to see delays and crowding."
+            )
         return f"No train runs from {origin} to {destination} without a change: {on}.{where}"
     reverse = covering(destination_code, origin_code)
     if reverse:
@@ -244,6 +262,66 @@ def no_train_reason(
                 '(README, "Load the timetable").'
             )
     return f"No single train in the timetable runs from {origin} to {destination}."
+
+
+# Minutes allowed to change trains between lines (a walk across the station, e.g. from the
+# main line's platforms at Kurla to the Harbour line's). A guess, not measured.
+CHANGE_MINUTES = 5
+# How many first trains to try at each interchange.
+CHANGE_CANDIDATES = 6
+# Longest wait at the change that is still suggested: beyond it, no journey is named.
+MAX_WAIT_MINUTES = 60
+
+
+def one_change(
+    con: duckdb.DuckDBPyConnection,
+    origin_code: str,
+    destination_code: str,
+    when: datetime | None,
+    interchanges: list[str],
+) -> tuple[ScheduledTrip, str, ScheduledTrip] | None:
+    """The journey with one change at one of `interchanges` that arrives first by the
+    timetable, leaving at or after `when`: (first train, where to change, second train).
+    At least CHANGE_MINUTES and at most MAX_WAIT_MINUTES between them; ladies' specials are
+    left out. Ties go to the
+    one that leaves latest (less waiting). None if `when` is None or nothing fits."""
+    if when is None:
+        return None
+    best = None
+    for change_at in interchanges:
+        if change_at in (origin_code, destination_code):
+            continue
+        for first in next_trains(con, origin_code, change_at, when, n=CHANGE_CANDIDATES):
+            if first.is_ladies_special:
+                continue
+            seconds = [
+                trip
+                for trip in next_trains(
+                    con,
+                    change_at,
+                    destination_code,
+                    first.arrival + timedelta(minutes=CHANGE_MINUTES),
+                    n=3,
+                )
+                if not trip.is_ladies_special
+                and trip.departure - first.arrival <= timedelta(minutes=MAX_WAIT_MINUTES)
+            ]
+            if not seconds:
+                continue
+            second = seconds[0]
+            key = (second.arrival, -first.departure.timestamp())
+            if best is None or key < best[0]:
+                best = (key, (first, change_at, second))
+    return best[1] if best else None
+
+
+def _day_after(moment: datetime, when: datetime | None) -> str:
+    """'' on the day of `when`, ' tomorrow' the day after, else ' on Wednesday'."""
+    if when is None or moment.date() == when.date():
+        return ""
+    if moment.date() == when.date() + timedelta(days=1):
+        return " tomorrow"
+    return f" on {moment:%A}"
 
 
 def _lines_text(lines: set[str]) -> str:

@@ -343,6 +343,13 @@ Panvel → CSMT and Kalyan → Panvel said "No trains found in the timetable for
 Now: the stations are on different lines (and where they meet), or the line's timetable for
 that direction isn't loaded, or no single train calls at both. Web page: only that sentence.
 
+### 48. The quickest journey with one change — [x]
+When the stations are on different lines, name the earliest-arriving journey with one
+change where they meet, by the timetable (at least 5 min to change, at most 60 min wait),
+instead of only "ask for each part separately".
+
+### 49. Independent review of round 12 — [ ]
+
 ### On the user's PC, only if a working shell is available
 `mcp__remote-devices__device_bash` was blocked by a Windows update on 2026-10-12/13. If it
 works in a later session: `git pull`, `uv sync`, start `uv run sitt-web --no-browser` in the
