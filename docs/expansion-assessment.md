@@ -210,9 +210,8 @@ timetable download depends on it.
 Written 2026-10-17, after a review of the Harbour work. None matters while there are no
 live Harbour readings (NTES doesn't report Harbour locals; Mobond would), but each would:
 
-- `sitt.models.line_state` (a backtest, not used in answers) takes the median delay of
-  other trains at the same station and direction, so at Kurla and CSMT it would mix the
-  two lines.
+- ~~`sitt.models.line_state` mixed the two lines at Kurla and CSMT~~: fixed 2026-10-17
+  (item 58), it compares trains on the same line only.
 - The dashboard's delay-by-station view sorts by each station's home place only.
 - The live loaders (`ingest/live/stations.py`, `live/load.py`) treat train numbers 90-94xxx
   as Western Railway, so the Harbour's Goregaon trains numbered 91xxx (e.g. 91393, 91395)

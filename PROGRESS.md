@@ -2,18 +2,19 @@
 
 Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
-## Where this stopped (2026-10-17, 21:15)
+## Where this stopped (2026-10-17, 21:10)
 
-**Everything is merged (PRs #46-#72), nothing is open.** Today: round 11 (weekdays vs
+**Everything is merged (PRs #46-#73), nothing is open.** Today: round 11 (weekdays vs
 weekends, Undo for crowd reports, progress towards a delay model), the Harbour line from its
 DOWN PDF (items 26a-26f), round 12 (items 46-53: why there is no train, journeys with one
-change and asking each part, `sitt-timetable-reload`) and round 13 (items 54-57: each part
-from the command line and the bot, docs, a backtest of the baseline, review fixes).
+change and asking each part, `sitt-timetable-reload`) and round 13 (items 54-58: each part
+from the command line and the bot, docs, a backtest of the baseline, review fixes, the
+line-state backtest per line).
 
 **Checked on your PC at 21:00:** the reload worked (895 main line and 312 Harbour trains,
 2,631 readings), and the running app answers CSMT → Panvel, Kalyan → Panvel (the 21:04 fast,
 change at Kurla, 21:51 slow) and explains Panvel → CSMT. After a `git pull` and `uv sync`,
-restart `sitt-web` to get rounds 13's changes (no reload needed).
+restart `sitt-web` to get round 13's changes (no reload needed).
 
 What moves the project next, in order:
 1. **More readings.** Press **Check live first** at different times over the next week or
@@ -27,6 +28,13 @@ What moves the project next, in order:
 4. Item 5 (2027 holidays) once Maharashtra publishes the list, usually Nov-Dec.
 
 ## 2026-10-17
+
+### Item 58: line-state backtest per line (done, PR #73)
+- One of the Harbour "known gaps": `python -m sitt.models.line_state` took other trains at
+  the same station and direction as the line's state, so at CSMT or Kurla a late Harbour
+  train would have counted for the main line. It now compares trains on the same line.
+  Output on your readings unchanged (no Harbour readings yet). 1 test (fails on the old
+  code); docs/expansion-assessment.md updated.
 
 ### Item 57: review of round 13 (done, PR #72)
 A cold review of items 54-56 checked the docs and the backtest's numbers against your data
