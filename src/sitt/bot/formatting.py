@@ -6,7 +6,7 @@ from sitt.bot.flow import LogDraft
 from sitt.bot.parsing import CROWD_LEVELS
 from sitt.bot.stations import FALLBACK_DIRECTORY, StationDirectory
 from sitt.bot.storage import StoredReport
-from sitt.recommend import LEVEL_TIMETABLE, Recommendation
+from sitt.recommend import LEVEL_TIMETABLE, Recommendation, part_requests
 from sitt.timetable import ScheduledTrip
 from sitt.tz import IST
 
@@ -112,6 +112,15 @@ def format_recommendation(recommendation: Recommendation, show_time: bool = Fals
     if show_time:
         header += f", at {rec.asked_at:%H:%M on %a %d %b}"
     lines = [header, "", rec.reason, ""]
+    # Each part of a journey with a change, as a command to send (today or tomorrow only,
+    # the days /next understands).
+    asks = []
+    for a, b, when in part_requests(rec):
+        days = (when.date() - rec.asked_at.date()).days
+        if days in (0, 1):
+            asks.append(f"/next {a} {b} {'tomorrow ' if days else ''}{when:%H:%M}")
+    if asks:
+        lines += ["Ask each part:", *asks, ""]
     for i, option in enumerate(rec.options):
         trip = option.trip
         day = "" if trip.departure.date() == rec.asked_at.date() else f"{trip.departure:%a} "

@@ -28,7 +28,14 @@ import httpx
 from sitt.bot.formatting import trip_tags
 from sitt.bot.schedule import PAST_TIME_MEANS_TOMORROW, ScheduleError, recommend_trains
 from sitt.config import load_recommend_settings, load_settings
-from sitt.recommend import LEVEL_TIMETABLE, Option, Recommendation, explain, live_text
+from sitt.recommend import (
+    LEVEL_TIMETABLE,
+    Option,
+    Recommendation,
+    explain,
+    live_text,
+    part_requests,
+)
 from sitt.tz import IST
 
 # With --train and no --at, the question is asked this long before the train leaves, so
@@ -219,6 +226,14 @@ def format_answer(recommendation: Recommendation, focus: int | None = None) -> s
         rec.reason,
         "",
     ]
+    parts = part_requests(rec)
+    if parts:
+        lines.append("Ask each part:")
+        lines += [
+            f"  uv run sitt-next {a} {b} --date {when:%Y-%m-%d} --at {when:%H:%M}"
+            for a, b, when in parts
+        ]
+        lines.append("")
     if rec.options:
         lines += [format_table(rec, focus), ""]
     if focus is not None:
