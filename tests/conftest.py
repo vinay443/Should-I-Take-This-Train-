@@ -96,3 +96,23 @@ def loaded(con):
     """A database holding the sample timetable (invented Kalyan-CSMT trains)."""
     load_timetable(con, read_timetable(SAMPLE_CSV))
     return con
+
+
+HARBOUR_WORDS = Path(__file__).parent / "fixtures" / "cr_pdf_harbour_words.json"
+
+
+def harbour_csv(folder: Path) -> Path:
+    """Real Harbour DOWN trains (pages 1, 13 and 16 of its PDF) as a timetable CSV in
+    `folder`, converted from the word-position fixture. Load it with line="harbour"."""
+    import io
+    import json
+
+    from sitt.ingest.cr_pdf import Word, grid_trains, parse_grid, write_csv
+
+    pages = json.loads(HARBOUR_WORDS.read_text(encoding="utf-8"))["pages"]
+    grids = [parse_grid([Word(*w) for w in p["words"]], p["page"]) for p in pages]
+    out = io.StringIO()
+    write_csv(out, grid_trains(grids).trains, [], line="harbour")
+    path = folder / "harbour.csv"
+    path.write_text(out.getvalue(), encoding="utf-8")
+    return path

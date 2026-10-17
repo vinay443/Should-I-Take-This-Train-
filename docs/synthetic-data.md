@@ -8,7 +8,8 @@ anything about real trains.
 
 ## Generating it
 
-Load the real timetable first (see the [README](../README.md#setup)), then:
+Load the real timetable first (see the [README](../README.md#setup)), then (only the
+main line's trains are simulated; other lines in the database are left out):
 
 ```bash
 uv run python -m sitt.synth --weeks 16

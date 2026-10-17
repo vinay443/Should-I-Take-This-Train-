@@ -27,6 +27,23 @@ What moves the project next, in order:
 
 ## 2026-10-17
 
+### Item 26d: routes and model features per line (done, PR #54)
+- Found by loading the Harbour DOWN trains beside a copy of the real database: the route
+  model mapped place numbers to stations across all lines, so once Harbour was loaded,
+  "4th station" could be Dockyard Road instead of Byculla, giving main line fast trains
+  pass points at Harbour stations (and Harbour trains main line points). Route points now
+  use the train's own line's places (`station_lines`), and only main line trains get
+  pass points.
+- Model features: megablock ends are placed on the block's own line; the "train ahead"
+  and line median only use trains on the same line. The synthetic generator models the
+  main line only.
+- Real data: all 35 feature columns identical over 5,020 rows before and after, and again
+  with the Harbour line loaded beside it; `sitt-next` answers unchanged. With Harbour
+  loaded, `sitt-next CSMT PNVL` and `CLA VSH` answer from the timetable.
+- 5 new tests (3 fail on the old code; the block-placement and whole-feature-table ones
+  pass on it too, because the shared stations happen to have the same places on both
+  lines in the fixture: they pin the behaviour down for when they don't).
+
 ### Item 26c: a station on more than one line (done, PR #53)
 - New `station_lines` table: each line a station is on and its place there, recomputed by
   the loader from that line's trains. `stations.line`/`seq` are now the home line, the

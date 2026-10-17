@@ -33,7 +33,7 @@ from sitt.holidays import is_sunday_schedule
 from sitt.ingest.live.common import Observation
 from sitt.ingest.live.load import load
 from sitt.ingest.live.storage import COLUMNS, _day_dir, to_row
-from sitt.routes import Route, load_routes
+from sitt.routes import CORE_LINE, Route, line_station_seqs, load_routes
 from sitt.tz import IST
 
 SOURCE = "synthetic"
@@ -554,8 +554,9 @@ def build_database(
     if not timetable_db.exists():
         raise SynthError(f"no timetable database at {timetable_db}; load a timetable first")
     with duckdb.connect(str(timetable_db), read_only=True) as source:
-        routes = load_routes(source)
-        seqs = dict(source.execute("SELECT code, seq FROM stations").fetchall())
+        # The generator models the main line only (docs/synthetic-data.md).
+        routes = load_routes(source, line=CORE_LINE)
+        seqs = line_station_seqs(source).get(CORE_LINE, {})
     if not routes:
         raise SynthError(f"{timetable_db} has no timetable; load one first")
 

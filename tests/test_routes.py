@@ -38,3 +38,41 @@ def test_sunday_schedule_days():
     assert is_sunday_schedule(date(2026, 10, 2))  # Gandhi Jayanti, a Friday
     assert is_holiday(date(2026, 8, 15)) and not is_holiday(date(2026, 8, 14))
     assert not is_sunday_schedule(date(2026, 10, 5))
+
+
+def test_loading_the_harbour_line_leaves_main_line_routes_alone(loaded, tmp_path):
+    from conftest import harbour_csv
+
+    from sitt.ingest.timetable import load_timetable, read_timetable
+
+    before = {r.train_id: r for r in load_routes(loaded)}
+    load_timetable(loaded, read_timetable(harbour_csv(tmp_path), line="harbour"))
+    after = {r.train_id: r for r in load_routes(loaded)}
+    # Dockyard Road is 4th on the Harbour line, Byculla 4th on the main line: a fast
+    # train passing Byculla must still pass Byculla, not Dockyard Road.
+    assert {k: v for k, v in after.items() if k in before} == before
+
+    harbour = after["harbour-98001"]  # PL 1: CSMT to Panvel, calls everywhere
+    assert all(p.is_stop for p in harbour.points)  # nothing added between stops
+    codes = [p.station_code for p in harbour.points]
+    assert codes[7:9] == ["VDLR", "GTBN"] and codes[-1] == "PNVL"
+    seqs = [p.station_seq for p in harbour.points]
+    assert seqs == sorted(seqs) and seqs[0] == 1  # Harbour line places, CSMT first
+    places = dict(
+        loaded.execute("SELECT code, seq FROM station_lines WHERE line = 'harbour'").fetchall()
+    )
+    assert [places[c] for c in codes] == seqs
+
+
+def test_route_places_fall_back_to_stations():
+    # A database whose stations were written without the loader (no station_lines rows).
+    import duckdb
+
+    from sitt.db.database import SCHEMA_SQL
+    from sitt.routes import line_station_seqs
+
+    with duckdb.connect(":memory:") as con:
+        con.execute(SCHEMA_SQL)
+        con.execute("INSERT INTO stations VALUES ('CSMT', 'CSMT', 'central', 1)")
+        con.execute("INSERT INTO station_lines VALUES ('CSMT', 'harbour', 1)")
+        assert line_station_seqs(con) == {"central": {"CSMT": 1}, "harbour": {"CSMT": 1}}

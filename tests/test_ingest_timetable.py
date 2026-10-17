@@ -3,7 +3,7 @@ from textwrap import dedent
 
 import duckdb
 import pytest
-from conftest import SAMPLE_CSV
+from conftest import SAMPLE_CSV, harbour_csv
 
 from sitt.db import init_db
 from sitt.ingest.timetable import (
@@ -348,24 +348,6 @@ def test_parse_days_rejects(text):
 # --- A station on more than one line ----------------------------------------------------
 
 
-def _harbour_csv(tmp_path):
-    """Real Harbour DOWN trains (pages 1, 13 and 16 of its PDF), as a timetable CSV."""
-    import io
-    import json
-    from pathlib import Path
-
-    from sitt.ingest.cr_pdf import Word, grid_trains, parse_grid, write_csv
-
-    fixture = Path(__file__).parent / "fixtures" / "cr_pdf_harbour_words.json"
-    pages = json.loads(fixture.read_text(encoding="utf-8"))["pages"]
-    grids = [parse_grid([Word(*w) for w in p["words"]], p["page"]) for p in pages]
-    out = io.StringIO()
-    write_csv(out, grid_trains(grids).trains, [], line="harbour")
-    path = tmp_path / "harbour.csv"
-    path.write_text(out.getvalue(), encoding="utf-8")
-    return path
-
-
 STATIONS = "SELECT code, line, seq FROM stations ORDER BY code"
 SHARED = "SELECT code, line, seq FROM station_lines WHERE code IN ('CSMT', 'CLA') ORDER BY ALL"
 
@@ -375,7 +357,7 @@ def test_a_station_on_two_lines_keeps_its_main_line_place(con, tmp_path):
     main_only = con.execute(STATIONS).fetchall()
     before = next_trains(con, "KYN", "CSMT", datetime(2026, 9, 28, 7, 0), n=5)
 
-    load_timetable(con, read_timetable(_harbour_csv(tmp_path), line="harbour"))
+    load_timetable(con, read_timetable(harbour_csv(tmp_path), line="harbour"))
     # Every main line station is where it was: CSMT, Masjid, Sandhurst Road and Kurla too.
     assert [row for row in con.execute(STATIONS).fetchall() if row in main_only] == main_only
     # Each line has its own order; Kurla is 11th on the main line and 11th on the Harbour.
@@ -400,7 +382,7 @@ def test_a_station_on_two_lines_keeps_its_main_line_place(con, tmp_path):
 
 
 def test_the_order_lines_are_loaded_in_does_not_matter(tmp_path):
-    harbour = read_timetable(_harbour_csv(tmp_path), line="harbour")
+    harbour = read_timetable(harbour_csv(tmp_path), line="harbour")
     results = []
     for order in (("central", "harbour"), ("harbour", "central")):
         with init_db(":memory:") as con:
@@ -412,7 +394,7 @@ def test_the_order_lines_are_loaded_in_does_not_matter(tmp_path):
 
 def test_reloading_one_line_leaves_the_other_lines_places(con, tmp_path):
     load_timetable(con, read_timetable(SAMPLE_CSV))
-    load_timetable(con, read_timetable(_harbour_csv(tmp_path), line="harbour"))
+    load_timetable(con, read_timetable(harbour_csv(tmp_path), line="harbour"))
     harbour = "SELECT code, seq FROM station_lines WHERE line = 'harbour' ORDER BY code"
     kept = con.execute(harbour).fetchall()
     load_timetable(con, read_timetable(SAMPLE_CSV), replace=True)
