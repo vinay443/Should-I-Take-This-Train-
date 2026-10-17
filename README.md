@@ -94,7 +94,18 @@ is safe.
 
 ## Load the timetable
 
-Download four PDFs from Central Railway. Their URLs are at the top of
+**The short way.** Put the PDFs (below) in one folder and run:
+
+```bash
+uv run sitt-timetable-reload path/to/folder
+```
+
+It finds them by their contents, whatever they're called, makes a copy of the database
+first (`data/sitt-before-reload-<time>.duckdb`), converts and loads the main line, and the
+Harbour line too if its PDF is there. Readings and crowd reports are kept. Stop `sitt-web`
+first: it won't change a database that is in use. `--dry-run` only lists what it found.
+
+**Step by step.** Download four PDFs from Central Railway. Their URLs are at the top of
 [`src/sitt/ingest/cr_pdf.py`](src/sitt/ingest/cr_pdf.py): the main-line DOWN and UP
 timetables, and the AC and 15-car supplements. Then convert them to the project's CSV format
 ([`docs/timetable-format.md`](docs/timetable-format.md)):
@@ -217,6 +228,7 @@ Keeping an eye on it, and on the data:
 | Command | What it does |
 | --- | --- |
 | `uv run sitt-health` | Runs expected and recorded, gaps, source failures, matched trains, data freshness. `--telegram` sends a daily summary; `--alert-only` sends a message only when something is wrong ([`collector.md`](docs/collector.md#8-the-health-report)) |
+| `uv run sitt-timetable-reload FOLDER` | Reload the timetable from the PDFs in a folder, after backing up the database ([Load the timetable](#load-the-timetable)) |
 | `uv run sitt-patterns` | How late trains have really been, by part of the day and direction, and fast against slow: the web app's **Delay patterns** page as text. `--days weekday` or `weekend` once there are readings on 2+ days of each; `--markdown` for docs ([`web.md`](docs/web.md#delay-patterns)) |
 | `uv run sitt-dq` | Flags duplicates, implausible delays and timestamp mistakes; lists trains and stations the timetable doesn't know. Deletes nothing ([`data-quality.md`](docs/data-quality.md)) |
 | `uv run sitt-match-logs` | Matches older crowd reports to scheduled trains ([`crowding.md`](docs/crowding.md#matching-a-report-to-a-train)) |

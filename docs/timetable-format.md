@@ -115,6 +115,11 @@ so the services stay apart. `train_number` can then repeat.
 
 ## Loading
 
+`uv run sitt-timetable-reload FOLDER` does all of the below for the PDFs in a folder
+(recognised by SHA-256: `cr_pdf.KNOWN_SOURCES`, and `reload.HARBOUR_SOURCES` for the
+Harbour DOWN PDF), after copying the database aside. The rest of this section is what it
+runs.
+
 ```bash
 uv run python -m sitt.ingest.timetable path/to/timetable.csv
 ```

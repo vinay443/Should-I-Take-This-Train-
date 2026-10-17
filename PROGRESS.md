@@ -18,24 +18,21 @@ delay model is at 4 of 28 days. The timetable reload below had **not** happened 
 database still had 894 main line trains and no Harbour line; no `sitt-before-reload`
 copy): probably `sitt-web` was still running and held the database.
 
-**When you're back at the PC** (stop `sitt-web` first; the reload needs the database to
-itself). In the project folder, in PowerShell:
+**When you're back at the PC:** stop `sitt-web` (Ctrl+C in its window), then in the
+project folder:
 
 ```powershell
 git pull
 uv sync
-Copy-Item data\sitt.duckdb data\sitt-before-reload.duckdb
-uv run python -m sitt.ingest.cr_pdf scratch\cr-main-dn.pdf scratch\cr-main-up.pdf --ac-supplement scratch\cr-ac.pdf --15-car-supplement scratch\cr-15car.pdf -o scratch\central.csv
-uv run python -m sitt.ingest.timetable scratch\central.csv --replace
-uv run python -m sitt.ingest.cr_pdf scratch\part10\cr-harbour-dn.pdf --line harbour --edition 2026-05-01 -o scratch\harbour.csv
-uv run python -m sitt.ingest.timetable scratch\harbour.csv --line harbour --replace
+uv run sitt-timetable-reload scratch
 uv run sitt-web --host 0.0.0.0
 ```
 
-The first reload adds 95901 (T 15, the 08:04 AC fast from CSMT, 894 → 895 trains); the
-second adds the Harbour DOWN trains (312), which is optional. Both were run on a copy of
-your database: all 2,550 readings kept, main line answers unchanged. The copy made first
-is there in case anything looks wrong.
+The reload finds the PDFs already in `scratch` by their contents, copies the database to
+`data\sitt-before-reload-<time>.duckdb` first, and loads the main line (adds 95901, the
+08:04 AC fast from CSMT: 894 → 895 trains) and the Harbour DOWN trains (312). Run on a copy
+of your database: all readings kept. It refuses to touch the database while `sitt-web` has
+it, and says so.
 
 What moves the project next, in order:
 1. **More readings.** Press **Check live first** at different times over the next week or
@@ -50,6 +47,18 @@ What moves the project next, in order:
 4. Item 5 (2027 holidays) once Maharashtra publishes the list, usually Nov-Dec.
 
 ## 2026-10-17
+
+### Item 52: `sitt-timetable-reload FOLDER` (done, PR #67)
+- The seven reload commands didn't get run on the PC (the database was unchanged and there
+  was no backup). Now one command does it: finds the timetable PDFs in a folder by SHA-256
+  (wherever they sit and whatever they're called), checks nothing else has the database
+  (else "Stop sitt-web… Nothing was changed."), copies the database aside, converts and
+  loads the main line and, if its PDF is there, the Harbour line, and prints trains per line
+  and readings before → after, with why any trains were left out.
+- Run on a copy of the real database with the PDFs laid out as in your `scratch`: central
+  894 → 895, harbour 0 → 312, readings 2,550 → 2,550. 6 tests (busy database held by another
+  process, missing PDFs, a full run with the backup checked, dry run, backups never
+  overwrite).
 
 ### Item 51: independent review of item 50 (done, PR #64)
 A cold review of PR #63 (on the real data, in Chromium) found no Python problems and seven
