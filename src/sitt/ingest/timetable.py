@@ -28,6 +28,8 @@ import duckdb
 from sitt.db import init_db
 
 DEFAULT_LINE = "central"
+# A station on more than one line is at home on this one (stations.line; see the schema).
+PRIMARY_LINE = DEFAULT_LINE
 
 REQUIRED_COLUMNS = (
     "train_number",
@@ -453,7 +455,9 @@ def load_timetable(
 
     Each train in the timetable replaces any stored train with the same train_id.
     With `replace`, the line's trains that are not in the timetable are removed too.
-    Station `seq` is recomputed from every train on the line after the load.
+    Station `seq` is recomputed from every train on the line after the load, in
+    `station_lines`. A station on more than one line keeps the main line as its home line
+    in `stations` (see the schema), so loading another line never moves it.
     """
     line = timetable.line
     trains = timetable.trains
@@ -511,7 +515,7 @@ def load_timetable(
             """
             INSERT INTO stations (code, name, line, seq)
             SELECT code, name, ?, 0 FROM load_stations
-            ON CONFLICT (code) DO UPDATE SET name = excluded.name, line = excluded.line
+            ON CONFLICT (code) DO UPDATE SET name = excluded.name
             """,
             [line],
         )
@@ -605,8 +609,23 @@ def _update_station_seq(con: duckdb.DuckDBPyConnection, line: str) -> None:
         {"code": "VARCHAR", "seq": "INTEGER"},
         [{"code": code, "seq": seq} for seq, code in enumerate(order, start=1)],
     )
+    con.execute("DELETE FROM station_lines WHERE line = ?", [line])
     con.execute(
-        "UPDATE stations SET seq = o.seq FROM load_station_seq o WHERE stations.code = o.code"
+        "INSERT INTO station_lines (code, line, seq) SELECT code, ?, seq FROM load_station_seq",
+        [line],
+    )
+    # Each station's home line: the main line if it is on it, else the first by name.
+    con.execute(
+        """
+        UPDATE stations SET line = h.line, seq = h.seq
+        FROM (
+            SELECT code, arg_min(line, (line <> ?, line)) AS line,
+                   arg_min(seq, (line <> ?, line)) AS seq
+            FROM station_lines GROUP BY code
+        ) h
+        WHERE stations.code = h.code
+        """,
+        [PRIMARY_LINE, PRIMARY_LINE],
     )
 
 

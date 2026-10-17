@@ -1,4 +1,4 @@
-from datetime import time
+from datetime import datetime, time
 from textwrap import dedent
 
 import duckdb
@@ -13,6 +13,7 @@ from sitt.ingest.timetable import (
     parse_days,
     read_timetable,
 )
+from sitt.timetable import next_trains
 
 HEADER = (
     "train_number,destination,service_type,direction,station_code,station_name,"
@@ -342,3 +343,94 @@ def test_parse_days(text, mask):
 def test_parse_days_rejects(text):
     with pytest.raises(ValueError):
         parse_days(text)
+
+
+# --- A station on more than one line ----------------------------------------------------
+
+
+def _harbour_csv(tmp_path):
+    """Real Harbour DOWN trains (pages 1, 13 and 16 of its PDF), as a timetable CSV."""
+    import io
+    import json
+    from pathlib import Path
+
+    from sitt.ingest.cr_pdf import Word, grid_trains, parse_grid, write_csv
+
+    fixture = Path(__file__).parent / "fixtures" / "cr_pdf_harbour_words.json"
+    pages = json.loads(fixture.read_text(encoding="utf-8"))["pages"]
+    grids = [parse_grid([Word(*w) for w in p["words"]], p["page"]) for p in pages]
+    out = io.StringIO()
+    write_csv(out, grid_trains(grids).trains, [], line="harbour")
+    path = tmp_path / "harbour.csv"
+    path.write_text(out.getvalue(), encoding="utf-8")
+    return path
+
+
+STATIONS = "SELECT code, line, seq FROM stations ORDER BY code"
+SHARED = "SELECT code, line, seq FROM station_lines WHERE code IN ('CSMT', 'CLA') ORDER BY ALL"
+
+
+def test_a_station_on_two_lines_keeps_its_main_line_place(con, tmp_path):
+    load_timetable(con, read_timetable(SAMPLE_CSV))
+    main_only = con.execute(STATIONS).fetchall()
+    before = next_trains(con, "KYN", "CSMT", datetime(2026, 9, 28, 7, 0), n=5)
+
+    load_timetable(con, read_timetable(_harbour_csv(tmp_path), line="harbour"))
+    # Every main line station is where it was: CSMT, Masjid, Sandhurst Road and Kurla too.
+    assert [row for row in con.execute(STATIONS).fetchall() if row in main_only] == main_only
+    # Each line has its own order; Kurla is 11th on the main line and 11th on the Harbour.
+    assert con.execute(SHARED).fetchall() == [
+        ("CLA", "central", 11),
+        ("CLA", "harbour", 11),
+        ("CSMT", "central", 1),
+        ("CSMT", "harbour", 1),
+    ]
+    harbour = dict(
+        con.execute("SELECT code, seq FROM station_lines WHERE line = 'harbour'").fetchall()
+    )
+    assert harbour["VDLR"] < harbour["GTBN"] < harbour["PNVL"]
+    assert con.execute("SELECT line, seq FROM stations WHERE code = 'PNVL'").fetchone() == (
+        "harbour",
+        harbour["PNVL"],
+    )
+    # Main line answers are unchanged, and Harbour trains answer too.
+    assert next_trains(con, "KYN", "CSMT", datetime(2026, 9, 28, 7, 0), n=5) == before
+    (first,) = next_trains(con, "CSMT", "PNVL", datetime(2026, 9, 28, 0, 0), n=1)
+    assert first.number == "98001"  # PL 1, CSMT 00:13
+
+
+def test_the_order_lines_are_loaded_in_does_not_matter(tmp_path):
+    harbour = read_timetable(_harbour_csv(tmp_path), line="harbour")
+    results = []
+    for order in (("central", "harbour"), ("harbour", "central")):
+        with init_db(":memory:") as con:
+            for line in order:
+                load_timetable(con, harbour if line == "harbour" else read_timetable(SAMPLE_CSV))
+            results.append((con.execute(STATIONS).fetchall(), con.execute(SHARED).fetchall()))
+    assert results[0] == results[1]
+
+
+def test_reloading_one_line_leaves_the_other_lines_places(con, tmp_path):
+    load_timetable(con, read_timetable(SAMPLE_CSV))
+    load_timetable(con, read_timetable(_harbour_csv(tmp_path), line="harbour"))
+    harbour = "SELECT code, seq FROM station_lines WHERE line = 'harbour' ORDER BY code"
+    kept = con.execute(harbour).fetchall()
+    load_timetable(con, read_timetable(SAMPLE_CSV), replace=True)
+    assert con.execute(harbour).fetchall() == kept
+
+
+def test_station_lines_is_filled_in_for_an_older_database(tmp_path):
+    path = tmp_path / "old.duckdb"
+    with duckdb.connect(str(path)) as old:  # `stations` before station_lines existed
+        old.execute(
+            "CREATE TABLE stations (code VARCHAR PRIMARY KEY, name VARCHAR NOT NULL, "
+            "line VARCHAR NOT NULL, seq INTEGER NOT NULL)"
+        )
+        old.execute("INSERT INTO stations VALUES ('CSMT', 'CSMT', 'central', 1)")
+        old.execute("INSERT INTO stations VALUES ('KYN', 'Kalyan', 'central', 26)")
+    init_db(path).close()
+    with init_db(path) as con:  # twice: copied across once
+        assert con.execute("SELECT code, line, seq FROM station_lines ORDER BY seq").fetchall() == [
+            ("CSMT", "central", 1),
+            ("KYN", "central", 26),
+        ]

@@ -10,17 +10,32 @@
 --     so rows stay readable and ingest scripts can upsert by natural key.
 
 
--- Stations on a suburban line, e.g. ('KYN', 'Kalyan', 'central', 30).
--- `seq` orders stations along the line, starting at the CSMT end, and is used to
--- work out direction and distance between stops. A station on more than one line
--- (e.g. Thane) currently takes the line we care about. If we need more than one,
--- split this into stations + station_lines.
+-- Stations, e.g. ('KYN', 'Kalyan', 'central', 30).
+-- `line` and `seq` are the station's home line and its place on it, from the CSMT end;
+-- they are used to work out direction and distance between stops. A station on more than
+-- one line (CSMT, Masjid, Sandhurst Road and Kurla are on the main and Harbour lines) is at
+-- home on 'central' when it is on it, whatever order the lines were loaded in, so main
+-- line positions never change when another line is loaded. Its place on every line it is
+-- on is in `station_lines` below.
 CREATE TABLE IF NOT EXISTS stations (
     code    VARCHAR PRIMARY KEY,
     name    VARCHAR NOT NULL,
     line    VARCHAR NOT NULL,
     seq     INTEGER NOT NULL
 );
+
+-- Each line a station is on, and its place on that line from the CSMT end, as worked out
+-- by the timetable loader from that line's trains. Databases made before this table
+-- existed had one line per station; the INSERT copies that across once.
+CREATE TABLE IF NOT EXISTS station_lines (
+    code    VARCHAR NOT NULL,
+    line    VARCHAR NOT NULL,
+    seq     INTEGER NOT NULL,
+    PRIMARY KEY (code, line)
+);
+INSERT INTO station_lines (code, line, seq)
+SELECT code, line, seq FROM stations
+WHERE seq > 0 AND code NOT IN (SELECT code FROM station_lines);
 
 
 -- A single scheduled service, e.g. the 08:12 Kalyan -> CSMT fast.

@@ -136,8 +136,12 @@ conflict with the station order of trains already loaded, the load is rolled bac
 
 Limitations, inherited from the schema:
 
-- A station belongs to one line. Loading a second line that shares a station, such as the
-  Harbour line at CSMT, moves that station to the line loaded last.
+- A station can be on more than one line (CSMT, Masjid, Sandhurst Road and Kurla are on the
+  main and Harbour lines). Its place on each line is in `station_lines`, worked out from
+  that line's trains. `stations.line` and `stations.seq` give its home line, which is the
+  main line whenever it is on it, whatever order the lines are loaded in, so loading
+  another line never moves a main line station. (Before 2026-10-17 a shared station moved
+  to the line loaded last.)
 - Stations are never deleted, even when no train calls there any more.
 
 From Python:
@@ -283,9 +287,9 @@ uv run python -m sitt.ingest.cr_pdf "DN HB REVISED PTT WEF 01.05.2026.pdf" --lin
 
 The DOWN PDF gives 312 trains; 39 are left out with a warning: 37 Trans-Harbour trains from
 Thane and 91491 to Borivali (they run beyond the table; see the module's docstring), and
-98193, whose "#" marker nothing on the page explains. Loading the result is not supported
-yet: a station belongs to one line (see "Loading"), and CSMT, Masjid, Sandhurst Road and
-Kurla are on both.
+98193, whose "#" marker nothing on the page explains. The result loads with
+`--line harbour` beside the main line (see "Loading"); the recommender and the apps don't
+offer Harbour routes yet (PLAN.md, item 26).
 
 The converter prints one line per override applied, and the CSV's header comment records how
 many there were. Then load the CSV as usual.
