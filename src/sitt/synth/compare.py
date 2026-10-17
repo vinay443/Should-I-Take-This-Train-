@@ -84,9 +84,10 @@ def real_runs(con: duckdb.DuckDBPyConnection) -> list[tuple]:
 
 def neighbours(con: duckdb.DuckDBPyConnection, codes: set[str]) -> set[str]:
     """The stations next to `codes` in main line order, and the codes themselves."""
-    rows = con.execute(
-        "SELECT code, seq FROM station_lines WHERE line = 'central' ORDER BY seq"
-    ).fetchall()
+    from sitt.routes import CORE_LINE, line_station_seqs
+
+    main = line_station_seqs(con).get(CORE_LINE, {})
+    rows = sorted(main.items(), key=lambda item: item[1])
     order = [code for code, _ in rows]
     found = set(codes)
     for i, code in enumerate(order):

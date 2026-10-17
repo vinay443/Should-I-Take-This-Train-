@@ -112,19 +112,26 @@ def load_routes(con: duckdb.DuckDBPyConnection, line: str | None = None) -> list
     return routes
 
 
+def station_places_sql(con: duckdb.DuckDBPyConnection) -> str:
+    """A FROM item with (code, line, seq): every line each station is on and its place.
+
+    That is `station_lines`. A database it hasn't reached yet (made before it existed and
+    not opened for writing since, or written without the timetable loader) has only
+    `stations`, with one line per station, and that is used instead.
+    """
+    filled = (
+        con.execute(
+            "SELECT count(*) FROM information_schema.tables WHERE table_name = 'station_lines'"
+        ).fetchone()[0]
+        and con.execute("SELECT count(*) FROM station_lines").fetchone()[0]
+    )
+    return "station_lines" if filled else "(SELECT code, line, seq FROM stations)"
+
+
 def line_station_seqs(con: duckdb.DuckDBPyConnection) -> dict[str, dict[str, int]]:
-    """{line: {station code: place on that line}}, from station_lines, and from stations
-    for a station whose home line isn't there (a database written without the loader)."""
+    """{line: {station code: place on that line}} (see station_places_sql)."""
     out: dict[str, dict[str, int]] = {}
-    rows = con.execute(
-        """
-        SELECT code, line, seq FROM station_lines
-        UNION ALL
-        SELECT code, line, seq FROM stations s
-        WHERE NOT EXISTS (
-            SELECT 1 FROM station_lines l WHERE l.code = s.code AND l.line = s.line)
-        """
-    ).fetchall()
+    rows = con.execute(f"SELECT code, line, seq FROM {station_places_sql(con)}").fetchall()
     for code, line, seq in rows:
         out.setdefault(line, {})[code] = seq
     return out

@@ -27,6 +27,18 @@ What moves the project next, in order:
 
 ## 2026-10-17
 
+### Review of the Harbour round (items 26a-26e): fix 1 of 3 (PR #56)
+A cold review of PRs #51-#55 found nine issues (two high). This PR fixes:
+- HIGH: on a database not yet opened for writing since `station_lines` was added (the
+  PC's, right after a pull), `sitt-next` and the web app's recommendations crashed: they
+  open the database without applying the schema. Places now come from `station_lines`
+  when it has rows and from `stations` otherwise. Checked on an untouched copy of the real
+  database: `sitt-next` answers and `/api/recommend` returns 200.
+- LOW: the one-time copy into `station_lines` ran on every schema apply, so a station
+  dropped from a line by a `--replace` load came back. It now runs into an empty table
+  only.
+3 new tests, all failing on the old code.
+
 ### Item 26e: Harbour routes in the web app and bot (done, PR #55)
 - CSMT to Kurla is served by both lines. The crowding rule's "train ahead" was simply the
   previous train listed, so a cancelled Harbour train made the next main line train look
