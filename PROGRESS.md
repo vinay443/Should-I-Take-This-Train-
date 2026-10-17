@@ -27,6 +27,23 @@ What moves the project next, in order:
 
 ## 2026-10-17
 
+### Item 49: independent review of round 12 (done, PR #61)
+A cold review of PRs #59-#60 on the real data (Harbour DOWN loaded) found five issues, none
+high. Fixed:
+1. MEDIUM: Kalyan → Chunabhatti (also → Vadala Road, Thane → GTB Nagar) was routed into
+   CSMT and back out and called "quickest": the natural change at Kurla needs Harbour
+   trains towards CSMT, which aren't loaded. Now a journey whose first train passes such a
+   station before its change isn't offered, and the reply says the Harbour line has no
+   trains towards CSMT loaded.
+2. MEDIUM: Panvel → Kalyan said "ask for each part separately", but the Harbour part can't
+   be answered. It now says why.
+3. LOW: Kurla → Bandra and Bandra → Vashi said only "No single train…"; they now add that a
+   change may need Harbour trains towards CSMT, which aren't loaded.
+5. LOW: a second train after midnight is marked "after midnight".
+Noted, not changed: (4) a no-train answer runs about 24 timetable queries (0.6 s on the
+real data), only when there is no train at all. Kalyan → Panvel, Thane → Vashi and the docs'
+example are unchanged. 2 new tests (fail on the old code); docs/recommender.md says so.
+
 ### Item 48: the quickest journey with one change (done, PR #60)
 - Kalyan → Panvel (real timetable, Monday 08:00) now says: "Quickest with one change on
   these two lines, by the timetable: the 08:04 fast, changing at Kurla (arrives 08:46) to

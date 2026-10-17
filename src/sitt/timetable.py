@@ -167,6 +167,62 @@ def line_name(line: str) -> str:
     return LINE_NAMES.get(line, f"{line.capitalize()} line")
 
 
+def _covering(con: duckdb.DuckDBPyConnection, first: str, second: str) -> list[tuple[str, str]]:
+    """(line, direction) of trains calling at `first` and then at `second`."""
+    return con.execute(
+        """
+        SELECT DISTINCT t.line, t.direction FROM trains t
+        JOIN scheduled_stops a ON a.train_id = t.train_id AND a.station_code = ?
+        JOIN scheduled_stops b ON b.train_id = t.train_id AND b.station_code = ?
+        WHERE a.stop_seq < b.stop_seq
+        """,
+        [first, second],
+    ).fetchall()
+
+
+def _missing_direction(
+    con: duckdb.DuckDBPyConnection, first: str, second: str
+) -> tuple[str, str] | None:
+    """(line, direction) when trains on a line run from `second` to `first` but that line's
+    timetable for the other direction isn't loaded at all, so nothing runs from `first` to
+    `second` on it: (harbour, up) for Kurla to Chunabhatti with only the Harbour DOWN PDF."""
+    if _covering(con, first, second):
+        return None
+    for line, direction in _covering(con, second, first):
+        wanted = "up" if direction == "down" else "down"
+        (count,) = con.execute(
+            "SELECT count(*) FROM trains WHERE line = ? AND direction = ?", [line, wanted]
+        ).fetchone()
+        if not count:
+            return line, wanted
+    return None
+
+
+def _not_loaded_text(line: str, direction: str) -> str:
+    """'the Harbour line timetable loaded here has no trains towards CSMT (only its DOWN
+    timetable is loaded)'."""
+    other = "DOWN" if direction == "up" else "UP"
+    return (
+        f"the {line_name(line)} timetable loaded here has no trains "
+        f"{DIRECTION_NAMES[direction]} (only its {other} timetable is loaded)"
+    )
+
+
+def _lines_without_a_direction(con: duckdb.DuckDBPyConnection, lines: set[str]) -> list:
+    """(line, direction) for each of `lines` that has trains one way only."""
+    out = []
+    for line in sorted(lines):
+        have = {
+            d
+            for (d,) in con.execute(
+                "SELECT DISTINCT direction FROM trains WHERE line = ?", [line]
+            ).fetchall()
+        }
+        if len(have) == 1:
+            out.append((line, "up" if have == {"down"} else "down"))
+    return out
+
+
 def no_train_reason(
     con: duckdb.DuckDBPyConnection,
     origin_code: str,
@@ -182,7 +238,9 @@ def no_train_reason(
     train calls at both (two branches of one line).
 
     For stations on different lines, given `when` (naive Mumbai time), it also names the
-    quickest journey with one change by the timetable (see `one_change`).
+    quickest journey with one change by the timetable (see `one_change`), unless a part of
+    the natural journey runs in a direction whose timetable isn't loaded: then it says so
+    rather than send you the long way round.
     """
     from sitt.routes import station_places_sql
 
@@ -202,24 +260,12 @@ def no_train_reason(
         names.get(destination_code, destination_code),
     )
 
-    def covering(first: str, second: str) -> list[tuple[str, str]]:
-        """(line, direction) of trains calling at `first` and then at `second`."""
-        return con.execute(
-            """
-            SELECT DISTINCT t.line, t.direction FROM trains t
-            JOIN scheduled_stops a ON a.train_id = t.train_id AND a.station_code = ?
-            JOIN scheduled_stops b ON b.train_id = t.train_id AND b.station_code = ?
-            WHERE a.stop_seq < b.stop_seq
-            """,
-            [first, second],
-        ).fetchall()
-
-    if covering(origin_code, destination_code):
+    if _covering(con, origin_code, destination_code):
         return None
     shared = lines_of[origin_code] & lines_of[destination_code]
     if not shared:
         meet = [
-            names.get(code, code)
+            code
             for (code,) in con.execute(
                 f"""
                 SELECT code FROM {places} GROUP BY code
@@ -233,35 +279,56 @@ def no_train_reason(
             f"{origin} is on the {_lines_text(lines_of[origin_code])}, "
             f"{destination} on the {_lines_text(lines_of[destination_code])}"
         )
-        where = f" They meet at {_and(meet)}: ask for each part separately." if meet else ""
-        codes = {name: code for code, name in names.items()}
-        best = one_change(con, origin_code, destination_code, when, [codes[m] for m in meet])
+        meet_names = _and([names.get(code, code) for code in meet]) if meet else ""
+        # A part of the journey whose direction isn't loaded: from the origin to where the
+        # lines meet, or from there to the destination.
+        missing = {
+            m
+            for code in meet
+            for m in (
+                _missing_direction(con, origin_code, code),
+                _missing_direction(con, code, destination_code),
+            )
+            if m is not None
+        }
+        avoid = {code for code in meet if _missing_direction(con, code, destination_code)}
+        best = one_change(con, origin_code, destination_code, when, meet, avoid=avoid)
         if best is not None:
             first, change_at, second = best
+            after = " after midnight" if second.departure.date() > first.departure.date() else ""
             where = (
                 " Quickest with one change on these two lines, by the timetable: the "
                 f"{first.departure:%H:%M} {first.train_type}"
                 f"{_day_after(first.departure, when)}, changing at "
                 f"{names.get(change_at, change_at)} (arrives {first.arrival:%H:%M}) to the "
-                f"{second.departure:%H:%M} {second.train_type}, at {destination} "
+                f"{second.departure:%H:%M} {second.train_type}{after}, at {destination} "
                 f"{second.arrival:%H:%M}. Ask for each part to see delays and crowding."
             )
-        return f"No train runs from {origin} to {destination} without a change: {on}.{where}"
-    reverse = covering(destination_code, origin_code)
-    if reverse:
-        line, direction = reverse[0]
-        wanted = "up" if direction == "down" else "down"
-        (count,) = con.execute(
-            "SELECT count(*) FROM trains WHERE line = ? AND direction = ?", [line, wanted]
-        ).fetchone()
-        if not count:
-            return (
-                f"The {line_name(line)} timetable loaded here has no trains "
-                f"{DIRECTION_NAMES[wanted]}, so none from {origin} to {destination}: only "
-                f"its {'DOWN' if direction == 'down' else 'UP'} timetable is loaded "
-                '(README, "Load the timetable").'
+        elif missing:
+            line, direction = sorted(missing)[0]
+            where = (
+                f" They meet at {meet_names}, but {_not_loaded_text(line, direction)}, so the "
+                "part on it can't be worked out yet."
             )
-    return f"No single train in the timetable runs from {origin} to {destination}."
+        elif meet:
+            where = f" They meet at {meet_names}: ask for each part separately."
+        else:
+            where = ""
+        return f"No train runs from {origin} to {destination} without a change: {on}.{where}"
+    if (missing := _missing_direction(con, origin_code, destination_code)) is not None:
+        line, direction = missing
+        text = _not_loaded_text(line, direction)
+        return f"{text[0].upper()}{text[1:]}, so none from {origin} to {destination}."
+    reason = f"No single train in the timetable runs from {origin} to {destination}."
+    lacking = _lines_without_a_direction(con, shared)
+    if lacking:
+        line, direction = lacking[0]
+        other = "DOWN" if direction == "up" else "UP"
+        reason += (
+            f" A journey with a change may need {line_name(line)} trains "
+            f"{DIRECTION_NAMES[direction]}, and only its {other} timetable is loaded."
+        )
+    return reason
 
 
 # Minutes allowed to change trains between lines (a walk across the station, e.g. from the
@@ -279,20 +346,29 @@ def one_change(
     destination_code: str,
     when: datetime | None,
     interchanges: list[str],
+    avoid: set[str] = frozenset(),
 ) -> tuple[ScheduledTrip, str, ScheduledTrip] | None:
     """The journey with one change at one of `interchanges` that arrives first by the
     timetable, leaving at or after `when`: (first train, where to change, second train).
     At least CHANGE_MINUTES and at most MAX_WAIT_MINUTES between them; ladies' specials are
-    left out. Ties go to the
-    one that leaves latest (less waiting). None if `when` is None or nothing fits."""
+    left out. Ties go to the one that leaves latest (less waiting). None if `when` is None
+    or nothing fits.
+
+    `avoid` are interchanges where the natural change can't be worked out (its onward
+    direction isn't loaded). A journey whose first train calls at one of them before its
+    own change would be the long way round (Kalyan to Chunabhatti via CSMT instead of
+    Kurla), so it isn't offered.
+    """
     if when is None:
         return None
     best = None
     for change_at in interchanges:
-        if change_at in (origin_code, destination_code):
+        if change_at in (origin_code, destination_code) or change_at in avoid:
             continue
         for first in next_trains(con, origin_code, change_at, when, n=CHANGE_CANDIDATES):
             if first.is_ladies_special:
+                continue
+            if avoid and _calls_between(con, first.train_id, origin_code, change_at) & avoid:
                 continue
             seconds = [
                 trip
@@ -313,6 +389,24 @@ def one_change(
             if best is None or key < best[0]:
                 best = (key, (first, change_at, second))
     return best[1] if best else None
+
+
+def _calls_between(con: duckdb.DuckDBPyConnection, train_id: str, a: str, b: str) -> set[str]:
+    """Stations `train_id` calls at after `a` and before `b`."""
+    return {
+        code
+        for (code,) in con.execute(
+            """
+            SELECT s.station_code FROM scheduled_stops s
+            WHERE s.train_id = $t
+              AND s.stop_seq > (SELECT stop_seq FROM scheduled_stops
+                                WHERE train_id = $t AND station_code = $a)
+              AND s.stop_seq < (SELECT stop_seq FROM scheduled_stops
+                                WHERE train_id = $t AND station_code = $b)
+            """,
+            {"t": train_id, "a": a, "b": b},
+        ).fetchall()
+    }
 
 
 def _day_after(moment: datetime, when: datetime | None) -> str:
