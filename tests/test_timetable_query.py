@@ -168,3 +168,40 @@ def test_the_recommendation_gives_the_reason(both_lines):
     rec = recommend(both_lines, "KYN", "PNVL", at(MONDAY, "08:00"), model_dir=None)
     assert rec.choice is None and rec.options == []
     assert rec.reason.startswith("No train runs from Kalyan to Panvel without a change")
+
+
+def test_stations_on_different_lines_get_the_quickest_journey_with_one_change(both_lines):
+    from sitt.timetable import no_train_reason
+
+    # Sample main line train 90101 (Kalyan 04:15, Kurla 05:09), then Harbour 98009 from
+    # Kurla at 05:17 (Vadala Road PLVD 1): 8 minutes to change.
+    assert no_train_reason(both_lines, "KYN", "PNVL", at(MONDAY, "04:00")) == (
+        "No train runs from Kalyan to Panvel without a change: Kalyan is on the Central line, "
+        "Panvel on the Harbour line. Quickest with one change on these two lines, by the "
+        "timetable: the 04:15 slow, changing at Kurla (arrives 05:09) to the 05:17 slow, at "
+        "Panvel 06:08. Ask for each part to see delays and crowding."
+    )
+    # Asked later, the same journey is tomorrow's, and says so.
+    later = no_train_reason(both_lines, "KYN", "PNVL", at(MONDAY, "17:00"))
+    assert "the 04:15 slow tomorrow, changing at Kurla" in later
+
+
+def test_one_change_needs_time_to_change_and_not_too_long_a_wait(both_lines, monkeypatch):
+    from sitt import timetable
+
+    def journey():
+        return timetable.one_change(both_lines, "KYN", "PNVL", at(MONDAY, "04:00"), ["CLA"])
+
+    first, change_at, second = journey()
+    assert change_at == "CLA" and second.departure - first.arrival == timedelta(minutes=8)
+    # Needing 9 minutes to change, the 05:17 from Kurla is missed.
+    monkeypatch.setattr(timetable, "CHANGE_MINUTES", 9)
+    found = journey()
+    assert found is None or found[2].departure - found[0].arrival >= timedelta(minutes=9)
+    # Allowing at most 7 minutes of waiting, it is too long a wait.
+    monkeypatch.setattr(timetable, "CHANGE_MINUTES", 5)
+    monkeypatch.setattr(timetable, "MAX_WAIT_MINUTES", 7)
+    found = journey()
+    assert found is None or found[2].departure - found[0].arrival <= timedelta(minutes=7)
+    assert found is None or found[2].train_id != second.train_id
+    assert timetable.one_change(both_lines, "KYN", "PNVL", None, ["CLA"]) is None

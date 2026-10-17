@@ -27,6 +27,20 @@ What moves the project next, in order:
 
 ## 2026-10-17
 
+### Item 48: the quickest journey with one change (done, PR #60)
+- Kalyan → Panvel (real timetable, Monday 08:00) now says: "Quickest with one change on
+  these two lines, by the timetable: the 08:04 fast, changing at Kurla (arrives 08:46) to
+  the 08:53 slow, at Panvel 09:45. Ask for each part to see delays and crowding." Thane →
+  Vashi changes at Kurla too; late at night the times run past midnight correctly.
+- Rules: the first 6 trains to each station both lines call at; at least 5 minutes to
+  change (a guess), at most 60 minutes of waiting; no ladies' specials; earliest arrival,
+  then latest departure. The day is named when it isn't today ("the 04:15 slow tomorrow").
+  Both limits were added after the fixture data suggested a 9-hour wait at CSMT and a
+  04:15 train without saying it was tomorrow.
+- Known limit, in docs/recommender.md: only the Central and Harbour lines are known, so
+  Dadar → Goregaon goes via Sandhurst Road rather than the Western line.
+- 2 new tests (fail on the old code).
+
 ### Item 47: say why there is no train (done, PR #59)
 - Found in item 46: with the Harbour DOWN trains loaded, Panvel → CSMT and Kalyan → Panvel
   answered "No trains found in the timetable for the next day", which is wrong about the

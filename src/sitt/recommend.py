@@ -599,7 +599,7 @@ def recommend(
         )
 
     choice, reason, rule = choose(options, settings)
-    if not options and (why := no_train_reason(con, origin_code, destination_code)):
+    if not options and (why := no_train_reason(con, origin_code, destination_code, local_now)):
         reason = why  # e.g. two lines, or a direction whose timetable isn't loaded
     return Recommendation(
         origin=names.get(origin_code, origin_code),
