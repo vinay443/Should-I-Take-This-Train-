@@ -2,21 +2,33 @@
 
 Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
-## Where this stopped (2026-10-16, 23:30)
+## Where this stopped (2026-10-17, 15:00)
 
-**Everything is merged (PRs #26-#44) and running on your PC.** Live checks through the app
-worked three times tonight (21:08: 123 readings, 22:30: 112, 23:21: 88), on the latest
-version. PLAN.md rounds 6-9 are done.
+**Everything is merged (PRs #46-#49).** Round 11 is done: weekdays vs weekends on Delay
+patterns (turns itself on once trains have been seen on 2+ weekdays and 2+ weekend days or
+holidays), Undo for a crowd report logged by mistake (15 minutes, page reports only),
+progress towards a delay model on Delay patterns, and a cold review whose six findings are
+fixed. On your PC: `git pull`, `uv sync`, then restart `uv run sitt-web --host 0.0.0.0` to
+get them (the page tells the phone to update on its next load).
 
-Nothing self-directed is left that is worth doing before one of these happens:
+Not done this session, and why:
+- **Harbour line (item 26):** still blocked. No folder was connected, and this workspace
+  still gets 403 from cr.indianrailways.gov.in. The shared-station groundwork (2-3 days:
+  schema, loader, queries, bot) was not started blind: docs/expansion-assessment.md advises
+  against expanding before there is live data for that line, and there is nothing to check
+  the refactor against yet.
+- Nothing else self-directed is left that is worth more than it costs; coverage is 93%,
+  and the gaps are the Streamlit dashboard (tested another way) and a manual probe tool.
+
+What moves the project next, in order:
 1. **More readings.** Press **Check live first** at different times over the next week or
-   two, including a weekend. Then: item 40 (weekday vs weekend in Delay patterns), and
-   `uv run sitt-retrain` once it says there is enough real data for a model.
-2. **Harbour line (item 26).** Put the two Harbour PDFs (`DN HB REVISED PTT WEF
-   01.05.2026.pdf` and the UP one, from Central Railway's timetable page) in the project
-   folder, or connect the folder to the session; this workspace can't reach that site.
-   Expect several days of work (docs/expansion-assessment.md).
-3. **Mobond permission**, for live CSMT-Kalyan locals (docs/data-sources.md).
+   two, including a weekend. Delay patterns then shows the weekday/weekend switch by itself,
+   and "Towards a delay model" shows how close `uv run sitt-retrain` is (28 days needed).
+2. **Harbour PDFs** (`DN HB REVISED PTT WEF 01.05.2026.pdf` and the UP one) in the project
+   folder, or connect the folder to the session.
+3. **Mobond permission**, for live CSMT-Kalyan, Harbour and Western locals
+   (docs/data-sources.md).
+4. Item 5 (2027 holidays) once Maharashtra publishes the list, usually Nov-Dec.
 
 ## 2026-10-17
 
