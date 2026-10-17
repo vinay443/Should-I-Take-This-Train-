@@ -266,9 +266,10 @@ Every test run warns that Starlette's TestClient over `httpx` is deprecated. Mov
 Starlette recommends (or pin) so real warnings stand out. **Done when:** `pytest` runs with
 no warnings, on Linux and Windows CI.
 
-### 40. Delay patterns: weekdays vs weekends — [ ] (waits on data)
-Once real readings cover at least two weekends, add a weekday/weekend toggle to `/patterns`
-and `sitt-patterns`. Not before: with two days of data it would only show noise.
+### 40. Delay patterns: weekdays vs weekends — [x]
+Rather than wait for the data, built now and shown only when the data allows: the switch on
+`/patterns` and `sitt-patterns --days` appear once readings cover at least 2 weekdays and 2
+weekend days or holidays; until then both say how many of each there are so far.
 
 ### 41. Independent review of round 10 — [ ]
 

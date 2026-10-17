@@ -184,11 +184,58 @@ function verdict(data) {
 
 // ---------- page ----------
 
+const KIND_PARAM = "days";
+let current = null; // the numbers on show: every day, or one kind of day
+
+/** "3 weekdays and 1 weekend day or holiday", like sitt-patterns. */
+function kindsText(data) {
+  const days = Object.fromEntries(data.day_kinds.map((k) => [k.key, k.days]));
+  const s = (n) => (n === 1 ? "" : "s");
+  return `${days.weekday} weekday${s(days.weekday)} and ${days.weekend} weekend day${s(days.weekend)} or holiday${s(days.weekend)}`;
+}
+
+/** The whole data with one kind of day's numbers in place of the all-days ones. */
+function viewOf(data, kind) {
+  if (kind === "all" || !data.split_ready || !data.by_kind[kind]) return { ...data, kind: "all" };
+  return { ...data, ...data.by_kind[kind], kind };
+}
+
+function summaryText(view) {
+  const kind = view.kind === "all" ? "" : `${view.day_kinds.find((k) => k.key === view.kind).label}: `;
+  if (!view.runs) return `${kind}no trains seen.`;
+  return `${kind}${view.runs} trains seen at ${view.stations.join(", ")}, ${dateText(view.first_day)}${view.last_day !== view.first_day ? ` to ${dateText(view.last_day)}` : ""} (${view.days} day${view.days === 1 ? "" : "s"}).`;
+}
+
+function daysPicker(data, chosen) {
+  if (!data.split_ready) return;
+  const options = [{ key: "all", label: "All days" }, ...data.day_kinds];
+  $("days-toggle").replaceChildren(...options.map((o) => el("label", {},
+    el("input", { type: "radio", name: "days", value: o.key, checked: o.key === chosen }),
+    ` ${o.label}`)));
+  $("days-toggle").addEventListener("change", (event) => {
+    const kind = event.target.value;
+    const url = new URL(location.href);
+    if (kind === "all") url.searchParams.delete(KIND_PARAM); else url.searchParams.set(KIND_PARAM, kind);
+    history.replaceState(null, "", url);
+    showView(viewOf(data, kind));
+  });
+  $("days-pick").hidden = false;
+}
+
+function showView(view) {
+  current = view;
+  $("summary").textContent = summaryText(view);
+  verdict(view);
+  bandTable(view);
+  drawCharts(view);
+  $("types").replaceChildren(...view.by_type.map((t) =>
+    el("li", {}, el("strong", { text: t.type === "fast" ? "Fast trains" : "Slow trains" }),
+      `: median ${minutes(t.median)} late, ${pct(t.share_late)} were ${view.late_minutes}+ min late (${t.runs} trains).`)));
+}
+
 function render(data) {
-  $("summary").textContent = data.runs
-    ? `${data.runs} trains seen at ${data.stations.join(", ")}, ${dateText(data.first_day)}${data.last_day !== data.first_day ? ` to ${dateText(data.last_day)}` : ""} (${data.days} day${data.days === 1 ? "" : "s"}).`
-    : "No real readings yet.";
   if (!data.runs) {
+    $("summary").textContent = "No real readings yet.";
     $("message").textContent = "There are no real readings to show yet. Press Check live first on the main page (or run uv run sitt-collect) a few times, at different times of day, and come back.";
     $("message").hidden = false;
     return;
@@ -200,24 +247,25 @@ function render(data) {
   $("caveat").replaceChildren(
     el("strong", { text: thin ? "Early days. " : "Read with care. " }),
     `${data.runs} trains over ${data.days} day${data.days === 1 ? "" : "s"} at ${data.stations.length} station${data.stations.length === 1 ? "" : "s"}. `,
-    thin ? "One bad morning can move these numbers a lot, and weekdays, weekends and monsoon days aren't told apart yet. " : "",
+    thin ? "One bad morning can move these numbers a lot. " : "",
+    data.split_ready
+      ? "Monsoon days aren't told apart yet. "
+      : `Weekdays and weekends are shown apart once there are readings on at least ${data.split_min_days} of each; so far ${kindsText(data)}. `,
     "Delays are what NTES last said before the train's time, not measured departures.",
   );
-  verdict(data);
+  const asked = new URLSearchParams(location.search).get(KIND_PARAM);
+  const view = viewOf(data, asked || "all");
   $("content").hidden = false; // before drawing: the charts are sized to the page
-  bandTable(data);
-  drawCharts(data);
+  daysPicker(data, view.kind);
+  showView(view);
   let lastWidth = $("charts").clientWidth;
   let timer;
   window.addEventListener("resize", () => {
     clearTimeout(timer);
     timer = setTimeout(() => {
-      if ($("charts").clientWidth !== lastWidth) { lastWidth = $("charts").clientWidth; drawCharts(data); }
+      if ($("charts").clientWidth !== lastWidth) { lastWidth = $("charts").clientWidth; drawCharts(current); }
     }, 150);
   });
-  $("types").replaceChildren(...data.by_type.map((t) =>
-    el("li", {}, el("strong", { text: t.type === "fast" ? "Fast trains" : "Slow trains" }),
-      `: median ${minutes(t.median)} late, ${pct(t.share_late)} were ${data.late_minutes}+ min late (${t.runs} trains).`)));
 }
 
 async function start() {

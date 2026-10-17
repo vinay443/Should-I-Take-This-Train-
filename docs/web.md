@@ -50,6 +50,16 @@ Hours or parts of the day resting on fewer than 5 trains are drawn pale and mark
 to go by", and a note at the top says how many trains, days and stations it all rests on.
 With no real readings yet the page says so and how to collect some.
 
+**Weekdays and weekends.** Once the readings cover at least 2 weekdays (Monday to Friday)
+and 2 weekend days or holidays (Saturday, Sunday, and the days in `src/sitt/holidays.py`
+on which the Sunday timetable runs), a **Days** switch appears above the board: All days,
+Weekdays, Weekends & holidays. The choice is kept in the address (`/patterns?days=weekend`),
+so it survives a reload or a bookmark. Before that the caveat says how many of each there
+are so far; with fewer a split would only show noise. A train after midnight belongs to
+the day before (the 03:00 service day), so the 00:30 early on a Saturday counts as Friday.
+In the terminal: `uv run sitt-patterns --days weekday` (or `weekend`); without `--days` the
+report ends with the same sentence on how far the readings are.
+
 It describes the past; the recommender does the predicting. Code: `src/sitt/patterns.py`.
 The same tables in a terminal: `uv run sitt-patterns` (`--markdown` for docs).
 The Streamlit dashboard's delay heatmaps count every reading instead, so a train seen four
@@ -121,18 +131,25 @@ past them, and that opening other pages (the API docs, raw
 JSON) never replaces the kept main page, at phone and desktop width in light and dark,
 saving screenshots to a temp folder. Checked 2026-10-16: all checks pass.
 
+`scripts/check_web_patterns.py` checks the Delay patterns weekday/weekend switch the same
+way, on two invented databases: with one weekend day the switch stays hidden and the caveat
+says what is missing; with two, the switch changes the numbers, keeps the choice in the
+address and across a reload, at phone and desktop width in light and dark. Checked
+2026-10-17: all checks pass.
+
 ## Accessibility
 
 `scripts/check_web_a11y.py` runs [axe-core](https://github.com/dequelabs/axe-core) (free, from
 npm) on the main page with a train's details and "Why this train?" open, on the offline
-"Not live" view and on Delay patterns, at phone and desktop width, light and dark:
+"Not live" view and on Delay patterns (all days and the weekend view), at phone and desktop
+width, light and dark:
 
 ```bash
 npm install --prefix /tmp/axe axe-core@4.10.3
 python3 scripts/check_web_a11y.py --axe /tmp/axe/node_modules/axe-core/axe.min.js
 ```
 
-Checked 2026-10-16: no violations. axe also lists what it couldn't decide ("check by
+Checked 2026-10-17 (with the weekend view): no violations. axe also lists what it couldn't decide ("check by
 hand"): on Delay patterns that is the chart's axis labels and text under the tooltip, all
 6:1 or better worked out by hand. Its first run found the board's later rows (2.3:1) and
 the green "on time" text in light mode (4.2:1) below the 4.5:1 minimum, chart bars with a

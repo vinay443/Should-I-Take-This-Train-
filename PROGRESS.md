@@ -18,6 +18,25 @@ Nothing self-directed is left that is worth doing before one of these happens:
    Expect several days of work (docs/expansion-assessment.md).
 3. **Mobond permission**, for live CSMT-Kalyan locals (docs/data-sources.md).
 
+## 2026-10-17
+
+### Item 40: weekdays vs weekends in Delay patterns (done, PR #46)
+- Built now, shown only when the data allows, so it turns itself on as readings come in:
+  once there are readings on at least 2 weekdays (Mon-Fri) and 2 weekend days or holidays
+  (Sat, Sun, and the Sunday-timetable holidays in `sitt.holidays`), `/patterns` gets a
+  **Days** switch (All days / Weekdays / Weekends & holidays, kept in the address as
+  `?days=weekend`) and `sitt-patterns --days weekday|weekend` works. Before that, the
+  page's caveat and the end of `sitt-patterns` say how many of each there are so far.
+- `/api/patterns` adds `day_kinds`, `split_ready`, `split_min_days` and `by_kind`; each
+  section has its own runs, days, dates and stations.
+- Fixed on the way: Delay patterns counted days by calendar date, so a train due at 00:30
+  added a day; it now uses the 03:00 service day, like runs. Test fails on the old code.
+- New `scripts/check_web_patterns.py` (Chromium): hidden with one weekend day, and with
+  two it changes the numbers, keeps the choice across a reload, no sideways scrolling, at
+  390/1280 px light/dark. The a11y check now uses a week of invented readings and audits
+  the weekend view: no violations. 5 new tests; the 4 for the new behaviour fail on the
+  old code.
+
 ## 2026-10-16
 
 ### Tests could reach Central Railway's site (fixed, PR #44)

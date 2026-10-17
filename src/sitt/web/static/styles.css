@@ -350,6 +350,9 @@ button[disabled] { opacity: .55; cursor: progress; }
 
 /* ---- delay patterns ---- */
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.days-pick { border: 0; padding: 0; margin: 0 0 1rem; min-width: 0; }
+.days-pick legend { font-size: .9rem; color: var(--ink-soft); margin-bottom: .3rem; padding: 0; }
+.days-pick .toggle label { padding: .35rem .5rem; text-align: center; line-height: 1.2; }
 .caveat {
   margin: 0 0 .5rem; padding: .75rem 1rem; border-radius: 8px;
   background: color-mix(in srgb, var(--led) 14%, var(--surface));

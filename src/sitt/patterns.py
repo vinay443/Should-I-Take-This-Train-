@@ -8,6 +8,10 @@ readings understate delays.
 
 Only real (not synthetic) readings of suburban trains are used. Small cells are kept but
 marked, so the page can say how little a number rests on.
+
+Weekdays (Monday to Friday) and weekends (Saturday, Sunday and the holidays in
+sitt.holidays) are also given apart, by the run's service day, but only once there are
+readings on at least SPLIT_MIN_DAYS days of each: before that a split would show noise.
 """
 
 import math
@@ -15,6 +19,7 @@ from dataclasses import asdict, dataclass
 
 import duckdb
 
+from sitt.holidays import FIXED_HOLIDAYS, movable_dates
 from sitt.models.live_drift import CLOSE_MINUTES, runs_ctes
 from sitt.tz import mumbai_sql
 
@@ -23,6 +28,10 @@ MIN_RUNS = 5
 LATE_MINUTES = 5  # "late" for the share of late runs
 
 DIRECTIONS = {"up": "Towards CSMT", "down": "Away from CSMT"}
+
+# Weekdays vs weekends and holidays: shown apart only with readings on this many days of each.
+SPLIT_MIN_DAYS = 2
+DAY_KINDS = {"weekday": "Weekdays", "weekend": "Weekends & holidays"}
 
 # Parts of the day, by scheduled hour at the station. Hours run 0-23; 'night' wraps.
 BANDS = (
@@ -55,22 +64,41 @@ def _band_sql() -> str:
     return "CASE " + " ".join(cases) + " END"
 
 
-def _runs_sql() -> str:
-    """One row per run: direction, train type, station, scheduled local hour, final delay."""
+def _kind_sql(day: str) -> str:
+    """'weekend' for a Saturday, Sunday or holiday (fixed or movable), else 'weekday'."""
+    fixed = ", ".join(f"'{month:02d}-{dom:02d}'" for month, dom in sorted(FIXED_HOLIDAYS))
+    movable = ", ".join(f"DATE '{d.isoformat()}'" for d in sorted(movable_dates()))
+    holiday = f"strftime({day}, '%m-%d') IN ({fixed})"
+    if movable:
+        holiday += f" OR {day} IN ({movable})"
+    return f"CASE WHEN isodow({day}) >= 6 OR {holiday} THEN 'weekend' ELSE 'weekday' END"
+
+
+def _runs_sql(kind: str | None = None) -> str:
+    """One row per run: direction, train type, station, scheduled local hour, final delay,
+    service day and its kind. `kind` keeps only weekday or weekend runs."""
     local = mumbai_sql("f.scheduled")
+    where = f"WHERE kind = '{kind}'" if kind else ""
+    if kind not in (None, *DAY_KINDS):
+        raise ValueError(f"unknown kind of day: {kind}")
     return f"""
-        WITH {runs_ctes(suburban_only=True)}, runs AS (
+        WITH {runs_ctes(suburban_only=True)}, days AS (
             SELECT t.direction, t.train_type, f.station_code, f.d_final AS delay,
-                   hour({local}) AS hour, CAST({local} AS DATE) AS day, f.last_seen
+                   hour({local}) AS hour,
+                   -- The service day (03:00 to 03:00), so a 00:30 train is part of the
+                   -- day before, as its run is.
+                   CAST(f.run_key AS DATE) AS day, f.last_seen
             FROM final f JOIN trains t USING (train_id)
+        ), runs AS (
+            SELECT * FROM (SELECT *, {_kind_sql("day")} AS kind FROM days) {where}
         )
     """
 
 
-def _cells(con: duckdb.DuckDBPyConnection, group: str) -> list[Cell]:
+def _cells(con: duckdb.DuckDBPyConnection, group: str, kind: str | None = None) -> list[Cell]:
     rows = con.execute(
         f"""
-        {_runs_sql()}
+        {_runs_sql(kind)}
         SELECT direction, CAST({group} AS VARCHAR) AS key, count(*), median(delay),
                quantile_cont(delay, 0.9), avg((delay >= {LATE_MINUTES})::INT)
         FROM runs GROUP BY ALL ORDER BY direction, min(hour)
@@ -82,28 +110,28 @@ def _cells(con: duckdb.DuckDBPyConnection, group: str) -> list[Cell]:
     ]
 
 
-def delay_patterns(con: duckdb.DuckDBPyConnection) -> dict:
-    """Everything the /patterns page shows, as JSON-ready data."""
-    hours = _cells(con, "hour")
-    bands = _cells(con, _band_sql())
-    (runs, days, stations, first, last) = con.execute(
+def _section(con: duckdb.DuckDBPyConnection, kind: str | None = None) -> dict:
+    """The numbers the page draws, for all runs or for one kind of day."""
+    hours = _cells(con, "hour", kind)
+    bands = _cells(con, _band_sql(), kind)
+    runs, days, stations, first, last = con.execute(
         f"""
-        {_runs_sql()}
-        SELECT count(*), count(DISTINCT day), list(DISTINCT station_code ORDER BY station_code),
-               min(day), max(day)
+        {_runs_sql(kind)}
+        SELECT count(*), count(DISTINCT day),
+               list(DISTINCT station_code ORDER BY station_code), min(day), max(day)
         FROM runs
         """
     ).fetchone()
     by_type = con.execute(
         f"""
-        {_runs_sql()}
+        {_runs_sql(kind)}
         SELECT train_type, count(*), median(delay), avg((delay >= {LATE_MINUTES})::INT)
         FROM runs GROUP BY ALL ORDER BY train_type
         """
     ).fetchall()
     by_direction = con.execute(
         f"""
-        {_runs_sql()}
+        {_runs_sql(kind)}
         SELECT direction, count(*), median(delay), quantile_cont(delay, 0.9),
                avg((delay >= {LATE_MINUTES})::INT)
         FROM runs GROUP BY ALL ORDER BY direction DESC
@@ -115,14 +143,6 @@ def delay_patterns(con: duckdb.DuckDBPyConnection) -> dict:
         "stations": stations or [],
         "first_day": first.isoformat() if first else None,
         "last_day": last.isoformat() if last else None,
-        "min_runs": MIN_RUNS,
-        "late_minutes": LATE_MINUTES,
-        "close_minutes": CLOSE_MINUTES,
-        "directions": [{"key": key, "label": label} for key, label in DIRECTIONS.items()],
-        "bands": [
-            {"key": key, "label": label, "from": start, "to": end}
-            for key, label, start, end in BANDS
-        ],
         "by_band": [asdict(cell) for cell in bands],
         "by_hour": [asdict(cell) | {"key": int(cell.key)} for cell in hours],
         "by_direction": [
@@ -137,16 +157,89 @@ def delay_patterns(con: duckdb.DuckDBPyConnection) -> dict:
             for direction, n, med, p90, late in by_direction
         ],
         "by_type": [
-            {"type": kind, "runs": int(n), "median": float(med), "share_late": float(late)}
-            for kind, n, med, late in by_type
+            {"type": kind_, "runs": int(n), "median": float(med), "share_late": float(late)}
+            for kind_, n, med, late in by_type
         ],
     }
 
 
-def format_report(data: dict, markdown: bool = False) -> str:
-    """The /patterns page as text: a summary line, the part-of-day table, fast vs slow."""
+def delay_patterns(con: duckdb.DuckDBPyConnection) -> dict:
+    """Everything the /patterns page shows, as JSON-ready data.
+
+    The top-level numbers cover every day. `day_kinds` says how many days and runs of each
+    kind there are; `by_kind` has the same numbers per kind, only once `split_ready`.
+    """
+    counts = dict(
+        (kind, (int(days), int(runs)))
+        for kind, days, runs in con.execute(
+            f"{_runs_sql()} SELECT kind, count(DISTINCT day), count(*) FROM runs GROUP BY kind"
+        ).fetchall()
+    )
+    day_kinds = [
+        {
+            "key": key,
+            "label": label,
+            "days": counts.get(key, (0, 0))[0],
+            "runs": counts.get(key, (0, 0))[1],
+        }
+        for key, label in DAY_KINDS.items()
+    ]
+    split_ready = all(k["days"] >= SPLIT_MIN_DAYS for k in day_kinds)
+    return {
+        **_section(con),
+        "min_runs": MIN_RUNS,
+        "late_minutes": LATE_MINUTES,
+        "close_minutes": CLOSE_MINUTES,
+        "directions": [{"key": key, "label": label} for key, label in DIRECTIONS.items()],
+        "bands": [
+            {"key": key, "label": label, "from": start, "to": end}
+            for key, label, start, end in BANDS
+        ],
+        "day_kinds": day_kinds,
+        "split_min_days": SPLIT_MIN_DAYS,
+        "split_ready": split_ready,
+        "by_kind": {key: _section(con, key) for key in DAY_KINDS} if split_ready else {},
+    }
+
+
+def _kinds_text(data: dict) -> str:
+    """'3 weekdays and 1 weekend day or holiday'."""
+    counts = {k["key"]: k["days"] for k in data["day_kinds"]}
+    weekdays, weekend = counts["weekday"], counts["weekend"]
+    return (
+        f"{weekdays} weekday{'' if weekdays == 1 else 's'} and {weekend} weekend "
+        f"day{'' if weekend == 1 else 's'} or holiday{'' if weekend == 1 else 's'}"
+    )
+
+
+def split_note(data: dict) -> str:
+    """One sentence on whether weekdays and weekends can be shown apart yet."""
+    if data["split_ready"]:
+        return (
+            f"Readings on {_kinds_text(data)}: use --days weekday or --days weekend "
+            "to see them apart."
+        )
+    return (
+        f"Weekdays and weekends are shown apart once there are readings on at least "
+        f"{data['split_min_days']} of each; so far {_kinds_text(data)}."
+    )
+
+
+def format_report(data: dict, markdown: bool = False, days: str | None = None) -> str:
+    """The /patterns page as text: a summary line, the part-of-day table, fast vs slow.
+
+    `days` ('weekday' or 'weekend') shows only that kind of day; it needs `split_ready`.
+    """
     if not data["runs"]:
         return "No real readings yet: run `uv run sitt-collect` a few times, then try again."
+    if days:
+        if not data["split_ready"]:
+            return split_note(data)
+        section = data["by_kind"][days]
+        label = DAY_KINDS[days]
+        data = data | section
+        if not data["runs"]:  # can't happen while split_ready, but say so plainly
+            return f"No trains seen on {label.lower()}."
     labels = {d["key"]: d["label"] for d in data["directions"]}
     cells = {(c["direction"], c["key"]): c for c in data["by_band"]}
     span = data["first_day"] + (
@@ -158,6 +251,8 @@ def format_report(data: dict, markdown: bool = False) -> str:
         f"{data['late_minutes']}+ min late; trains. * = fewer than {data['min_runs']} trains.",
         "",
     ]
+    if days:
+        lines[0] = f"{label} only: {lines[0]}"
 
     def cell_text(cell: dict | None) -> str:
         if cell is None:
@@ -181,6 +276,8 @@ def format_report(data: dict, markdown: bool = False) -> str:
         ],
         markdown,
     )
+    if not days:
+        lines += ["", split_note(data)]
     return "\n".join(lines)
 
 
@@ -220,6 +317,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--db", type=Path, help="database (default SITT_DB_PATH)")
     parser.add_argument("--markdown", action="store_true", help="Markdown tables, for docs")
+    parser.add_argument(
+        "--days",
+        choices=("all", *DAY_KINDS),
+        default="all",
+        help="only weekdays (Mon-Fri) or weekends and holidays; needs readings on "
+        f"{SPLIT_MIN_DAYS}+ days of each",
+    )
     args = parser.parse_args(argv)
     db = args.db or load_settings().db_path
     if not Path(db).exists():
@@ -230,7 +334,10 @@ def main(argv: list[str] | None = None) -> int:
         data = delay_patterns(con)
     finally:
         con.close()
-    print(format_report(data, args.markdown))
+    days = None if args.days == "all" else args.days
+    print(format_report(data, args.markdown, days))
+    if days and not data["split_ready"]:
+        return 1
     return 0 if data["runs"] else 1
 
 
