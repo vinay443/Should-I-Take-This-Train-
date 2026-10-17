@@ -65,8 +65,9 @@
     <section class="answer" id="answer" hidden aria-labelledby="reason">
       <p class="stale-note" id="stale" role="alert" hidden></p>
       <div class="board" id="board" aria-hidden="true"></div>
-      <p class="reason" id="reason"></p>
-      <div class="change" id="change" hidden></div>
+      <p class="back" id="back" hidden><button type="button" class="link" id="back-button"></button></p>
+      <p class="reason" id="reason" tabindex="-1"></p>
+      <div class="change" id="change" role="group" aria-labelledby="change-label" hidden></div>
       <p class="basis" id="basis"></p>
       <details class="about" id="about">
         <summary id="about-summary">About these times</summary>

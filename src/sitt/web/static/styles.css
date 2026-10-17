@@ -306,6 +306,10 @@ button[disabled] { opacity: .55; cursor: progress; }
 
 .change { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin: 0 0 1rem; }
 .change > span { color: var(--ink-soft); font-size: .95rem; }
+.back { margin: 0 0 .25rem; }
+.back .link { padding-left: 0; }
+.reason:focus { outline: none; }
+.reason:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .loading .reason, .loading .trains { opacity: .45; transition: opacity .15s; }
 
 /* The trip folded to one line (small screens only, once there is an answer). */

@@ -316,7 +316,19 @@ def no_train_answer(
             if m is not None
         }
         avoid = {code for code in meet if _missing_direction(con, code, destination_code)}
-        best = one_change(con, origin_code, destination_code, when, meet, avoid=avoid)
+        # Some way from the origin needs a direction that isn't loaded: then a journey that
+        # goes away from CSMT and back towards it (Dockyard Road to Byculla via Kurla)
+        # stands in for the direct one, and isn't offered.
+        out_and_back = any(_missing_direction(con, origin_code, code) for code in meet)
+        best = one_change(
+            con,
+            origin_code,
+            destination_code,
+            when,
+            meet,
+            avoid=avoid,
+            no_out_and_back=out_and_back,
+        )
         if best is not None:
             first, change_at, second = best
             journey = Journey(origin_code, change_at, destination_code, first, second)
@@ -375,6 +387,7 @@ def one_change(
     when: datetime | None,
     interchanges: list[str],
     avoid: set[str] = frozenset(),
+    no_out_and_back: bool = False,
 ) -> tuple[ScheduledTrip, str, ScheduledTrip] | None:
     """The journey with one change at one of `interchanges` that arrives first by the
     timetable, leaving at or after `when`: (first train, where to change, second train).
@@ -385,7 +398,8 @@ def one_change(
     `avoid` are interchanges where the natural change can't be worked out (its onward
     direction isn't loaded). A journey whose first train calls at one of them before its
     own change would be the long way round (Kalyan to Chunabhatti via CSMT instead of
-    Kurla), so it isn't offered.
+    Kurla), so it isn't offered. With `no_out_and_back`, neither is a journey whose first
+    train runs away from CSMT and whose second runs back towards it.
     """
     if when is None:
         return None
@@ -413,6 +427,8 @@ def one_change(
             if not seconds:
                 continue
             second = seconds[0]
+            if no_out_and_back and (first.direction, second.direction) == ("down", "up"):
+                continue
             key = (second.arrival, -first.departure.timestamp())
             if best is None or key < best[0]:
                 best = (key, (first, change_at, second))

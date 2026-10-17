@@ -211,7 +211,8 @@ def no_train_checks(browser, url: str) -> None:
     )
     check(shown == [True, True, True], f"a train again: basis, heading and why back ({shown})")
 
-    # A journey with one change: a button for each part asks for it, from that train's time.
+    # A journey with one change: a button for each part asks for it, from that train's time,
+    # without replacing the trip you asked about.
     change = {"from": "KYN", "at": "TNA", "to": "CSMT"} | {
         "first_departs": "2026-10-19T08:04+05:30",
         "second_departs": "2026-10-19T08:53+05:30",
@@ -221,20 +222,68 @@ def no_train_checks(browser, url: str) -> None:
     page.click("#go")
     page.wait_for_selector("#change:not([hidden]) button")
     page.unroute("**/api/recommend*")
+    url_before = page.url
+    route_before = page.evaluate("localStorage.getItem('last-route')")
     buttons = page.locator("#change button").all_text_contents()
     check(
-        len(buttons) == 2 and buttons[0].endswith(", 08:04") and buttons[1].endswith(", 08:53"),
+        len(buttons) == 2 and ", 08:04" in buttons[0] and ", 08:53" in buttons[1],
         f"one change: a button for each part ({buttons})",
     )
+    named = page.locator("#change button").nth(1).get_attribute("aria-label") or ""
+    check(named.startswith("Ask Thane to "), f"part buttons are named for speech ({named!r})")
+    page.locator("#change button").nth(1).focus()
     with page.expect_request("**/api/recommend*") as asked:
-        page.locator("#change button").nth(1).click()
+        page.keyboard.press("Enter")
     query = asked.value.url.split("?", 1)[1]
     check(
         all(p in query for p in ("from=TNA", "to=CSMT", "at=08%3A53", "date=2026-10-19")),
         f"the second part is asked from its train's time ({query})",
     )
     page.wait_for_selector("#answer .trains li")
+    page.wait_for_function("document.activeElement && document.activeElement.id === 'reason'")
     check(page.is_hidden("#change"), "an ordinary answer has no change buttons")
+    check(
+        page.url == url_before
+        and page.evaluate("localStorage.getItem('last-route')") == route_before,
+        "a part asked doesn't replace the address or the remembered route",
+    )
+    back = page.inner_text("#back-button") if page.is_visible("#back-button") else ""
+    check(back.startswith("← Back to "), f"a way back to the whole trip ({back!r})")
+    with page.expect_request("**/api/recommend*") as asked:
+        page.click("#back-button")
+    query = asked.value.url.split("?", 1)[1]
+    check(
+        "at=" not in query and "from=TNA" not in query, f"back asks the whole trip again ({query})"
+    )
+    try:
+        page.wait_for_selector("#back", state="hidden", timeout=5000)
+        gone = True
+    except Exception:
+        gone = False
+    check(gone, "no way back once back")
+
+    # The PC can't be reached: a saved answer with a change offers no part buttons.
+    page.route("**/api/recommend*", lambda route: route.fulfill(json=empty | {"change": change}))
+    page.click("#edit-trip") if page.is_visible("#edit-trip") else None
+    page.click("#go")
+    page.wait_for_selector("#change:not([hidden]) button")
+    page.route("**/api/recommend*", lambda route: route.abort())
+    page.click("#edit-trip") if page.is_visible("#edit-trip") else None
+    page.click("#go")
+    page.wait_for_selector("#stale:not([hidden])")
+    check(page.is_hidden("#change"), "offline, a saved answer offers no part buttons")
+    page.unroute("**/api/recommend*")
+
+    # A saved route chip asks "leaving now", even after a part set a time.
+    page.click("#edit-trip") if page.is_visible("#edit-trip") else None
+    page.check('input[name="when"][value="later"]')
+    page.fill("#at", "08:53")
+    page.click("#save")
+    chip = page.locator("#saved .route-chip button").first
+    with page.expect_request("**/api/recommend*") as asked:
+        chip.click()
+    query = asked.value.url.split("?", 1)[1]
+    check("at=" not in query, f"a route chip asks leaving now ({query})")
     context.close()
 
 
