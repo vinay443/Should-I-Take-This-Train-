@@ -187,7 +187,7 @@ function verdict(data) {
 const KIND_PARAM = "days";
 let current = null; // the numbers on show: every day, or one kind of day
 
-/** "3 weekdays and 1 weekend day or holiday", like sitt-patterns. */
+/** "3 weekdays and 1 weekend day or holiday" (days with trains seen), like sitt-patterns. */
 function kindsText(data) {
   const days = Object.fromEntries(data.day_kinds.map((k) => [k.key, k.days]));
   const s = (n) => (n === 1 ? "" : "s");
@@ -222,9 +222,24 @@ function daysPicker(data, chosen) {
   $("days-pick").hidden = false;
 }
 
+/** How much the numbers on show rest on: for the view chosen, not every day. */
+function caveat(view) {
+  const thin = view.days < 7 || view.stations.length < 2;
+  $("caveat").replaceChildren(
+    el("strong", { text: thin ? "Early days. " : "Read with care. " }),
+    `${view.runs} trains over ${view.days} day${view.days === 1 ? "" : "s"} at ${view.stations.length} station${view.stations.length === 1 ? "" : "s"}. `,
+    thin ? "One bad morning can move these numbers a lot. " : "",
+    view.split_ready
+      ? "Monsoon days aren't told apart yet. "
+      : `Weekdays and weekends are shown apart once trains have been seen on at least ${view.split_min_days} days of each; so far ${kindsText(view)}. `,
+    "Delays are what NTES last said before the train's time, not measured departures.",
+  );
+}
+
 function showView(view) {
   current = view;
   $("summary").textContent = summaryText(view);
+  caveat(view);
   verdict(view);
   bandTable(view);
   drawCharts(view);
@@ -263,16 +278,6 @@ function render(data) {
   $("late-def").textContent = `${data.late_minutes}+ minutes`;
   $("min-runs").textContent = String(data.min_runs);
   $("close").textContent = String(data.close_minutes);
-  const thin = data.days < 7 || data.stations.length < 2;
-  $("caveat").replaceChildren(
-    el("strong", { text: thin ? "Early days. " : "Read with care. " }),
-    `${data.runs} trains over ${data.days} day${data.days === 1 ? "" : "s"} at ${data.stations.length} station${data.stations.length === 1 ? "" : "s"}. `,
-    thin ? "One bad morning can move these numbers a lot. " : "",
-    data.split_ready
-      ? "Monsoon days aren't told apart yet. "
-      : `Weekdays and weekends are shown apart once there are readings on at least ${data.split_min_days} of each; so far ${kindsText(data)}. `,
-    "Delays are what NTES last said before the train's time, not measured departures.",
-  );
   const asked = new URLSearchParams(location.search).get(KIND_PARAM);
   const view = viewOf(data, asked || "all");
   $("content").hidden = false; // before drawing: the charts are sized to the page

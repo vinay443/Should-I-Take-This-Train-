@@ -146,7 +146,11 @@ def test_split_waits_for_two_days_of_each_kind(loaded):
     result = patterns.delay_patterns(loaded)
     assert result["split_ready"] is False and result["by_kind"] == {}
     assert result["split_min_days"] == patterns.SPLIT_MIN_DAYS == 2
-    assert "so far 2 weekdays and 1 weekend day or holiday." in patterns.split_note(result)
+    note = patterns.split_note(result)
+    assert note == (
+        "Weekdays and weekends are shown apart once trains have been seen on at least 2 days "
+        "of each; so far 2 weekdays and 1 weekend day or holiday."
+    )
 
     run(loaded, "central-90106", "07:12", 2, day=5)  # Sunday
     result = patterns.delay_patterns(loaded)
@@ -173,7 +177,7 @@ def test_cli_days(tmp_path, capsys):
         run(con, "central-90106", "07:12", 0, day=4)
     assert patterns.main(["--db", str(db)]) == 0
     assert (
-        "on at least 2 of each; so far 2 weekdays and 1 weekend day or holiday.\n"
+        "on at least 2 days of each; so far 2 weekdays and 1 weekend day or holiday.\n"
         in capsys.readouterr().out
     )
     assert patterns.main(["--db", str(db), "--days", "weekend"]) == 1
@@ -237,3 +241,11 @@ def test_cli_ends_with_the_model_progress(tmp_path, capsys):
     assert patterns.main(["--db", str(db)]) == 0
     last = capsys.readouterr().out.rstrip().splitlines()[-1]
     assert last.startswith("Delay model: not enough real readings yet (days with observations 1")
+
+
+def test_model_progress_without_a_model_registry(loaded):
+    # A database made before sitt-retrain existed has no model_registry table.
+    run(loaded, "central-90106", "07:12", 10)
+    loaded.execute("DROP TABLE model_registry")
+    model = patterns.model_progress(loaded)
+    assert model["in_use"] is None and model["gates"][0]["have"] == 1

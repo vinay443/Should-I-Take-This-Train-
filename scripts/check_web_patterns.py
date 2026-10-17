@@ -89,7 +89,7 @@ def not_ready(browser, url: str) -> None:
     check(page.is_hidden("#days-pick"), "too few weekend days: no Days switch")
     caveat = page.text_content("#caveat")
     check(
-        "so far 4 weekdays and 1 weekend day or holiday" in caveat,
+        "seen on at least 2 days of each; so far 4 weekdays and 1 weekend day or holiday" in caveat,
         f"caveat says what is missing ({caveat!r})",
     )
     check(not errors, f"no script errors ({errors})")
@@ -123,6 +123,15 @@ def ready(browser, url: str, out: Path) -> None:
                 f"{tag}: weekend summary ({summary!r})",
             )
             check("ON TIME" in page.text_content("#verdict-board"), f"{tag}: weekend verdict")
+            caveat = page.text_content("#caveat")
+            check(
+                caveat.startswith("Early days. 8 trains over 2 days at 1 station."),
+                f"{tag}: caveat follows the weekend view ({caveat[:50]!r})",
+            )
+            check(
+                page.get_attribute("#summary", "aria-live") == "polite",
+                f"{tag}: the summary line announces the switch",
+            )
             check(page.url.endswith("/patterns?days=weekend"), f"{tag}: choice in the address")
             caveat = page.text_content("#caveat")
             check(

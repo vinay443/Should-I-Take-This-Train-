@@ -53,21 +53,28 @@ Hours or parts of the day resting on fewer than 5 trains are drawn pale and mark
 to go by", and a note at the top says how many trains, days and stations it all rests on.
 With no real readings yet the page says so and how to collect some.
 
-**Weekdays and weekends.** Once the readings cover at least 2 weekdays (Monday to Friday)
-and 2 weekend days or holidays (Saturday, Sunday, and the days in `src/sitt/holidays.py`
-on which the Sunday timetable runs), a **Days** switch appears above the board: All days,
-Weekdays, Weekends & holidays. The choice is kept in the address (`/patterns?days=weekend`),
-so it survives a reload or a bookmark. Before that the caveat says how many of each there
-are so far; with fewer a split would only show noise. A train after midnight belongs to
-the day before (the 03:00 service day), so the 00:30 early on a Saturday counts as Friday.
-In the terminal: `uv run sitt-patterns --days weekday` (or `weekend`); without `--days` the
-report ends with the same sentence on how far the readings are.
+**Weekdays and weekends.** Once trains have been seen (runs, as above) on at least 2
+weekdays (Monday to Friday) and 2 weekend days or holidays, a **Days** switch appears above
+the board: All days, Weekdays, Weekends & holidays. Weekend means Saturday, Sunday and the
+holidays on which the Sunday timetable runs (the fixed dates in `src/sitt/holidays.py`, the
+movable ones in `src/sitt/holidays.toml`; tentative dates only with
+`SITT_HOLIDAYS_INCLUDE_TENTATIVE=true`). Saturday counts as weekend although it runs the
+weekday timetable: fewer people travel, and the question is "weekdays or weekends". The
+choice is kept in the address (`/patterns?days=weekend`), so it survives a reload or a
+bookmark, and the summary line and caveat follow it (the summary is announced to screen
+readers). Before that the caveat says how many days of each have trains seen so far; with
+fewer a split would only show noise. Days with readings only long before a train's time
+don't count. A train after midnight belongs to the day before (the 03:00 service day), so
+the 00:30 early on a Saturday counts as Friday. In the terminal: `uv run sitt-patterns
+--days weekday` (or `weekend`); without `--days` the report ends with the same sentence.
 
 **Towards a delay model** at the bottom shows how far the real readings are from what
 `uv run sitt-retrain` needs before it trains a delay model (28 days, 5,000 usable readings
 and so on, the same gates as `sitt-retrain --check`; [`retraining.md`](retraining.md)),
 counted over every day whatever the Days switch shows, or which real-data model is in use.
-Nothing is trained from the page. `sitt-patterns` ends with the same line.
+These gates count readings, not runs, so "Days with observations" can be higher than the
+days in the summary. Nothing is trained from the page, and if this section can't be worked
+out the rest of the page still shows. `sitt-patterns` ends with the same line.
 
 It describes the past; the recommender does the predicting. Code: `src/sitt/patterns.py`.
 The same tables in a terminal: `uv run sitt-patterns` (`--markdown` for docs).
@@ -140,8 +147,9 @@ past them, and that opening other pages (the API docs, raw
 JSON) never replaces the kept main page, at phone and desktop width in light and dark,
 saving screenshots to a temp folder. Checked 2026-10-16: all checks pass.
 
-It also logs a crowd report and takes it back with **Undo** (and checks the report stays,
-with a message, when the PC can't be reached).
+It also logs a crowd report and takes it back with **Undo**: when the PC can't be reached
+the report stays, with a message, and keyboard focus stays on its Undo button; a double tap
+sends one request. Checked 2026-10-17: all checks pass.
 
 `scripts/check_web_patterns.py` checks the Delay patterns weekday/weekend switch the same
 way, on two invented databases: with one weekend day the switch stays hidden and the caveat

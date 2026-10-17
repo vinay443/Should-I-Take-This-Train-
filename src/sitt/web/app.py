@@ -26,6 +26,7 @@ waits a few seconds and then answers 503 "busy, try again".
 import contextlib
 import hashlib
 import json
+import logging
 import threading
 from collections.abc import Iterator
 from dataclasses import replace
@@ -52,6 +53,8 @@ from sitt.recommend import LEVEL_TIMETABLE, Option, Recommendation, explain, rec
 from sitt.tz import IST
 
 STATIC = Path(__file__).parent / "static"
+log = logging.getLogger(__name__)
+
 WEB_SOURCE = "web"  # crowd_reports.source for reports logged from the page
 # A report logged from the page can be taken back for this long: long enough to notice a
 # mis-tap, short enough that older reports (and the bot's) are never removed from here.
@@ -290,7 +293,10 @@ def create_app(
         with read() as con:
             data = patterns.delay_patterns(con)
             if data["runs"]:  # how far these readings are from a real delay model
-                data["model"] = patterns.model_progress(con)
+                try:
+                    data["model"] = patterns.model_progress(con)
+                except Exception:  # an optional section: never let it break the page
+                    log.exception("model progress for /api/patterns failed")
             return data
 
     @app.get("/api/reports")

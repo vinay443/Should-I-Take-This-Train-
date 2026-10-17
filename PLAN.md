@@ -271,7 +271,7 @@ Rather than wait for the data, built now and shown only when the data allows: th
 `/patterns` and `sitt-patterns --days` appear once readings cover at least 2 weekdays and 2
 weekend days or holidays; until then both say how many of each there are so far.
 
-### 41. Independent review of round 10 — [ ]
+### 41. Independent review of round 10 — [x]
 Done together with round 11's review (item 45): round 10's only code change, item 39, is
 covered there.
 
@@ -297,7 +297,8 @@ but only on the command line. Show the same progress on Delay patterns ("Reading
 the 28 days a delay model needs") so pressing **Check live first** has a visible point.
 **Done when:** API field + page line + test; nothing is trained from the page.
 
-### 45. Independent review of rounds 10-11 — [ ]
+### 45. Independent review of rounds 10-11 — [x]
+Six low/medium findings, all fixed (PROGRESS.md, 2026-10-17).
 
 ### On the user's PC, only if a working shell is available
 `mcp__remote-devices__device_bash` was blocked by a Windows update on 2026-10-12/13. If it
