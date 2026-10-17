@@ -43,6 +43,28 @@ What moves the project next, in order:
 
 ## 2026-10-17
 
+### Item 51: independent review of item 50 (done, PR #64)
+A cold review of PR #63 (on the real data, in Chromium) found no Python problems and seven
+in the page, all fixed:
+1. Offline, a part button replaced the saved answer and the trip with "no saved answer".
+   Part buttons now need the PC: a saved ("Not live") answer doesn't show them.
+2. One tap replaced your remembered route and the address with the part, and there was no
+   way back. A part isn't kept or put in the address any more, and "← Back to Kalyan →
+   Panvel" returns to the whole trip as asked (leaving now, or the time you gave).
+3. "Another time" stayed set after a part, so a saved route chip later asked about a past
+   time. Chips now always ask "leaving now".
+4. Keyboard focus was lost after pressing a part; it moves to the new answer.
+5. Buttons didn't say the day ("00:11" for a train after midnight) and weren't grouped;
+   they now say "00:11 on Tue, 20 Oct", have spoken names, and sit in a labelled group.
+6. Saved answers showed parts that had left: covered by 1.
+7. docs/web.md now says all this. Also: fields are filled as the station list writes them
+   (no "CSMT (CSMT)").
+And one from item 49's rules: Dockyard Road → Byculla was offered out to Kurla and back in
+on the main line. When the direct way from the origin needs the missing Harbour direction,
+a journey away from CSMT and back isn't offered (test fails on the old code).
+Browser checks for 1-5 (fail on the old page); axe clean on the real data with the part
+buttons and with Back, light and dark.
+
 ### Item 50: ask each part of a journey with a change (done, PR #63)
 - When the page suggests a journey with one change, it now shows "Ask each part:" with two
   buttons, "Kalyan → Kurla, 08:04" and "Kurla → Panvel, 08:53". Each fills in the trip and

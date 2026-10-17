@@ -128,7 +128,9 @@ anything on the Harbour line towards CSMT (Panvel → Kalyan), and anything whos
 change needs it (Kalyan → Chunabhatti: change at Kurla and go back a stop). Rather than
 send you on to CSMT and back out, which the timetable alone would allow, the reply then
 says the Harbour line has no trains towards CSMT loaded. A journey whose first train calls
-at such a station before its own change isn't offered. A second train after midnight is
+at such a station before its own change isn't offered, and neither, when the direct way
+from the origin needs the missing direction, is a journey out from CSMT and back (Dockyard
+Road → Byculla via Kurla). A second train after midnight is
 marked "after midnight".
 
 ## Thresholds

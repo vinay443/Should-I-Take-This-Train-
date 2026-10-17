@@ -247,7 +247,34 @@ function readTrip() {
   return params;
 }
 
-async function showTrains({ live = false } = {}) {
+/** The whole trip, while one part of a journey with a change is shown (see partButton). */
+let wholeTrip = null;
+
+/** The trip form as it is: stations and when. */
+function tripForm() {
+  return {
+    from: $("from").value,
+    to: $("to").value,
+    when: document.querySelector('input[name="when"]:checked').value,
+    at: $("at").value,
+    date: $("date").value,
+  };
+}
+
+function setTripForm(trip) {
+  $("from").value = trip.from;
+  $("to").value = trip.to;
+  const when = document.querySelector(`input[name="when"][value="${trip.when}"]`);
+  when.checked = true;
+  when.dispatchEvent(new Event("change"));
+  $("at").value = trip.at;
+  $("date").value = trip.date;
+}
+
+/** `leg`: one part of a journey with a change, asked from a part button. It isn't kept as
+ * the last route or put in the address, and "Back to …" returns to the whole trip. */
+async function showTrains({ live = false, leg = false } = {}) {
+  if (!leg) wholeTrip = null;
   const params = readTrip();
   if (!params.get("from") || !params.get("to")) {
     showMessage("Pick where you're starting and where you're going.");
@@ -272,8 +299,12 @@ async function showTrains({ live = false } = {}) {
     saveAnswer(params, answer);
     showTripLine(answer, params);
     if ($("data-line").classList.contains("offline")) loadStatus(); // the PC is back
-    store.set("last-route", { from: $("from").value, to: $("to").value });
-    history.replaceState(null, "", `?from=${encodeURIComponent(answer.origin_code)}&to=${encodeURIComponent(answer.destination_code)}`);
+    if (leg) {
+      $("reason").focus(); // the button pressed is gone: start reading at the new answer
+    } else {
+      store.set("last-route", { from: $("from").value, to: $("to").value });
+      history.replaceState(null, "", `?from=${encodeURIComponent(answer.origin_code)}&to=${encodeURIComponent(answer.destination_code)}`);
+    }
   } catch (error) {
     if (!(error instanceof OfflineError)) {
       unfoldTrip(); // so the trip that was asked about, and the fields to fix it, are in view
@@ -375,13 +406,19 @@ function render(answer, savedAt = null) {
       ? `The train this answer picked (the ${saved.pickGone}) has already left. These saved trains haven't left yet:`
       : "Every train in this saved answer has already left. Reconnect to the PC for a new answer, or check the station board.";
   // A journey with one change (stations on different lines): a button for each part.
-  const change = answer.change;
+  // Asking each part needs the PC, so a saved ("Not live") answer doesn't offer it.
+  const change = savedAt || offlineNow ? null : answer.change;
   $("change").hidden = !change;
   $("change").replaceChildren(...(change ? [
-    el("span", { text: "Ask each part:" }),
-    partButton(change.from, change.at, change.first_departs),
-    partButton(change.at, change.to, change.second_departs),
+    el("span", { id: "change-label", text: "Ask each part:" }),
+    partButton(change.from, change.at, change.first_departs, answer),
+    partButton(change.at, change.to, change.second_departs, answer),
   ] : []));
+  $("back").hidden = !wholeTrip;
+  if (wholeTrip) {
+    $("back-button").textContent = `← Back to ${wholeTrip.origin} → ${wholeTrip.destination}`;
+    $("back-button").setAttribute("aria-label", `Back to ${wholeTrip.origin} to ${wholeTrip.destination}`);
+  }
   const basis = $("basis");
   basis.className = answer.synthetic ? "basis warn" : "basis";
   basis.textContent = answer.synthetic
@@ -416,22 +453,20 @@ function render(answer, savedAt = null) {
   document.querySelector("#answer details.why").hidden = none || Boolean(saved && saved.pickGone);
 }
 
-/** A button that asks for one part of a journey with a change, from that train's time. */
-function partButton(from, to, departs) {
+/** A button that asks for one part of a journey with a change, from that train's time.
+ * The whole trip is kept so "Back to …" can return to it. */
+function partButton(from, to, departs, answer) {
+  const when = `${hhmm(departs)}${whichDay(departs)}`;
   return el("button", {
     type: "button",
     class: "secondary",
+    "aria-label": `Ask ${stationLabel(from)} to ${stationLabel(to)}, from ${when}`,
     onclick: () => {
-      $("from").value = `${stationLabel(from)} (${from})`;
-      $("to").value = `${stationLabel(to)} (${to})`;
-      const later = document.querySelector('input[name="when"][value="later"]');
-      later.checked = true;
-      later.dispatchEvent(new Event("change"));
-      $("at").value = hhmm(departs);
-      $("date").value = departs.slice(0, 10);
-      showTrains();
+      if (!wholeTrip) wholeTrip = { ...tripForm(), origin: answer.origin, destination: answer.destination };
+      setTripForm({ from: stationText(from), to: stationText(to), when: "later", at: hhmm(departs), date: departs.slice(0, 10) });
+      showTrains({ leg: true });
     },
-  }, `${stationLabel(from)} → ${stationLabel(to)}, ${hhmm(departs)}`);
+  }, `${stationLabel(from)} → ${stationLabel(to)}, ${when}`);
 }
 
 /** A saved answer without the trains that have left (predicted departure more than a
@@ -529,7 +564,11 @@ function renderSaved() {
     el("span", { class: "route-chip" },
       el("button", {
         type: "button",
-        onclick: () => { $("from").value = r.from; $("to").value = r.to; showTrains(); },
+        // A saved route is asked "leaving now", whatever time the form was last set to.
+        onclick: () => {
+          setTripForm({ from: r.from, to: r.to, when: "now", at: "", date: "" });
+          showTrains();
+        },
         text: `${shortName(r.from)} to ${shortName(r.to)}`,
       }),
       el("button", {
@@ -644,6 +683,12 @@ function wire() {
   $("trip").addEventListener("submit", (e) => { e.preventDefault(); showTrains(); });
   $("live").addEventListener("click", () => showTrains({ live: true }));
   $("save").addEventListener("click", saveRoute);
+  $("back-button").addEventListener("click", () => {
+    const trip = wholeTrip;
+    wholeTrip = null;
+    if (trip) setTripForm(trip);
+    showTrains();
+  });
   $("swap").addEventListener("click", () => {
     const from = $("from").value;
     $("from").value = $("to").value;

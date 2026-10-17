@@ -225,3 +225,13 @@ def test_one_change_needs_time_to_change_and_not_too_long_a_wait(both_lines, mon
     assert found is None or found[2].departure - found[0].arrival <= timedelta(minutes=7)
     assert found is None or found[2].train_id != second.train_id
     assert timetable.one_change(both_lines, "KYN", "PNVL", None, ["CLA"]) is None
+
+
+def test_no_out_and_back_when_the_direct_way_needs_a_missing_direction(both_lines):
+    from sitt.timetable import no_train_reason
+
+    # Dockyard Road to Byculla: one stop towards CSMT on the Harbour line (not loaded), then
+    # one back. Out to Kurla and back in on the main line isn't offered instead.
+    reason = no_train_reason(both_lines, "DKRD", "BY", at(MONDAY, "04:00"))
+    assert "Quickest" not in reason
+    assert reason.endswith("so the part on it can't be worked out yet.")

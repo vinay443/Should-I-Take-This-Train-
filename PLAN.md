@@ -355,6 +355,9 @@ Five findings (no high); three fixed, one noted (PROGRESS.md, 2026-10-17).
 The web page gives a button for each part of the suggested journey ("Kalyan → Kurla, 08:04"),
 which asks for it from that train's time. `/api/recommend` gives the journey as data.
 
+### 51. Independent review of item 50 — [x]
+Seven findings (no high), all fixed; plus one from item 49's rules (PROGRESS.md).
+
 ### On the user's PC, only if a working shell is available
 `mcp__remote-devices__device_bash` was blocked by a Windows update on 2026-10-12/13. If it
 works in a later session: `git pull`, `uv sync`, start `uv run sitt-web --no-browser` in the

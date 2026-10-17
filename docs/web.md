@@ -34,7 +34,10 @@ takes a few seconds, and other requests to the app wait until it is done.
   lines, or a direction whose timetable isn't loaded) and shows only that. For stations on
   different lines it names the quickest journey with one change, with a button for each
   part ("Kalyan → Kurla, 08:04", "Kurla → Panvel, 08:53") that asks for it from that
-  train's time, so you see its delays and crowding.
+  train's time, so you see its delays and crowding. A part asked this way isn't kept as
+  your last route or put in the address; "← Back to Kalyan → Panvel" returns to the whole
+  trip as you asked it. The buttons need the PC, so a saved ("Not live") answer doesn't
+  show them. Saved route chips always ask "leaving now".
 - **How crowded was your train?** saves a crowd report. It is matched to a scheduled train
   and adjusts the crowding estimate, the same as the bot's `/log`. Tapped the wrong level?
   A report logged from the page has an **Undo** button in the list below the form for 15
