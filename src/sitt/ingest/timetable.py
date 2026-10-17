@@ -12,7 +12,6 @@ run did. A train in the file replaces any earlier version of the same train.
 
 import argparse
 import csv
-import heapq
 import json
 import re
 import sys
@@ -225,9 +224,33 @@ def _data_lines(path: Path) -> Iterator[tuple[int, str]]:
                 yield line_no, text
 
 
+_DECLARED_LINE_RE = re.compile(r"#\s*line:\s*(\S+)\s*$")
+
+
+def declared_line(path: Path) -> tuple[int, str] | None:
+    """(line number, line) from a '# line: harbour' comment, as sitt.ingest.cr_pdf writes."""
+    with path.open(encoding="utf-8-sig", newline="") as f:
+        for line_no, text in enumerate(f, start=1):
+            if found := _DECLARED_LINE_RE.match(text.strip()):
+                return line_no, found[1]
+    return None
+
+
 def read_timetable(path: str | Path, *, line: str = DEFAULT_LINE) -> Timetable:
-    """Read and validate a timetable CSV. Raises TimetableError listing every problem."""
+    """Read and validate a timetable CSV. Raises TimetableError listing every problem.
+
+    A file that says which line it is for ('# line: harbour') must be read as that line:
+    loading Harbour trains as the main line would mix the two lines' stations.
+    """
     path = Path(path)
+    declared = declared_line(path)
+    if declared is not None and declared[1] != line:
+        raise TimetableError(
+            [
+                f"line {declared[0]}: the file is for line {declared[1]!r}, but it is being "
+                f"loaded as line {line!r} (use --line {declared[1]})"
+            ]
+        )
     lines = _data_lines(path)
     header_line = next(lines, None)
     if header_line is None:
@@ -386,7 +409,11 @@ def station_order(routes: Iterable[tuple[str, str, Sequence[str]]]) -> list[str]
     `routes` holds (train number, direction, station codes in travel order) for
     each train. Up trains run the order in reverse. Raises TimetableError if the
     trains disagree about the order. Stations that no train orders relative to
-    each other (e.g. on different branches) are ordered by code.
+    each other are ordered so that a branch stays together: after a station, the next one
+    is a station that follows it if any is ready (the lowest code among them), so the main
+    line beyond Kalyan lists the Karjat branch, then the Khopoli one, then Kasara's, and
+    the Harbour line lists the Panvel branch and the Goregaon branch whole, not
+    interleaved. Otherwise the lowest code goes next.
     """
     errors = []
     first_seen: dict[tuple[str, str], str] = {}
@@ -416,16 +443,19 @@ def station_order(routes: Iterable[tuple[str, str, Sequence[str]]]) -> list[str]
     if errors:
         raise TimetableError(errors)
 
-    ready = [code for code, count in preceding_count.items() if count == 0]
-    heapq.heapify(ready)
+    ready = {code for code, count in preceding_count.items() if count == 0}
     order = []
+    last = None
     while ready:
-        code = heapq.heappop(ready)
+        after_last = [code for code in following[last] if code in ready] if last else []
+        code = min(after_last) if after_last else min(ready)
+        ready.discard(code)
         order.append(code)
+        last = code
         for nxt in following[code]:
             preceding_count[nxt] -= 1
             if preceding_count[nxt] == 0:
-                heapq.heappush(ready, nxt)
+                ready.add(nxt)
     if len(order) < len(preceding_count):
         stuck = sorted(set(preceding_count) - set(order))
         raise TimetableError([f"station order is circular among: {', '.join(stuck)}"])
@@ -519,7 +549,9 @@ def load_timetable(
             """
             INSERT INTO stations (code, name, line, seq)
             SELECT code, name, ?, 0 FROM load_stations
-            ON CONFLICT (code) DO UPDATE SET name = excluded.name
+            ON CONFLICT (code) DO UPDATE SET name = CASE
+                -- A station's name is its home line's: another line never renames it.
+                WHEN stations.line = excluded.line THEN excluded.name ELSE stations.name END
             """,
             [line],
         )

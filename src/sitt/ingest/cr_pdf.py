@@ -968,6 +968,8 @@ _SOURCE_LABELS = {"main": "source", "ac": "AC supplement", "15car": "15-car supp
 
 
 LINE_TITLES = {"main": "main line", "harbour": "Harbour line"}
+# The loader's name for each line (sitt.ingest.timetable --line).
+LOADER_LINES = {"main": "central", "harbour": "harbour"}
 
 
 def write_csv(
@@ -978,6 +980,8 @@ def write_csv(
     line: str = "main",
 ) -> None:
     out.write(f"# Central Railway Mumbai suburban timetable, {LINE_TITLES[line]}.\n")
+    # Read by sitt.ingest.timetable, which refuses to load the file as another line.
+    out.write(f"# line: {LOADER_LINES[line]}\n")
     out.write(f"# Converted by sitt.ingest.cr_pdf on {date.today().isoformat()}.\n")
     for source in sources:
         out.write(

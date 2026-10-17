@@ -1,8 +1,10 @@
 # Expanding beyond the Central main line: an assessment
 
-Research done on **2026-10-05**. Since then (2026-10-17) the converter reads the Harbour
-DOWN PDF (PLAN.md item 26a, docs/timetable-format.md); loading it, the UP PDF and the
-shared-station work are still to do. The question: how much
+Research done on **2026-10-05**. Since then (2026-10-17) the Harbour line's DOWN direction
+is supported end to end: the converter reads its PDF, a station can be on two lines, and
+Harbour routes answer in `sitt-next` and the web app at timetable level (PLAN.md item 26;
+README, "Load the timetable"). Still to do: the UP PDF (item 26b). See "Known gaps once
+there are Harbour readings" at the end. The question: how much
 work would it be to add the **Harbour line** (Central Railway) and the **Western line**
 (Western Railway), and is it worth doing now?
 
@@ -202,3 +204,20 @@ timetable download depends on it.
 - Did **not** open the UP files, the AC files, the Trans-Harbour, Port or Dahanu Road PDFs.
 - Did **not** check NTES for Harbour or Western trains.
 - Did **not** make any request to Mobond or m-Indicator.
+
+## Known gaps once there are Harbour readings
+
+Written 2026-10-17, after a review of the Harbour work. None matters while there are no
+live Harbour readings (NTES doesn't report Harbour locals; Mobond would), but each would:
+
+- `sitt.models.line_state` (a backtest, not used in answers) takes the median delay of
+  other trains at the same station and direction, so at Kurla and CSMT it would mix the
+  two lines.
+- The dashboard's delay-by-station view sorts by each station's home place only.
+- The live loaders (`ingest/live/stations.py`, `live/load.py`) treat train numbers 90-94xxx
+  as Western Railway, so the Harbour's Goregaon trains numbered 91xxx (e.g. 91393, 91395)
+  would not be mapped to stations.
+- Megablocks and the "train ahead" feature work by place on the line. With each branch
+  listed whole, a block within one branch is right, but one spanning the junction (Vadala
+  Road to Bandra, say) would also cover the start of the other branch, and a train on the
+  other branch can count as "ahead". The same holds for the main line beyond Kalyan.

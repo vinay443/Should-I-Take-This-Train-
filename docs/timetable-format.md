@@ -82,7 +82,10 @@ without these columns clears them.
   derives `stations.seq` from this order, numbering from the CSMT end.
 
 **One file per line.** A file is loaded for one line (`--line`, default `central`).
-`stations.line` and `trains.line` are set from it.
+`trains.line` is set from it, and each station's place on it goes in `station_lines`. A
+file the converter wrote says which line it is for in a comment (`# line: harbour`); the
+loader refuses to load it as another line, since Harbour trains loaded as the main line
+would mix up both lines' station orders.
 
 **Comments.** Lines that start with `#` and blank lines are ignored. Use them for
 provenance, e.g. `# source: …, fetched 2026-10-01`. Error messages still use the real
@@ -131,8 +134,11 @@ and prints every error with its line number.
 **Re-running is safe.** A load runs in one transaction, and each train in the file
 replaces the stored train with the same `train_id` together with all of its stops.
 Loading the same file twice leaves the database exactly as one load does. After each
-load, `stations.seq` is recomputed from every train on the line. If the new trains
-conflict with the station order of trains already loaded, the load is rolled back.
+load, the line's station order is recomputed from every train on it. If the new trains
+conflict with the station order of trains already loaded, the load is rolled back. Where
+the line branches (beyond Kalyan; the Harbour line after Vadala Road), each branch is
+listed whole, so a megablock between two stations of one branch never covers the other.
+A station's name comes from its home line; loading another line never renames it.
 
 Limitations, inherited from the schema:
 

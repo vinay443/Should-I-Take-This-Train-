@@ -12,6 +12,7 @@ from sitt.ingest.timetable import (
     main,
     parse_days,
     read_timetable,
+    station_order,
 )
 from sitt.timetable import next_trains
 
@@ -433,3 +434,43 @@ def test_a_station_dropped_from_a_line_is_not_copied_back(tmp_path):
         assert (
             con.execute("SELECT count(*) FROM station_lines WHERE code = 'SIN'").fetchone()[0] == 0
         )
+
+
+def test_branches_stay_together_in_station_order():
+    # A trunk A-B, then two branches whose codes interleave: B-X1-Z1 and B-Y2-A2.
+    routes = [("1", "down", ["A", "B", "X1", "Z1"]), ("2", "down", ["A", "B", "Y2", "A2"])]
+    assert station_order(routes) == ["A", "B", "X1", "Z1", "Y2", "A2"]
+
+
+def test_harbour_branches_are_listed_whole(con, tmp_path):
+    load_timetable(con, read_timetable(harbour_csv(tmp_path), line="harbour"))
+    order = [
+        code
+        for (code,) in con.execute(
+            "SELECT code FROM station_lines WHERE line = 'harbour' ORDER BY seq"
+        ).fetchall()
+    ]
+    panvel = order.index("GTBN"), order.index("PNVL")
+    goregaon = order.index("KCE"), order.index("GMN")
+    assert order[:8] == ["CSMT", "MSD", "SNRD", "DKRD", "RRD", "CTGN", "SVE", "VDLR"]
+    assert order[panvel[0] : panvel[1] + 1][-1] == "PNVL" and panvel[1] < goregaon[0]
+    assert "KCE" not in order[panvel[0] : panvel[1]]  # no Goregaon branch station inside
+
+
+def test_a_file_for_another_line_is_refused(tmp_path):
+    path = harbour_csv(tmp_path)
+    assert "# line: harbour" in path.read_text(encoding="utf-8")
+    with pytest.raises(TimetableError, match="the file is for line 'harbour'"):
+        read_timetable(path)  # as the main line, the default
+    assert read_timetable(path, line="harbour").trains
+
+
+def test_another_line_never_renames_a_shared_station(loaded, tmp_path):
+    from sitt.timetable import resolve_station
+
+    long_name = "Chhatrapati Shivaji Maharaj Terminus"  # the sample's name for CSMT
+    load_timetable(loaded, read_timetable(harbour_csv(tmp_path), line="harbour"))
+    assert loaded.execute("SELECT name FROM stations WHERE code = 'CSMT'").fetchone() == (
+        long_name,
+    )
+    assert resolve_station(loaded, long_name) == "CSMT"

@@ -27,6 +27,26 @@ What moves the project next, in order:
 
 ## 2026-10-17
 
+### Review of the Harbour round: fix 3 of 3 (PR #58)
+- MEDIUM: a Harbour CSV loaded without `--line harbour` went in as the main line and moved
+  main line places (Thane 19 → 50). The converter now writes `# line: harbour` (or
+  `central`) and the loader refuses a file for another line.
+- MEDIUM: station order put stations no train relates by code, so branches interleaved
+  (the Harbour's Panvel and Goregaon branches; the main line's beyond Kalyan). A Kurla-Vashi
+  block then covered Bandra. Each branch is now listed whole. Real timetables: CSMT to
+  Kalyan places unchanged; all 35 model features identical on the real readings (same
+  CSV loaded with old and new code); `sitt-next` unchanged.
+- LOW: loading the Harbour line renamed CSMT to its Harbour spelling; a station's name now
+  comes from its home line.
+- Docs: the expansion assessment's status corrected, plus "Known gaps once there are
+  Harbour readings" (line-state backtest, dashboard order, 91xxx trains read as Western,
+  blocks across a junction).
+- Noticed on the way: your database has 894 main line trains; converting the same PDFs
+  now gives 895. The missing one is 95901 (T 15, the 08:04 AC fast from CSMT), which the
+  converter learned to read (a stray mark in one cell) after your database was loaded.
+  Reloading the timetable adds it (see "Where this stopped").
+- 6 new tests, all failing on the old code.
+
 ### Review of the Harbour round: fix 2 of 3, crowd reports per line (PR #57)
 - HIGH: at stations both lines share, a report like "08:00 slow from CSMT" was matched
   against Harbour trains too (on the real timetable: to the 08:00 to Panvel instead of the

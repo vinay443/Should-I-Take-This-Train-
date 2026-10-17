@@ -289,3 +289,28 @@ def test_a_harbour_train_is_never_the_main_lines_train_ahead(con, tmp_path):
     features.set_targets(con, [Target("central-90103", MONDAY, "KYN", at(MONDAY, "06:30"))])
     [row] = rows(features.build_features(con))
     assert np.isnan(row["ahead_delay"]) and np.isnan(row["line_median_delay"])
+
+
+def test_a_harbour_block_stays_on_its_branch(con, tmp_path):
+    """A Kurla-Vashi block (the Panvel branch) doesn't cover Bandra (the Goregaon branch)."""
+    from conftest import harbour_csv
+
+    from sitt.ingest.timetable import load_timetable, read_timetable
+
+    load_timetable(con, read_timetable(harbour_csv(tmp_path), line="harbour"))
+    con.execute(
+        "INSERT INTO blocks (block_id, block_date, line, from_station, to_station, start_time, "
+        "end_time, tracks, direction, source) VALUES "
+        "('h2', ?, 'harbour', 'CLA', 'VSH', '00:00', '06:00', 'both', 'both', 'manual')",
+        [MONDAY],
+    )
+    features.prepare(con)
+    features.set_targets(
+        con,
+        [
+            Target("harbour-98701", MONDAY, "BA", at(MONDAY, "04:00")),  # Bandra 04:57
+            Target("harbour-98001", MONDAY, "CMBR", at(MONDAY, "00:00")),  # Chembur 00:47
+        ],
+    )
+    bandra, chembur = (rows(features.build_features(con), target_id=i)[0] for i in range(2))
+    assert bandra["megablock"] == 0 and chembur["megablock"] == 1
