@@ -2,13 +2,14 @@
 
 Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
-## Where this stopped (2026-10-17, 19:00)
+## Where this stopped (2026-10-17, 21:00)
 
-**Everything is merged (PRs #46-#62).** Since this morning: round 11 (weekdays vs weekends,
+**Everything is merged (PRs #46-#65).** Since this morning: round 11 (weekdays vs weekends,
 Undo for crowd reports, progress towards a delay model), the Harbour line from its DOWN PDF
 (converter, a station on two lines, routes, web app and bot: items 26a-26f, two sessions),
-and round 12 (items 46-49: the real data checked end to end, "why there is no train", the
-quickest journey with one change, review fixes).
+and round 12 (items 46-51: the real data checked end to end, "why there is no train", the
+quickest journey with one change between lines and a button to ask each part, and two
+review rounds' fixes).
 
 **When you're back at the PC** (stop `sitt-web` first; the reload needs the database to
 itself). In the project folder, in PowerShell:
