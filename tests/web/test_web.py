@@ -151,6 +151,26 @@ def test_log_crowding_and_list_reports(client):
     assert "report" in fast["crowding"]["reason"]
 
 
+def test_patterns_page_survives_a_failing_model_section(client, db, monkeypatch):
+    from sitt import patterns
+
+    with init_db(db) as con:
+        con.execute(
+            "INSERT INTO observations (observed_at, train_id, station_code, "
+            "actual_or_expected_time, time_kind, delay_minutes, source, event) VALUES "
+            "(?, 'central-90106', 'KYN', ?, 'expected', 8, 'ntes', 'departure')",
+            [NOW + timedelta(minutes=17), NOW + timedelta(minutes=20)],
+        )
+
+    def broken(con):
+        raise RuntimeError("something unexpected")
+
+    monkeypatch.setattr(patterns, "model_progress", broken)
+    response = client.get("/api/patterns")
+    assert response.status_code == 200
+    assert response.json()["runs"] == 1 and "model" not in response.json()
+
+
 def test_a_report_just_logged_can_be_taken_back(client):
     body = {"station": "Kalyan", "departure": "7:12", "service": "fast", "crowd": 5}
     logged = client.post("/api/reports", json=body).json()

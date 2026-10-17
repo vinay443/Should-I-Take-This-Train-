@@ -562,12 +562,14 @@ async function loadReports() {
         el("span", { class: "report-side" },
           el("span", { text: new Date(r.reported_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" }) }),
           // A report just logged here can be taken back (a mis-tap); older ones and the bot's can't.
-          r.can_undo ? el("button", { type: "button", class: "undo", "aria-label": `Undo report: ${what}`, onclick: () => undoReport(r, what) }, "Undo") : null));
+          r.can_undo ? el("button", { type: "button", class: "undo", "data-report": r.id, "aria-label": `Undo report: ${what}`, onclick: (event) => undoReport(r, what, event.currentTarget) }, "Undo") : null));
     }));
   } catch { /* the list is a nicety */ }
 }
 
-async function undoReport(report, what) {
+async function undoReport(report, what, button) {
+  if (button.disabled) return;
+  button.disabled = true; // one request per report: a double tap would answer "no such report"
   try {
     await api(`/api/reports/${report.id}`, { method: "DELETE" });
     toast(`Taken back: ${what}.`);
@@ -576,8 +578,16 @@ async function undoReport(report, what) {
       ? "Can't reach the app on your PC, so the report is still there. Try again when the PC is back."
       : error.message);
   }
-  loadReports();
-  $("log-heading").focus(); // the button is gone: keep keyboard users in the same place
+  await loadReports();
+  // The report is still there (the request failed): keep focus on its Undo button, the
+  // same one if the list couldn't be redrawn. Gone: keep keyboard users in the section.
+  const again = button.isConnected ? button : $("reports").querySelector(`button.undo[data-report="${report.id}"]`);
+  if (again) {
+    again.disabled = false;
+    again.focus();
+  } else {
+    $("log-heading").focus();
+  }
 }
 
 // ---------- start ----------

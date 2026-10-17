@@ -11,7 +11,9 @@ marked, so the page can say how little a number rests on.
 
 Weekdays (Monday to Friday) and weekends (Saturday, Sunday and the holidays in
 sitt.holidays) are also given apart, by the run's service day, but only once there are
-readings on at least SPLIT_MIN_DAYS days of each: before that a split would show noise.
+trains seen (runs) on at least SPLIT_MIN_DAYS days of each: before that a split would show
+noise. Saturday counts as weekend, though its timetable is the weekday one: fewer people
+travel, and the question asked is "weekdays or weekends".
 """
 
 import math
@@ -214,10 +216,17 @@ def model_progress(con: duckdb.DuckDBPyConnection) -> dict | None:
         readiness = check_readiness(con, load_retrain_settings())
     except ModelError:
         return None
-    in_use = con.execute(
-        "SELECT version FROM model_registry WHERE status = ? ORDER BY created_at DESC LIMIT 1",
-        [PROMOTED],
-    ).fetchone()
+    has_registry = con.execute(
+        "SELECT count(*) FROM information_schema.tables WHERE table_name = 'model_registry'"
+    ).fetchone()[0]
+    in_use = (
+        con.execute(
+            "SELECT version FROM model_registry WHERE status = ? ORDER BY created_at DESC LIMIT 1",
+            [PROMOTED],
+        ).fetchone()
+        if has_registry  # a database made before sitt-retrain existed
+        else None
+    )
     return {
         "ready": readiness.ready,
         "in_use": in_use[0] if in_use else None,
@@ -245,7 +254,8 @@ def model_note(model: dict | None) -> str:
 
 
 def _kinds_text(data: dict) -> str:
-    """'3 weekdays and 1 weekend day or holiday'."""
+    """'3 weekdays and 1 weekend day or holiday': days with trains seen (runs), which can be
+    fewer than days with readings (a train seen only long before its time isn't a run)."""
     counts = {k["key"]: k["days"] for k in data["day_kinds"]}
     weekdays, weekend = counts["weekday"], counts["weekend"]
     return (
@@ -258,12 +268,12 @@ def split_note(data: dict) -> str:
     """One sentence on whether weekdays and weekends can be shown apart yet."""
     if data["split_ready"]:
         return (
-            f"Readings on {_kinds_text(data)}: use --days weekday or --days weekend "
+            f"Trains seen on {_kinds_text(data)}: use --days weekday or --days weekend "
             "to see them apart."
         )
     return (
-        f"Weekdays and weekends are shown apart once there are readings on at least "
-        f"{data['split_min_days']} of each; so far {_kinds_text(data)}."
+        f"Weekdays and weekends are shown apart once trains have been seen on at least "
+        f"{data['split_min_days']} days of each; so far {_kinds_text(data)}."
     )
 
 

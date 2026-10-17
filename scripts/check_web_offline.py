@@ -202,13 +202,26 @@ def crowd_undo_checks(browser, url: str, tag: str, shot: Path) -> None:
     page.screenshot(path=shot)
 
     page.route("**/api/reports/*", lambda route: route.abort())  # the PC goes away
-    undo.click()
+    undo.focus()
+    page.keyboard.press("Enter")
     page.wait_for_function("document.getElementById('toast').textContent.includes('still there')")
     check(page.locator("#reports button.undo").count() == 1, f"{tag}: unreachable, report kept")
+    still = True
+    try:
+        page.wait_for_function(
+            "document.activeElement.classList.contains('undo') && !document.activeElement.disabled",
+            timeout=3000,
+        )
+    except Exception:
+        still = False
+    check(still, f"{tag}: unreachable, focus stays on the Undo button, usable again")
     page.unroute("**/api/reports/*")
 
-    page.locator("#reports button.undo").first.click()
+    page.locator("#reports button.undo").first.dblclick()  # a double tap: one request
     page.wait_for_function("document.getElementById('toast').textContent.startsWith('Taken back')")
+    page.wait_for_timeout(500)
+    toast = page.text_content("#toast")
+    check(toast.startswith("Taken back"), f"{tag}: double tap, no error after ({toast!r})")
     page.wait_for_function("!document.querySelector('#reports button.undo')")
     focused = page.evaluate("document.activeElement.id")
     check(focused == "log-heading", f"{tag}: after Undo, focus on the section ({focused!r})")

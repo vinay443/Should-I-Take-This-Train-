@@ -20,6 +20,26 @@ Nothing self-directed is left that is worth doing before one of these happens:
 
 ## 2026-10-17
 
+### Item 45: independent review of rounds 10-11 (done, PR #49)
+A separate agent reviewed PRs #46-#48 cold (time zones, the DELETE endpoint's limits and
+SQL, offline behaviour, resize, cost all checked fine). Six findings, all reproduced, all
+fixed:
+1. The caveat ignored the Days switch: on the weekend view it still said "300 trains over
+   14 days" and could drop the "Early days" warning. It now follows the view.
+2. Any unexpected error in the new model section (e.g. a database without
+   `model_registry`) made `/api/patterns` fail with 500. The table is now checked, and the
+   section is left out (and logged) rather than breaking the page.
+3. "Readings on N days" counted only days with trains seen (runs). Now worded "trains seen
+   on…"; docs say the model gates count readings, so their day count can be higher.
+4. A double tap on Undo sent two requests and ended on "No such report". The button is
+   disabled while its request runs.
+5. After a failed Undo, focus jumped to the heading although the report was still there;
+   now it stays on (or returns to) that report's Undo button.
+6. Switching Days was silent for screen readers; the summary line is now `aria-live`.
+Also: docs say where the holidays come from (`holidays.toml`, tentative dates) and that
+Saturday counts as weekend on purpose. Browser checks for 1, 4, 5, 6 and tests for 2, 3
+fail on the old code and pass now.
+
 ### Item 44: progress towards a delay model on Delay patterns (done, PR #48)
 - New **Towards a delay model** section: the `sitt-retrain` gates (days, usable readings,
   best-covered station, test window) as "Days with observations: 6 of 28", or which
