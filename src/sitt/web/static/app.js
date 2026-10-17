@@ -374,6 +374,14 @@ function render(answer, savedAt = null) {
     : options.length
       ? `The train this answer picked (the ${saved.pickGone}) has already left. These saved trains haven't left yet:`
       : "Every train in this saved answer has already left. Reconnect to the PC for a new answer, or check the station board.";
+  // A journey with one change (stations on different lines): a button for each part.
+  const change = answer.change;
+  $("change").hidden = !change;
+  $("change").replaceChildren(...(change ? [
+    el("span", { text: "Ask each part:" }),
+    partButton(change.from, change.at, change.first_departs),
+    partButton(change.at, change.to, change.second_departs),
+  ] : []));
   const basis = $("basis");
   basis.className = answer.synthetic ? "basis warn" : "basis";
   basis.textContent = answer.synthetic
@@ -406,6 +414,24 @@ function render(answer, savedAt = null) {
   // The explanation is about the picked train: with none, or once it has left, it no
   // longer applies.
   document.querySelector("#answer details.why").hidden = none || Boolean(saved && saved.pickGone);
+}
+
+/** A button that asks for one part of a journey with a change, from that train's time. */
+function partButton(from, to, departs) {
+  return el("button", {
+    type: "button",
+    class: "secondary",
+    onclick: () => {
+      $("from").value = `${stationLabel(from)} (${from})`;
+      $("to").value = `${stationLabel(to)} (${to})`;
+      const later = document.querySelector('input[name="when"][value="later"]');
+      later.checked = true;
+      later.dispatchEvent(new Event("change"));
+      $("at").value = hhmm(departs);
+      $("date").value = departs.slice(0, 10);
+      showTrains();
+    },
+  }, `${stationLabel(from)} → ${stationLabel(to)}, ${hhmm(departs)}`);
 }
 
 /** A saved answer without the trains that have left (predicted departure more than a

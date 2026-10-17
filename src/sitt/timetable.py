@@ -167,6 +167,17 @@ def line_name(line: str) -> str:
     return LINE_NAMES.get(line, f"{line.capitalize()} line")
 
 
+@dataclass(frozen=True)
+class Journey:
+    """A journey with one change: `first` from the origin to `change_at`, then `second`."""
+
+    origin: str  # station codes
+    change_at: str
+    destination: str
+    first: ScheduledTrip
+    second: ScheduledTrip
+
+
 def _covering(con: duckdb.DuckDBPyConnection, first: str, second: str) -> list[tuple[str, str]]:
     """(line, direction) of trains calling at `first` and then at `second`."""
     return con.execute(
@@ -229,8 +240,20 @@ def no_train_reason(
     destination_code: str,
     when: datetime | None = None,
 ) -> str | None:
-    """Why no train in the timetable goes from `origin_code` to `destination_code`, or None
-    if some train does (and there is simply none in the time looked at).
+    """The sentence of `no_train_answer`, or None if some train does go there."""
+    answer = no_train_answer(con, origin_code, destination_code, when)
+    return None if answer is None else answer[0]
+
+
+def no_train_answer(
+    con: duckdb.DuckDBPyConnection,
+    origin_code: str,
+    destination_code: str,
+    when: datetime | None = None,
+) -> tuple[str, Journey | None] | None:
+    """(why, the journey with one change it names, if any): why no train in the timetable
+    goes from `origin_code` to `destination_code`. None if some train does (and there is
+    simply none in the time looked at).
 
     The stations can be on different lines (Kalyan and Panvel: change where the lines
     meet), or the timetable loaded for their line can lack that direction (only the
@@ -262,6 +285,7 @@ def no_train_reason(
 
     if _covering(con, origin_code, destination_code):
         return None
+    journey = None
     shared = lines_of[origin_code] & lines_of[destination_code]
     if not shared:
         meet = [
@@ -295,6 +319,7 @@ def no_train_reason(
         best = one_change(con, origin_code, destination_code, when, meet, avoid=avoid)
         if best is not None:
             first, change_at, second = best
+            journey = Journey(origin_code, change_at, destination_code, first, second)
             after = " after midnight" if second.departure.date() > first.departure.date() else ""
             where = (
                 " Quickest with one change on these two lines, by the timetable: the "
@@ -314,11 +339,14 @@ def no_train_reason(
             where = f" They meet at {meet_names}: ask for each part separately."
         else:
             where = ""
-        return f"No train runs from {origin} to {destination} without a change: {on}.{where}"
+        return (
+            f"No train runs from {origin} to {destination} without a change: {on}.{where}",
+            journey,
+        )
     if (missing := _missing_direction(con, origin_code, destination_code)) is not None:
         line, direction = missing
         text = _not_loaded_text(line, direction)
-        return f"{text[0].upper()}{text[1:]}, so none from {origin} to {destination}."
+        return f"{text[0].upper()}{text[1:]}, so none from {origin} to {destination}.", None
     reason = f"No single train in the timetable runs from {origin} to {destination}."
     lacking = _lines_without_a_direction(con, shared)
     if lacking:
@@ -328,7 +356,7 @@ def no_train_reason(
             f" A journey with a change may need {line_name(line)} trains "
             f"{DIRECTION_NAMES[direction]}, and only its {other} timetable is loaded."
         )
-    return reason
+    return reason, None
 
 
 # Minutes allowed to change trains between lines (a walk across the station, e.g. from the

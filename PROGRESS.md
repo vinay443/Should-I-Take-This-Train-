@@ -43,6 +43,16 @@ What moves the project next, in order:
 
 ## 2026-10-17
 
+### Item 50: ask each part of a journey with a change (done, PR #63)
+- When the page suggests a journey with one change, it now shows "Ask each part:" with two
+  buttons, "Kalyan → Kurla, 08:04" and "Kurla → Panvel, 08:53". Each fills in the trip and
+  asks from that train's time, so its delays and crowding show (on the real data: "Take the
+  08:04 fast: arrives 08:46…"). `/api/recommend` gives the journey as `change`.
+- Browser check (stubbed answer, so it runs on the sample data): the buttons, the second
+  part asked with `from=TNA&to=CSMT&at=08:53&date=…`, and none on an ordinary answer.
+  Checked by hand on the real data with Harbour loaded, light and dark; axe clean. 1 API
+  test.
+
 ### Item 49: independent review of round 12 (done, PR #61)
 A cold review of PRs #59-#60 on the real data (Harbour DOWN loaded) found five issues, none
 high. Fixed:

@@ -210,6 +210,31 @@ def no_train_checks(browser, url: str) -> None:
         ".concat(!document.querySelector('#answer details.why').hidden)"
     )
     check(shown == [True, True, True], f"a train again: basis, heading and why back ({shown})")
+
+    # A journey with one change: a button for each part asks for it, from that train's time.
+    change = {"from": "KYN", "at": "TNA", "to": "CSMT"} | {
+        "first_departs": "2026-10-19T08:04+05:30",
+        "second_departs": "2026-10-19T08:53+05:30",
+    }
+    page.route("**/api/recommend*", lambda route: route.fulfill(json=empty | {"change": change}))
+    page.click("#edit-trip") if page.is_visible("#edit-trip") else None
+    page.click("#go")
+    page.wait_for_selector("#change:not([hidden]) button")
+    page.unroute("**/api/recommend*")
+    buttons = page.locator("#change button").all_text_contents()
+    check(
+        len(buttons) == 2 and buttons[0].endswith(", 08:04") and buttons[1].endswith(", 08:53"),
+        f"one change: a button for each part ({buttons})",
+    )
+    with page.expect_request("**/api/recommend*") as asked:
+        page.locator("#change button").nth(1).click()
+    query = asked.value.url.split("?", 1)[1]
+    check(
+        all(p in query for p in ("from=TNA", "to=CSMT", "at=08%3A53", "date=2026-10-19")),
+        f"the second part is asked from its train's time ({query})",
+    )
+    page.wait_for_selector("#answer .trains li")
+    check(page.is_hidden("#change"), "an ordinary answer has no change buttons")
     context.close()
 
 

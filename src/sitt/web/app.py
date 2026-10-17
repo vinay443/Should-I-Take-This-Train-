@@ -160,6 +160,16 @@ def recommendation_json(rec: Recommendation, focus: int | None = None) -> dict:
         "notes": rec.notes,
         "explanation": explain(rec),
         "options": [option_json(option, rec.asked_at) for option in rec.options],
+        "change": None
+        if rec.change is None
+        else {
+            # Station codes and the two trains' departures, so the page can ask each part.
+            "from": rec.change.origin,
+            "at": rec.change.change_at,
+            "to": rec.change.destination,
+            "first_departs": _iso(rec.change.first.departure),
+            "second_departs": _iso(rec.change.second.departure),
+        },
     }
 
 
