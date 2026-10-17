@@ -33,7 +33,7 @@ from sitt.config import load_settings
 from sitt.db import init_db
 from sitt.ingest import cr_pdf
 from sitt.ingest.live.common import make_client
-from sitt.ingest.timetable import load_timetable, read_timetable
+from sitt.ingest.timetable import STATION_LIST_ORDER, load_timetable, read_timetable
 from sitt.models.features import IST_OFFSET_MS, prepare
 from sitt.synth import SOURCE as SYNTHETIC_SOURCE
 from sitt.synth import build_database
@@ -194,7 +194,7 @@ def _read(db: Path) -> duckdb.DuckDBPyConnection:
 
 def stations(db: Path) -> pd.DataFrame:
     with _read(db) as con:
-        return con.execute("SELECT code, name, seq FROM stations ORDER BY seq").df()
+        return con.execute(f"SELECT code, name, seq FROM stations {STATION_LIST_ORDER}").df()
 
 
 def timetable_summary(db: Path) -> dict:

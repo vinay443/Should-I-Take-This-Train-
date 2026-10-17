@@ -48,6 +48,7 @@ from sitt.bot.stations import directory_from
 from sitt.config import load_health_settings, load_recommend_settings, load_settings
 from sitt.db import DatabaseBusyError, open_with_retry
 from sitt.ingest.live import mobond
+from sitt.ingest.timetable import STATION_LIST_ORDER
 from sitt.models.crowding import CROWD_LABELS
 from sitt.recommend import LEVEL_TIMETABLE, Option, Recommendation, explain, recommend
 from sitt.tz import IST
@@ -219,9 +220,14 @@ def create_app(
                 "SELECT count(*) FROM trains WHERE number LIKE '901%'"
             ).fetchone()[0]
             last = _last_collected(con) if real else None
+            # Trains per line, the main line first.
+            lines = con.execute(
+                "SELECT line, count(*) FROM trains GROUP BY line ORDER BY line <> 'central', line"
+            ).fetchall()
         return {
             "database": True,
             "trains": trains,
+            "lines": [{"line": line, "trains": n} for line, n in lines],
             "stations": stations,
             "sample_timetable": bool(trains) and invented == trains,
             "observations": real,
@@ -235,8 +241,12 @@ def create_app(
     @app.get("/api/stations")
     def stations() -> list[dict]:
         with read() as con:
-            rows = con.execute("SELECT code, name, seq FROM stations ORDER BY seq, code").fetchall()
-        return [{"code": code, "name": name, "seq": seq} for code, name, seq in rows]
+            rows = con.execute(
+                f"SELECT code, name, seq, line FROM stations {STATION_LIST_ORDER}"
+            ).fetchall()
+        return [
+            {"code": code, "name": name, "seq": seq, "line": line} for code, name, seq, line in rows
+        ]
 
     @app.get("/api/recommend")
     def recommend_route(

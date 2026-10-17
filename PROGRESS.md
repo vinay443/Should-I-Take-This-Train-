@@ -27,6 +27,20 @@ What moves the project next, in order:
 
 ## 2026-10-17
 
+### Item 26e: Harbour routes in the web app and bot (done, PR #55)
+- CSMT to Kurla is served by both lines. The crowding rule's "train ahead" was simply the
+  previous train listed, so a cancelled Harbour train made the next main line train look
+  more crowded. It is now the previous train on the same line (test fails on the old code
+  with "the train before it is cancelled").
+- Station lists (web `/api/stations`, the bot's directory, the dashboard) put the main line
+  first and then the Harbour line's own stations, instead of interleaving the lines'
+  places (Dockyard Road after Byculla, both 4th). `/api/stations` gives each station's
+  `line`; `/api/status` gives `lines` (trains per line), and the page's status line says
+  "Central line timetable, 894 trains; Harbour line, 312." (unchanged with one line).
+- Checked in Chromium on a copy of the real database with the Harbour DOWN trains loaded:
+  CSMT → Panvel answers ("Take the 15:08 slow, arrives 16:28"), Kalyan → CSMT unchanged;
+  offline, patterns and axe checks pass. README says how to load the Harbour line.
+
 ### Item 26d: routes and model features per line (done, PR #54)
 - Found by loading the Harbour DOWN trains beside a copy of the real database: the route
   model mapped place numbers to stations across all lines, so once Harbour was loaded,

@@ -191,8 +191,8 @@ yourself. Interactive docs are at <http://127.0.0.1:8000/api/docs>.
 
 | Endpoint | What it does |
 | --- | --- |
-| `GET /api/status` | What is loaded: trains, stations, real observations, when data was last collected |
-| `GET /api/stations` | Every station in the timetable, in line order |
+| `GET /api/status` | What is loaded: trains (and `lines`: trains per line), stations, real observations, when data was last collected |
+| `GET /api/stations` | Every station in the timetable: the main line from the CSMT end, then each other line's own stations in its order, each with its `line` |
 | `GET /api/recommend?from=KYN&to=CSMT` | The recommendation and the next trains. Optional `at=08:00`, `date=2026-10-14`, `train=08:12`, `n=8` |
 | `POST /api/collect` | One live collection round (NTES; Mobond only if both its switches are on) |
 | `GET /api/patterns` | Delay by hour, part of the day and direction, from real readings (the **Delay patterns** page) |

@@ -474,3 +474,29 @@ def test_the_baseline_leaves_out_readings_flagged_by_sitt_dq(loaded):
     flagged = recommend(loaded, "KYN", "CSMT", MONDAY_7, model_dir=None)
     fast = next(o for o in flagged.options if o.trip.number == "90106")
     assert fast.arrival_delay == 10
+
+
+# --- Two lines sharing stations -----------------------------------------------------------
+
+
+def test_the_train_ahead_is_on_the_same_line(loaded, tmp_path):
+    """CSMT to Kurla is on the main and Harbour lines, from different platforms. A cancelled
+    Harbour train doesn't crowd the next main line train, and the other way round."""
+    from conftest import harbour_csv
+
+    load_timetable(loaded, read_timetable(harbour_csv(tmp_path), line="harbour"))
+    asked = datetime(2026, 9, 28, 5, 0)
+    # 98019 (Harbour, CSMT 05:30) is reported cancelled at CSMT; 90101 (main line) leaves
+    # CSMT at 06:02, the next train after it.
+    loaded.execute(
+        "INSERT INTO observations (observed_at, train_id, station_code, source, train_number, "
+        "event, cancelled, batch_id) VALUES (?, 'harbour-98019', 'CSMT', 'ntes', '98019', "
+        "'cancelled', true, 'b1')",
+        [datetime(2026, 9, 28, 4, 55, tzinfo=IST)],
+    )
+    rec = recommend(loaded, "CSMT", "CLA", asked, model_dir=None)
+    lines = dict(loaded.execute("SELECT number, line FROM trains").fetchall())
+    assert lines["98019"] == "harbour" and lines["90101"] == "central"
+    options = {o.trip.number: o for o in rec.options}
+    assert options["98019"].cancelled
+    assert "cancelled" not in options["90101"].crowding.reason

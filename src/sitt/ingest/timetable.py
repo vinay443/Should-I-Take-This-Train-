@@ -30,6 +30,10 @@ from sitt.db import init_db
 DEFAULT_LINE = "central"
 # A station on more than one line is at home on this one (stations.line; see the schema).
 PRIMARY_LINE = DEFAULT_LINE
+# How station lists are ordered for people: the main line from the CSMT end, then each
+# other line's own stations in its order (stations.line is the home line; see the schema),
+# so the two lines' places never interleave.
+STATION_LIST_ORDER = "ORDER BY line <> 'central', line, seq, code"
 
 REQUIRED_COLUMNS = (
     "train_number",

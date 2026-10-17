@@ -332,3 +332,27 @@ def test_patterns_page_and_api(client, db):
         "need": 28,
         "met": False,
     }
+
+
+def test_stations_list_the_main_line_then_the_harbour_line(client, db, tmp_path):
+    from conftest import harbour_csv
+
+    with init_db(db) as con:
+        load_timetable(con, read_timetable(harbour_csv(tmp_path), line="harbour"))
+    listed = client.get("/api/stations").json()
+    lines = [s["line"] for s in listed]
+    # Main line stations first (CSMT, Masjid, Sandhurst Road and Kurla among them), then
+    # the Harbour line's own: the two lines' places never interleave.
+    first_harbour = lines.index("harbour")
+    assert set(lines[:first_harbour]) == {"central"} and set(lines[first_harbour:]) == {"harbour"}
+    main = [s["seq"] for s in listed[:first_harbour]]
+    harbour = [s["seq"] for s in listed[first_harbour:]]
+    assert main == sorted(main) and harbour == sorted(harbour)
+    status = client.get("/api/status").json()
+    assert status["lines"] == [
+        {"line": "central", "trains": 13},
+        {"line": "harbour", "trains": status["trains"] - 13},
+    ]
+    codes = [s["code"] for s in listed]
+    assert codes[0] == "CSMT" and codes[first_harbour] == "DKRD"  # Dockyard Road, 4th
+    assert "CLA" in codes[:first_harbour] and codes.count("CSMT") == 1
