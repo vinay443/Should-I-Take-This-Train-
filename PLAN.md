@@ -201,14 +201,16 @@ docs/timetable-format.md), trains running beyond the table left out with a clear
 **Needs you:** `UP HB REVISED PTT WEF 01.05.2026.pdf` from Central Railway's timetable page
 (this workspace gets 403 there), in the project folder. Then convert it and add a fixture.
 
-#### 26c. A station on more than one line — [ ]
-CSMT, Masjid, Sandhurst Road and Kurla are on both lines, and a station belongs to one
-(`stations.line`). Split stations from station-lines: loader, timetable queries, route
-model, bot lookup. 2-3 days (docs/expansion-assessment.md). Start with 26b in hand, so
-both directions can be checked; the assessment also says expansion adds little without
-live Harbour data.
+#### 26c. A station on more than one line — [x] (first part)
+`station_lines` (code, line, seq) beside `stations`, whose line/seq are now the station's
+home line: the main line whenever it is on it, in any load order. Main line answers
+unchanged on a copy of the real database. Harbour trains load and answer `next_trains`.
+The rest (routes, recommender, station lists) is 26d.
 
-#### 26d. Harbour routes in `sitt-next` and the web app — [ ] (after 26b and 26c)
+#### 26d. Harbour routes in `sitt-next` and the web app — [ ]
+Routes and the recommender per line (the route model assumes the main line's CSMT-Kalyan
+core), station lists that don't mix the lines' orders, a line picker or grouping in the
+web app and bot. Can start with the DOWN direction; the UP PDF (26b) completes it.
 
 ### 27. Independent review of round 6 — [x]
 A separate agent reviewed cold and found 5 issues, all fixed (PROGRESS.md, 2026-10-16).

@@ -27,6 +27,19 @@ What moves the project next, in order:
 
 ## 2026-10-17
 
+### Item 26c: a station on more than one line (done, PR #53)
+- New `station_lines` table: each line a station is on and its place there, recomputed by
+  the loader from that line's trains. `stations.line`/`seq` are now the home line, the
+  main line whenever a station is on it, in any load order (before, loading the Harbour
+  line would have moved CSMT, Masjid, Sandhurst Road and Kurla to it).
+- Older databases get `station_lines` copied from `stations` when the schema is applied.
+  On a copy of the real database: 51 stations copied, all matching, and `sitt-next`
+  answers byte for byte the same before and after.
+- Tests with real Harbour trains from the fixture: main line places and answers unchanged
+  after loading the Harbour line; both load orders give the same tables; reloading one
+  line keeps the other's places; CSMT to Panvel answers (98001, 00:13). 4 new tests, all
+  failing on the old code.
+
 ### Item 26a: the converter reads the Harbour DOWN PDF (done, PR #51)
 - With the folder connected: no new readings (the database was last written at 23:22 on
   the 16th). The real copy shows this morning's features working: 180 trains over 3
