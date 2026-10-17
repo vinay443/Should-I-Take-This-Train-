@@ -379,3 +379,27 @@ def test_a_report_logged_from_a_harbour_train_keeps_its_line(client, db, tmp_pat
 
     wrong = client.post("/api/reports", json=body | {"station": "KYN", "line": "harbour"})
     assert wrong.status_code == 400 and "No harbour line train calls at" in wrong.json()["error"]
+
+
+def test_a_journey_with_one_change_is_given_as_data(client, db, tmp_path):
+    from conftest import harbour_csv
+
+    with init_db(db) as con:
+        load_timetable(con, read_timetable(harbour_csv(tmp_path), line="harbour"))
+    answer = client.get(
+        "/api/recommend", params={"from": "KYN", "to": "PNVL", "at": "04:00", "date": "2026-09-28"}
+    ).json()
+    assert answer["options"] == [] and answer["choice"] is None
+    assert answer["reason"].startswith("No train runs from Kalyan to Panvel without a change")
+    # Sample 90101 (Kalyan 04:15, Kurla 05:09), then Harbour 98009 from Kurla at 05:17.
+    assert answer["change"] == {
+        "from": "KYN",
+        "at": "CLA",
+        "to": "PNVL",
+        "first_departs": "2026-09-28T04:15+05:30",
+        "second_departs": "2026-09-28T05:17+05:30",
+    }
+    # An ordinary answer has none.
+    assert (
+        client.get("/api/recommend", params={"from": "KYN", "to": "CSMT"}).json()["change"] is None
+    )

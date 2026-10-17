@@ -30,6 +30,11 @@ takes a few seconds, and other requests to the app wait until it is done.
   five-step crowding meter, and tags (AC, 15-car, ladies' special). Tap a train for the details, or to log
   crowding for it.
 - **Why this train?** shows the full explanation, the same as the bot's `/why`.
+- **No train?** When no train goes between the two stations, the page says why (different
+  lines, or a direction whose timetable isn't loaded) and shows only that. For stations on
+  different lines it names the quickest journey with one change, with a button for each
+  part ("Kalyan → Kurla, 08:04", "Kurla → Panvel, 08:53") that asks for it from that
+  train's time, so you see its delays and crowding.
 - **How crowded was your train?** saves a crowd report. It is matched to a scheduled train
   and adjusts the crowding estimate, the same as the bot's `/log`. Tapped the wrong level?
   A report logged from the page has an **Undo** button in the list below the form for 15
@@ -193,7 +198,7 @@ yourself. Interactive docs are at <http://127.0.0.1:8000/api/docs>.
 | --- | --- |
 | `GET /api/status` | What is loaded: trains (and `lines`: trains per line), stations, real observations, when data was last collected |
 | `GET /api/stations` | Every station in the timetable: the main line from the CSMT end, then each other line's own stations in its order, each with its `line` |
-| `GET /api/recommend?from=KYN&to=CSMT` | The recommendation and the next trains. Optional `at=08:00`, `date=2026-10-14`, `train=08:12`, `n=8` |
+| `GET /api/recommend?from=KYN&to=CSMT` | The recommendation and the next trains. Optional `at=08:00`, `date=2026-10-14`, `train=08:12`, `n=8`. With no train between stations on different lines, `change` gives the journey with one change (`from`, `at`, `to`, `first_departs`, `second_departs`) |
 | `POST /api/collect` | One live collection round (NTES; Mobond only if both its switches are on) |
 | `GET /api/patterns` | Delay by hour, part of the day and direction, from real readings (the **Delay patterns** page) |
 | `GET /api/reports` | The latest crowd reports |

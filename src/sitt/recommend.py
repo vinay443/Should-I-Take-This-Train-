@@ -61,7 +61,7 @@ from sitt.models.crowding import (
 )
 from sitt.models.delay import DelayModel, DelayPrediction, load_if_present, predict_targets
 from sitt.models.features import Target, local_naive
-from sitt.timetable import ScheduledTrip, next_trains, no_train_reason, resolve_station
+from sitt.timetable import Journey, ScheduledTrip, next_trains, no_train_answer, resolve_station
 
 LEVEL_MODEL, LEVEL_BASELINE, LEVEL_TIMETABLE = "model", "baseline", "timetable"
 SYNTHETIC_SOURCE = "synthetic"
@@ -144,6 +144,9 @@ class Recommendation:
     synthetic: bool = False
     notes: list[str] = field(default_factory=list)
     settings: RecommendSettings = field(default_factory=RecommendSettings)
+    # With no train at all between stations on different lines: the quickest journey with
+    # one change, by the timetable (named in `reason` too).
+    change: Journey | None = None
 
     @property
     def chosen(self) -> Option | None:
@@ -599,8 +602,9 @@ def recommend(
         )
 
     choice, reason, rule = choose(options, settings)
-    if not options and (why := no_train_reason(con, origin_code, destination_code, local_now)):
-        reason = why  # e.g. two lines, or a direction whose timetable isn't loaded
+    change = None
+    if not options and (why := no_train_answer(con, origin_code, destination_code, local_now)):
+        reason, change = why  # e.g. two lines, or a direction whose timetable isn't loaded
     return Recommendation(
         origin=names.get(origin_code, origin_code),
         destination=names.get(destination_code, destination_code),
@@ -613,6 +617,7 @@ def recommend(
         synthetic=synthetic,
         notes=notes,
         settings=settings,
+        change=change,
     )
 
 

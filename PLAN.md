@@ -351,6 +351,10 @@ instead of only "ask for each part separately".
 ### 49. Independent review of round 12 — [x]
 Five findings (no high); three fixed, one noted (PROGRESS.md, 2026-10-17).
 
+### 50. Ask each part of a journey with a change — [x]
+The web page gives a button for each part of the suggested journey ("Kalyan → Kurla, 08:04"),
+which asks for it from that train's time. `/api/recommend` gives the journey as data.
+
 ### On the user's PC, only if a working shell is available
 `mcp__remote-devices__device_bash` was blocked by a Windows update on 2026-10-12/13. If it
 works in a later session: `git pull`, `uv sync`, start `uv run sitt-web --no-browser` in the
