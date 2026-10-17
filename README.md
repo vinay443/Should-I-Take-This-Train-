@@ -58,14 +58,14 @@ Read this before trusting any number the project shows you.
 
 | Part | Status |
 | --- | --- |
-| **Timetable** | **Real.** Converted from Central Railway's official timetable PDFs: 895 main-line trains, with AC, 15-car and ladies' special markers. The base edition is from October 2024, with the AC supplement of 16 April 2025 and the 15-car supplement of 15 August 2026 applied. **Not yet included:** the 12 services Central Railway converted to AC from 29 June 2026 (Monday to Saturday). Central Railway's timetable page still lists the April 2025 AC supplement as the latest (checked 13 October 2026), so they show as non-AC until a newer one is published. |
-| **Live observations** | **Real, and very few.** Collected from NTES on one PC on 5–6 October 2026; since then only when `sitt-collect` is run by hand (nothing collects in the background). NTES reports locals beyond Kalyan and long-distance trains, not CSMT–Kalyan locals. m-Indicator (Mobond) is switched off: no permission yet. |
+| **Timetable** | **Real.** Converted from Central Railway's official timetable PDFs: 895 main-line trains, with AC, 15-car and ladies' special markers, and optionally the Harbour line's 312 DOWN trains (w.e.f. 1 May 2026; its UP PDF isn't in the project yet). The base edition is from October 2024, with the AC supplement of 16 April 2025 and the 15-car supplement of 15 August 2026 applied. **Not yet included:** the 12 services Central Railway converted to AC from 29 June 2026 (Monday to Saturday). Central Railway's timetable page still lists the April 2025 AC supplement as the latest (checked 13 October 2026), so they show as non-AC until a newer one is published. |
+| **Live observations** | **Real, and very few.** Collected from NTES on one PC on 5–6 October 2026; since then only when someone presses **Check live first** or runs `sitt-collect` (16 and 17 October so far: 2,631 readings in all; nothing collects in the background). NTES reports locals beyond Kalyan and long-distance trains, not CSMT–Kalyan locals. m-Indicator (Mobond) is switched off: no permission yet. |
 | **Delay data used for development** | **Synthetic.** Invented by a generator from guesses about how delays behave. |
 | **Delay model and its accuracy figures** | **Trained and tested on that synthetic data.** They show the pipeline works. They say nothing about real trains, and such a model is not used for recommendations. A real model is trained only once there is enough real data (`sitt-retrain`), and used only at the stations it was trained on. |
 | **Crowding** | **A rule-of-thumb estimate**, not a measurement and not a trained model. It is adjusted by your own crowd reports as you log them. |
 | **Crowd reports** | **Real**, whatever you log through the bot. Each is matched to a scheduled train where that can be done with confidence. |
 | **Megablocks** | **Real but partial.** Only the date and line can be fetched; the section and times are entered by hand. |
-| **`/next` and `sitt-next` today** | **Timetable times**, or the typical past delay where a few real readings exist, overridden by a **live reading** for any train read in the last 30 minutes, and the crowding estimate. Every reply says which. |
+| **`/next` and `sitt-next` today** | **Timetable times**, or the typical past delay where a few real readings exist, overridden by a **live reading** for any train read in the last 30 minutes, and the crowding estimate. Every reply says which. With no train between two stations it says why, and between the main and Harbour lines names the quickest journey with one change, by the timetable. |
 
 Everything synthetic is labelled where it appears: `source = 'synthetic'` in the data, a
 banner in the dashboard, and a line in any bot reply that uses it. Once real observations
@@ -132,7 +132,9 @@ uv run python -m sitt.ingest.timetable harbour.csv --line harbour --replace
 Routes like CSMT → Panvel or Kurla → Vashi then answer in the web app and `sitt-next`, at
 timetable level (there are no live Harbour readings). The main line's answers don't change:
 stations on both lines (CSMT, Masjid, Sandhurst Road, Kurla) keep their main line places.
-Trains back towards CSMT need the UP PDF, which isn't supported yet.
+Trains back towards CSMT need the Harbour UP PDF, which isn't in the project yet (this
+cloud workspace can't download from Central Railway's site). Until it is, the app says so
+when a trip needs them, and doesn't suggest journeys that would.
 
 To try things without the PDFs, load the small invented sample instead:
 

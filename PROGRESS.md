@@ -47,6 +47,12 @@ What moves the project next, in order:
 
 ## 2026-10-17
 
+### Item 55: docs say what is true after the Harbour work (done, PR #70)
+- README "What is real": the optional Harbour DOWN trains, readings collected by pressing
+  Check live first (2,631 by 17 October), and answers between lines. The README no longer
+  says the Harbour UP "isn't supported" (the code is ready; the PDF is missing).
+  docs/data-sources.md lists the Harbour PDFs and what each is for.
+
 ### Item 54: ask each part from the command line and the bot (done, PR #69)
 - With a journey with one change, `sitt-next` now ends the reason with
   `uv run sitt-next KYN CLA --date 2026-10-19 --at 23:15` and
