@@ -197,6 +197,10 @@ Harbour stations (codes checked against NTES and the GTFS feed; four unverified,
 docs/timetable-format.md), trains running beyond the table left out with a clear reason,
 `--line harbour`. Main-line output unchanged (byte for byte on the real PDFs).
 
+#### 26f. Independent review of the Harbour round — [x]
+Nine findings; fixed in PRs #56-#58 (PROGRESS.md). What only matters once there are live
+Harbour readings is listed in docs/expansion-assessment.md, "Known gaps".
+
 #### 26b. The Harbour UP PDF — [ ] (blocked: needs the file)
 **Needs you:** `UP HB REVISED PTT WEF 01.05.2026.pdf` from Central Railway's timetable page
 (this workspace gets 403 there), in the project folder. Then convert it and add a fixture.
