@@ -2,25 +2,41 @@
 
 Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
-## Where this stopped (2026-10-17, 15:00)
+## Where this stopped (2026-10-17, 19:00)
 
-**Everything is merged (PRs #46-#51).** Round 11 is done (weekdays vs weekends, Undo for
-crowd reports, progress towards a delay model, review fixes), and with the folder connected
-the converter now reads the Harbour line **DOWN** PDF (item 26a: 312 trains). On your PC:
-`git pull`, `uv sync`, then restart `uv run sitt-web --host 0.0.0.0`.
+**Everything is merged (PRs #46-#62).** Since this morning: round 11 (weekdays vs weekends,
+Undo for crowd reports, progress towards a delay model), the Harbour line from its DOWN PDF
+(converter, a station on two lines, routes, web app and bot: items 26a-26f, two sessions),
+and round 12 (items 46-49: the real data checked end to end, "why there is no train", the
+quickest journey with one change, review fixes).
 
-Checked on a copy of your database (no new readings since 23:22 on the 16th): Delay
-patterns shows 180 trains over 3 weekdays and 0 weekend days (switch hidden, as it should
-be) and the delay model at 3 of 28 days.
+**When you're back at the PC** (stop `sitt-web` first; the reload needs the database to
+itself). In the project folder, in PowerShell:
+
+```powershell
+git pull
+uv sync
+Copy-Item data\sitt.duckdb data\sitt-before-reload.duckdb
+uv run python -m sitt.ingest.cr_pdf scratch\cr-main-dn.pdf scratch\cr-main-up.pdf --ac-supplement scratch\cr-ac.pdf --15-car-supplement scratch\cr-15car.pdf -o scratch\central.csv
+uv run python -m sitt.ingest.timetable scratch\central.csv --replace
+uv run python -m sitt.ingest.cr_pdf scratch\part10\cr-harbour-dn.pdf --line harbour --edition 2026-05-01 -o scratch\harbour.csv
+uv run python -m sitt.ingest.timetable scratch\harbour.csv --line harbour --replace
+uv run sitt-web --host 0.0.0.0
+```
+
+The first reload adds 95901 (T 15, the 08:04 AC fast from CSMT, 894 → 895 trains); the
+second adds the Harbour DOWN trains (312), which is optional. Both were run on a copy of
+your database: all 2,550 readings kept, main line answers unchanged. The copy made first
+is there in case anything looks wrong.
 
 What moves the project next, in order:
 1. **More readings.** Press **Check live first** at different times over the next week or
    two, including a weekend. The weekday/weekend switch then appears by itself, and
-   "Towards a delay model" shows how close `uv run sitt-retrain` is.
-2. **The Harbour UP PDF** (item 26b): download `UP HB REVISED PTT WEF 01.05.2026.pdf` from
+   "Towards a delay model" shows how close `uv run sitt-retrain` is (3 of 28 days now).
+2. **The Harbour UP PDF** (item 26b): `UP HB REVISED PTT WEF 01.05.2026.pdf` from
    https://cr.indianrailways.gov.in/view_section.jsp?lang=0&id=0,5,2360 into the project
-   folder (this workspace gets 403 there). Then 26c (a station on two lines, 2-3 days) and
-   26d (Harbour routes in the app). The DOWN PDF is `scratch/part10/cr-harbour-dn.pdf`.
+   folder (this workspace gets 403 there). Then trains towards CSMT on the Harbour line,
+   and changes like Kalyan → Chunabhatti via Kurla, work.
 3. **Mobond permission**, for live CSMT-Kalyan, Harbour and Western locals
    (docs/data-sources.md); without it Harbour gets timetable times only.
 4. Item 5 (2027 holidays) once Maharashtra publishes the list, usually Nov-Dec.
@@ -42,7 +58,8 @@ high. Fixed:
 5. LOW: a second train after midnight is marked "after midnight".
 Noted, not changed: (4) a no-train answer runs about 24 timetable queries (0.6 s on the
 real data), only when there is no train at all. Kalyan → Panvel, Thane → Vashi and the docs'
-example are unchanged. 2 new tests (fail on the old code); docs/recommender.md says so.
+example are unchanged. 1 new test and 2 updated (fail on the old code); docs/recommender.md
+says so.
 
 ### Item 48: the quickest journey with one change (done, PR #60)
 - Kalyan → Panvel (real timetable, Monday 08:00) now says: "Quickest with one change on
