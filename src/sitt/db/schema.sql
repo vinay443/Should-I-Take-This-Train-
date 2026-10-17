@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS stations (
 
 -- Each line a station is on, and its place on that line from the CSMT end, as worked out
 -- by the timetable loader from that line's trains. Databases made before this table
--- existed had one line per station; the INSERT copies that across once.
+-- existed had one line per station; the INSERT copies that across once, into an empty
+-- table only, so a station later dropped from a line (a --replace load) never comes back.
 CREATE TABLE IF NOT EXISTS station_lines (
     code    VARCHAR NOT NULL,
     line    VARCHAR NOT NULL,
@@ -35,7 +36,7 @@ CREATE TABLE IF NOT EXISTS station_lines (
 );
 INSERT INTO station_lines (code, line, seq)
 SELECT code, line, seq FROM stations
-WHERE seq > 0 AND code NOT IN (SELECT code FROM station_lines);
+WHERE seq > 0 AND NOT EXISTS (SELECT 1 FROM station_lines);
 
 
 -- A single scheduled service, e.g. the 08:12 Kalyan -> CSMT fast.

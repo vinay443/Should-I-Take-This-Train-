@@ -55,7 +55,7 @@ import numpy as np
 from sitt.config import BlockSettings, load_block_settings
 from sitt.holidays import FIXED_HOLIDAYS, movable_dates
 from sitt.ingest.timetable import _stage
-from sitt.routes import stage_route_points
+from sitt.routes import stage_route_points, station_places_sql
 from sitt.tz import IST
 
 STATE_MAX_AGE_MINUTES = 20
@@ -232,11 +232,12 @@ def prepare(
         "NULL::TIME AS start_time, NULL::TIME AS end_time, NULL::INTEGER AS from_seq, "
         "NULL::INTEGER AS to_seq"
     )
+    places = station_places_sql(con)
     joins = (
         # Each end's place on the block's own line (a Harbour block between Panvel and
         # Vashi uses Harbour line places; a line with no stations here has none).
-        "LEFT JOIN station_lines f ON f.code = b.from_station AND f.line = b.line "
-        "LEFT JOIN station_lines t ON t.code = b.to_station AND t.line = b.line"
+        f"LEFT JOIN {places} f ON f.code = b.from_station AND f.line = b.line "
+        f"LEFT JOIN {places} t ON t.code = b.to_station AND t.line = b.line"
         if has_blocks
         else ""
     )

@@ -64,8 +64,7 @@ def test_loading_the_harbour_line_leaves_main_line_routes_alone(loaded, tmp_path
     assert [places[c] for c in codes] == seqs
 
 
-def test_route_places_fall_back_to_stations():
-    # A database whose stations were written without the loader (no station_lines rows).
+def test_route_places_come_from_stations_until_station_lines_has_any():
     import duckdb
 
     from sitt.db.database import SCHEMA_SQL
@@ -74,5 +73,33 @@ def test_route_places_fall_back_to_stations():
     with duckdb.connect(":memory:") as con:
         con.execute(SCHEMA_SQL)
         con.execute("INSERT INTO stations VALUES ('CSMT', 'CSMT', 'central', 1)")
+        # Written without the loader: station_lines is empty, so stations is used.
+        assert line_station_seqs(con) == {"central": {"CSMT": 1}}
+        # Once station_lines has rows, it is the whole truth.
         con.execute("INSERT INTO station_lines VALUES ('CSMT', 'harbour', 1)")
-        assert line_station_seqs(con) == {"central": {"CSMT": 1}, "harbour": {"CSMT": 1}}
+        assert line_station_seqs(con) == {"harbour": {"CSMT": 1}}
+        # A database made before station_lines existed, not yet opened for writing.
+        con.execute("DROP TABLE station_lines")
+        assert line_station_seqs(con) == {"central": {"CSMT": 1}}
+
+
+def test_a_database_from_before_station_lines_still_answers(tmp_path):
+    """After a pull, the PC's database has no station_lines until something writes to it;
+    sitt-next and the web app open it without applying the schema."""
+    from datetime import datetime
+
+    from conftest import SAMPLE_CSV
+
+    from sitt.db import init_db
+    from sitt.ingest.timetable import load_timetable, read_timetable
+    from sitt.recommend import recommend
+
+    path = tmp_path / "old.duckdb"
+    with init_db(path) as con:
+        load_timetable(con, read_timetable(SAMPLE_CSV))
+        con.execute("DROP TABLE station_lines")
+    import duckdb
+
+    with duckdb.connect(str(path), read_only=True) as con:
+        rec = recommend(con, "KYN", "CSMT", datetime(2026, 9, 28, 7, 0), model_dir=None)
+    assert rec.chosen.trip.number == "90106"

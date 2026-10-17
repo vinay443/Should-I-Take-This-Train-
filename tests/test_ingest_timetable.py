@@ -416,3 +416,20 @@ def test_station_lines_is_filled_in_for_an_older_database(tmp_path):
             ("CSMT", "central", 1),
             ("KYN", "central", 26),
         ]
+
+
+def test_a_station_dropped_from_a_line_is_not_copied_back(tmp_path):
+    path = tmp_path / "sitt.duckdb"
+    with init_db(path) as con:
+        load_timetable(con, read_timetable(SAMPLE_CSV))
+        # Sion loaded under an old code, then the right one with --replace.
+        old = SAMPLE_CSV.read_text(encoding="utf-8").replace("SION,", "SIN,")
+        load_timetable(con, read_timetable(write(tmp_path, old)), replace=True)
+        load_timetable(con, read_timetable(SAMPLE_CSV), replace=True)
+        assert (
+            con.execute("SELECT count(*) FROM station_lines WHERE code = 'SIN'").fetchone()[0] == 0
+        )
+    with init_db(path) as con:  # applying the schema again must not bring SIN back
+        assert (
+            con.execute("SELECT count(*) FROM station_lines WHERE code = 'SIN'").fetchone()[0] == 0
+        )
