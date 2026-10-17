@@ -85,3 +85,16 @@ def test_by_direction_and_cli(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "| Asked before due | Direction |" in out and "| 15 min | up | 1 |" in out
     assert line_state.main(["--db", str(tmp_path / "missing.duckdb")]) == 2
+
+
+def test_a_train_on_another_line_is_not_the_line_state(loaded, tmp_path):
+    from conftest import harbour_csv
+
+    load_timetable(loaded, read_timetable(harbour_csv(tmp_path), line="harbour"))
+    # At CSMT, shared with the Harbour line: a late Harbour train going the same way
+    # (down) says nothing about the main line, so 90103 has no line state.
+    reading_at(loaded, "harbour-98001", "CSMT", "07:10", "07:22", 10)
+    reading_at(loaded, "central-90103", "CSMT", "07:15", "07:31", 0)
+    reading_at(loaded, "central-90103", "CSMT", "07:30", "07:41", 10)
+    row = line_state.backtest(loaded, leads=(15,))[0]
+    assert row.runs == 2 and row.with_line == 0

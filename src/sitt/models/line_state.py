@@ -58,7 +58,7 @@ def _prepare(con: duckdb.DuckDBPyConnection) -> None:
     con.execute(
         f"""
         CREATE OR REPLACE TEMP TABLE ls_readings AS
-        SELECT o.train_id, t.direction, o.station_code, o.observed_at,
+        SELECT o.train_id, t.direction, t.line, o.station_code, o.observed_at,
                o.actual_or_expected_time AS t, o.delay_minutes AS d,
                o.actual_or_expected_time - to_minutes(CAST(o.delay_minutes AS BIGINT))
                    AS scheduled,
@@ -74,9 +74,9 @@ def _prepare(con: duckdb.DuckDBPyConnection) -> None:
     con.execute(
         f"""
         CREATE OR REPLACE TEMP TABLE ls_final AS
-        SELECT train_id, direction, station_code, run_key,
+        SELECT train_id, direction, line, station_code, run_key,
                arg_max(d, observed_at) AS d_final, min(scheduled) AS scheduled
-        FROM ls_readings GROUP BY train_id, direction, station_code, run_key
+        FROM ls_readings GROUP BY train_id, direction, line, station_code, run_key
         HAVING max(observed_at) >= arg_max(t, observed_at) - INTERVAL {CLOSE_MINUTES} MINUTE
         """
     )
@@ -104,7 +104,10 @@ def backtest(
                 SELECT q.train_id, q.station_code, q.run_key, h.train_id AS other_train,
                        arg_max(h.d, h.observed_at) AS d
                 FROM q JOIN ls_readings h
-                  ON h.direction = q.direction AND h.station_code = q.station_code
+                  -- other trains on the same line: at CSMT or Kurla a Harbour train says
+                  -- nothing about the main line's state
+                  ON h.direction = q.direction AND h.line = q.line
+                 AND h.station_code = q.station_code
                  AND h.train_id <> q.train_id
                  AND h.observed_at BETWEEN q.t_ask - INTERVAL {LINE_WINDOW_MINUTES} MINUTE
                                        AND q.t_ask

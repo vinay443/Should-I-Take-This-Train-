@@ -384,6 +384,9 @@ Rule: switch at 200+ runs if each-run-once has the lower error.
 One real bug (the bot's per-part hints counted days from the time asked about) and two
 latent ones in the backtest; all fixed (PROGRESS.md).
 
+### 58. Line-state backtest per line — [x]
+A Harbour train at CSMT or Kurla no longer counts as the main line's state (a known gap).
+
 ### On the user's PC, only if a working shell is available
 `mcp__remote-devices__device_bash` was blocked by a Windows update on 2026-10-12/13. If it
 works in a later session: `git pull`, `uv sync`, start `uv run sitt-web --no-browser` in the
