@@ -202,6 +202,48 @@ def delay_patterns(con: duckdb.DuckDBPyConnection) -> dict:
     }
 
 
+def model_progress(con: duckdb.DuckDBPyConnection) -> dict | None:
+    """How far the real readings are from what `sitt-retrain` needs to train a delay model,
+    and which real-data model is in use, if any. None for a database of synthetic data
+    (sitt-retrain refuses those). Only counts; nothing is trained here."""
+    from sitt.config import load_retrain_settings
+    from sitt.models.delay import ModelError
+    from sitt.models.retrain import PROMOTED, check_readiness
+
+    try:
+        readiness = check_readiness(con, load_retrain_settings())
+    except ModelError:
+        return None
+    in_use = con.execute(
+        "SELECT version FROM model_registry WHERE status = ? ORDER BY created_at DESC LIMIT 1",
+        [PROMOTED],
+    ).fetchone()
+    return {
+        "ready": readiness.ready,
+        "in_use": in_use[0] if in_use else None,
+        "gates": [
+            {"name": g.name, "have": int(g.have), "need": int(g.need), "met": g.met}
+            for g in readiness.gates
+        ],
+    }
+
+
+def model_note(model: dict | None) -> str:
+    """The model progress as one sentence, as the page says it."""
+    if model is None:
+        return "Delay model: this database holds synthetic data, which sitt-retrain won't use."
+    if model["in_use"]:
+        return f"Delay model: {model['in_use']}, trained on real readings, is in use."
+    if model["ready"]:
+        return (
+            "Delay model: there are enough real readings to train one: run `uv run sitt-retrain`."
+        )
+    missing = "; ".join(
+        f"{g['name']} {g['have']:,} of {g['need']:,}" for g in model["gates"] if not g["met"]
+    )
+    return f"Delay model: not enough real readings yet ({missing})."
+
+
 def _kinds_text(data: dict) -> str:
     """'3 weekdays and 1 weekend day or holiday'."""
     counts = {k["key"]: k["days"] for k in data["day_kinds"]}
@@ -278,6 +320,8 @@ def format_report(data: dict, markdown: bool = False, days: str | None = None) -
     )
     if not days:
         lines += ["", split_note(data)]
+        if "model" in data:
+            lines.append(model_note(data["model"]))
     return "\n".join(lines)
 
 
@@ -332,6 +376,7 @@ def main(argv: list[str] | None = None) -> int:
     con = open_with_retry(Path(db), read_only=True)
     try:
         data = delay_patterns(con)
+        data["model"] = model_progress(con)
     finally:
         con.close()
     days = None if args.days == "all" else args.days

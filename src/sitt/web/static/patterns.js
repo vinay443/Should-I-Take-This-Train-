@@ -233,6 +233,26 @@ function showView(view) {
       `: median ${minutes(t.median)} late, ${pct(t.share_late)} were ${view.late_minutes}+ min late (${t.runs} trains).`)));
 }
 
+/** How far the readings are from what sitt-retrain needs. Every day of readings, not the
+ * Days switch's view: the model trains on all of them. */
+function modelProgress(model) {
+  if (!model) return; // synthetic data, or no readings
+  const number = (n) => n.toLocaleString("en-IN");
+  if (model.in_use) {
+    $("model-note").textContent = `A delay model trained on these readings (${model.in_use}) is in use; it is retrained with uv run sitt-retrain.`;
+  } else if (model.ready) {
+    $("model-note").textContent = "There are enough real readings to train a delay model: run uv run sitt-retrain on the PC. Until one passes its checks, predictions use each train's typical past delay (or the timetable), plus live readings.";
+  } else {
+    $("model-note").textContent = "Until there are enough real readings to train a delay model, predictions use each train's typical past delay (or the timetable), plus live readings. sitt-retrain checks these numbers; each Check live first adds to them.";
+  }
+  if (!model.in_use) {
+    $("model-gates").replaceChildren(...model.gates.map((g) =>
+      el("li", {}, el("strong", { text: g.name[0].toUpperCase() + g.name.slice(1) }),
+        `: ${number(g.have)} of ${number(g.need)}${g.met ? " (enough)" : ""}`)));
+  }
+  $("model").hidden = false;
+}
+
 function render(data) {
   if (!data.runs) {
     $("summary").textContent = "No real readings yet.";
@@ -258,6 +278,7 @@ function render(data) {
   $("content").hidden = false; // before drawing: the charts are sized to the page
   daysPicker(data, view.kind);
   showView(view);
+  modelProgress(data.model);
   let lastWidth = $("charts").clientWidth;
   let timer;
   window.addEventListener("resize", () => {

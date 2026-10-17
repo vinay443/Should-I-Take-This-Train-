@@ -284,6 +284,7 @@ def test_patterns_page_and_api(client, db):
     assert client.get("/static/patterns.js").status_code == 200
     empty = client.get("/api/patterns").json()
     assert empty["runs"] == 0 and empty["by_hour"] == [] and empty["min_runs"] == 5
+    assert "model" not in empty  # nothing to say before there are readings
 
     from sitt.db import init_db
 
@@ -303,3 +304,11 @@ def test_patterns_page_and_api(client, db):
     # One day of readings: too few to show weekdays and weekends apart.
     kinds = {k["key"]: k["days"] for k in data["day_kinds"]}
     assert data["split_ready"] is False and data["by_kind"] == {} and sum(kinds.values()) == 1
+    # And how far that is from a delay model trained on real readings.
+    assert data["model"]["ready"] is False and data["model"]["in_use"] is None
+    assert data["model"]["gates"][0] == {
+        "name": "days with observations",
+        "have": 1,
+        "need": 28,
+        "met": False,
+    }

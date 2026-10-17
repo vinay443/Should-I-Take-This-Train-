@@ -291,7 +291,7 @@ Re-checked 2026-10-17: no official 2027 Maharashtra holiday list yet (item 5 sta
 blocked), and no Central Railway timetable or AC supplement newer than what item 19
 recorded. Nothing to change.
 
-### 44. How far the readings are from a real model — [ ]
+### 44. How far the readings are from a real model — [x]
 `sitt-retrain --check` knows how much real data a model needs (28 days, 5,000 readings…),
 but only on the command line. Show the same progress on Delay patterns ("Readings on 3 of
 the 28 days a delay model needs") so pressing **Check live first** has a visible point.

@@ -63,6 +63,12 @@ the day before (the 03:00 service day), so the 00:30 early on a Saturday counts 
 In the terminal: `uv run sitt-patterns --days weekday` (or `weekend`); without `--days` the
 report ends with the same sentence on how far the readings are.
 
+**Towards a delay model** at the bottom shows how far the real readings are from what
+`uv run sitt-retrain` needs before it trains a delay model (28 days, 5,000 usable readings
+and so on, the same gates as `sitt-retrain --check`; [`retraining.md`](retraining.md)),
+counted over every day whatever the Days switch shows, or which real-data model is in use.
+Nothing is trained from the page. `sitt-patterns` ends with the same line.
+
 It describes the past; the recommender does the predicting. Code: `src/sitt/patterns.py`.
 The same tables in a terminal: `uv run sitt-patterns` (`--markdown` for docs).
 The Streamlit dashboard's delay heatmaps count every reading instead, so a train seen four

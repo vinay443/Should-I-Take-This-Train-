@@ -288,7 +288,10 @@ def create_app(
     def delay_patterns() -> dict:
         """How late trains have really been, by hour and direction (real readings only)."""
         with read() as con:
-            return patterns.delay_patterns(con)
+            data = patterns.delay_patterns(con)
+            if data["runs"]:  # how far these readings are from a real delay model
+                data["model"] = patterns.model_progress(con)
+            return data
 
     @app.get("/api/reports")
     def reports(limit: int = Query(default=10, ge=1, le=50)) -> list[dict]:
