@@ -356,3 +356,26 @@ def test_stations_list_the_main_line_then_the_harbour_line(client, db, tmp_path)
     codes = [s["code"] for s in listed]
     assert codes[0] == "CSMT" and codes[first_harbour] == "DKRD"  # Dockyard Road, 4th
     assert "CLA" in codes[:first_harbour] and codes.count("CSMT") == 1
+
+
+def test_a_report_logged_from_a_harbour_train_keeps_its_line(client, db, tmp_path):
+    from conftest import harbour_csv
+
+    with init_db(db) as con:
+        load_timetable(con, read_timetable(harbour_csv(tmp_path), line="harbour"))
+    answer = client.get(
+        "/api/recommend", params={"from": "CSMT", "to": "CLA", "at": "05:00"}
+    ).json()
+    assert {o["line"] for o in answer["options"]} == {"central", "harbour"}
+
+    body = {"station": "CSMT", "departure": "05:30", "service": "slow", "crowd": 4}
+    logged = client.post("/api/reports", json=body | {"line": "harbour"})
+    assert logged.status_code == 201
+    with init_db(db) as con:
+        line, matched = con.execute(
+            "SELECT line, matched_train_id FROM crowd_reports WHERE id = ?", [logged.json()["id"]]
+        ).fetchone()
+    assert line == "harbour" and (matched is None or matched.startswith("harbour-"))
+
+    wrong = client.post("/api/reports", json=body | {"station": "KYN", "line": "harbour"})
+    assert wrong.status_code == 400 and "No harbour line train calls at" in wrong.json()["error"]

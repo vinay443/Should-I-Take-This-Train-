@@ -65,6 +65,9 @@ class ReportQuery:
     is_ac: bool | None = None
     car_count: int | None = None  # 12 or 15
     ladies: bool | None = None
+    # The line the report is about; None means the station's home line (the main line at
+    # stations it shares with the Harbour line). See crowd_reports.line in the schema.
+    line: str | None = None
 
 
 @dataclass(frozen=True)
@@ -130,6 +133,18 @@ def _runs_ac(is_ac: bool | None, weekdays_only: bool | None, day: date) -> bool:
     return not (weekdays_only and (day.weekday() >= 5 or is_holiday(day)))
 
 
+def has_column(con: duckdb.DuckDBPyConnection, table: str, column: str) -> bool:
+    """Whether a column exists: a database opened read-only may predate it."""
+    return (
+        con.execute(
+            "SELECT count(*) FROM information_schema.columns "
+            "WHERE table_name = ? AND column_name = ?",
+            [table, column],
+        ).fetchone()[0]
+        > 0
+    )
+
+
 def find_candidates(
     con: duckdb.DuckDBPyConnection,
     query: ReportQuery,
@@ -154,6 +169,7 @@ def find_candidates(
                s.days_of_operation
         FROM stops s JOIN trains t USING (train_id)
         WHERE s.station_code = $station AND s.stop_seq < s.last_seq
+          AND t.line = coalesce($line, (SELECT line FROM stations WHERE code = $station))
           AND ($service IS NULL OR t.train_type = $service)
           AND ($destination IS NULL OR EXISTS (
                 SELECT 1 FROM scheduled_stops d
@@ -164,6 +180,7 @@ def find_candidates(
             "station": query.station_code,
             "service": query.service,
             "destination": query.destination_code,
+            "line": query.line,
         },
     ).fetchall()
 
@@ -251,6 +268,7 @@ def query_from_report(
     note: str | None,
     reported_at: datetime,
     stations: StationDirectory,
+    line: str | None = None,
 ) -> ReportQuery | None:
     """Rebuild what a stored report says about its train.
 
@@ -270,19 +288,21 @@ def query_from_report(
         is_ac=extras.is_ac,
         car_count=extras.car_count,
         ladies=extras.ladies,
+        line=line,
     )
 
 
 def load_report(con: duckdb.DuckDBPyConnection, report_id: int) -> StoredMatch | None:
+    line = "line" if has_column(con, "crowd_reports", "line") else "NULL"
     row = con.execute(
         "SELECT id, source, station_code, train_description, note, epoch_us(reported_at), "
-        "matched_train_id, match_method FROM crowd_reports WHERE id = ?",
+        f"matched_train_id, match_method, {line} FROM crowd_reports WHERE id = ?",
         [report_id],
     ).fetchone()
     if row is None:
         return None
     reported_at = _EPOCH + timedelta(microseconds=row[5])
-    query = query_from_report(row[2], row[3], row[4], reported_at, directory_from(con))
+    query = query_from_report(row[2], row[3], row[4], reported_at, directory_from(con), row[8])
     return StoredMatch(row[0], row[1], query, row[6], row[7])
 
 

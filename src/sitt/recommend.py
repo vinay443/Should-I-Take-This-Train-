@@ -593,6 +593,7 @@ def recommend(
                 trip.departure,
                 local_now,
                 exclude_train_id=trip.train_id,
+                line=trip.line,
             ),
             train_reports=train_reports(con, trip.train_id, origin_code, local_now),
         )

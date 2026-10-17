@@ -197,7 +197,7 @@ yourself. Interactive docs are at <http://127.0.0.1:8000/api/docs>.
 | `POST /api/collect` | One live collection round (NTES; Mobond only if both its switches are on) |
 | `GET /api/patterns` | Delay by hour, part of the day and direction, from real readings (the **Delay patterns** page) |
 | `GET /api/reports` | The latest crowd reports |
-| `POST /api/reports` | Log crowding: `{"station": "KYN", "departure": "08:12", "service": "fast", "crowd": 4}` |
+| `POST /api/reports` | Log crowding: `{"station": "KYN", "departure": "08:12", "service": "fast", "crowd": 4}`, and optionally `"line": "harbour"` (sent when you log from a train's row; without it, the station's home line) |
 | `DELETE /api/reports/{id}` | Take back a report logged from the page in the last 15 minutes (`can_undo` in the list); 409 for older ones and the bot's |
 
 Errors come back as `{"error": "..."}` with a 4xx status, worded for a person.

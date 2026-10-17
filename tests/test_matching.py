@@ -562,3 +562,43 @@ def test_a_trains_own_reports_count_for_more_than_similar_ones():
     )
     assert both.score == 3  # half rules (2), half reports (3.67)
     assert estimate(off_peak, [1, 1, 5, 5]).score == 3  # all similar: mean 3, weight 4/7
+
+
+# --- two lines sharing a station ---------------------------------------------------------
+
+
+@pytest.fixture
+def both(loaded, tmp_path):
+    """The sample main line plus real Harbour DOWN trains: CSMT is on both lines."""
+    from conftest import harbour_csv
+
+    load_timetable(loaded, read_timetable(harbour_csv(tmp_path), line="harbour"))
+    return loaded
+
+
+def test_a_report_at_a_shared_station_is_about_the_main_line_unless_it_says(both):
+    # 05:35 slow from CSMT: the Harbour 05:30 (98019) is 5 minutes off; the main line's
+    # next slow (90101) leaves at 06:02, too far to be it.
+    asked = ReportQuery("CSMT", time(5, 35), at(MONDAY, "07:00"), "slow")
+    assert matching.find_candidates(both, asked) == []
+    named = ReportQuery(**{**asked.__dict__, "line": "harbour"})
+    found = matching.find_candidates(both, named)
+    assert found and {c.train_id.split("-")[0] for c in found} == {"harbour"}
+
+
+def test_similar_reports_stay_on_their_line(both):
+    rows = [
+        (5, "05:30 slow from CSMT", "harbour-98019", None),  # matched to a Harbour train
+        (5, "05:40 slow from CSMT", None, "harbour"),  # names the Harbour line
+        (1, "05:50 slow from CSMT", None, None),  # says nothing: the main line
+    ]
+    for level, description, matched, line in rows:
+        both.execute(
+            "INSERT INTO crowd_reports (reported_at, station_code, train_description, "
+            "crowd_level, source, matched_train_id, line) VALUES (?, 'CSMT', ?, ?, 'web', ?, ?)",
+            [at(MONDAY, "07:00"), description, level, matched, line],
+        )
+    departure, now = datetime(2026, 10, 5, 5, 45), at(MONDAY, "08:00")
+    assert similar_reports(both, "CSMT", "slow", departure, now, line="central") == [1]
+    assert sorted(similar_reports(both, "CSMT", "slow", departure, now, line="harbour")) == [5, 5]
+    assert len(similar_reports(both, "CSMT", "slow", departure, now)) == 3  # no line: all

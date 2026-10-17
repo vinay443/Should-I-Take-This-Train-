@@ -533,6 +533,9 @@ function buildCrowdOptions() {
 function prefillLog(option, answer) {
   $("log-station").value = stationText(answer.origin_code);
   $("log-time").value = hhmm(option.departs);
+  // Where two lines share a station (CSMT to Kurla), the report is about this train's line.
+  // Changing the station or time by hand makes it a report like any other.
+  $("log-form").dataset.line = option.line || "";
   document.querySelector(`input[name="service"][value="${option.type}"]`).checked = true;
   $("log-heading").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   $("crowd-options").querySelector("input").focus();
@@ -550,6 +553,7 @@ async function logCrowding(event) {
         departure: $("log-time").value,
         service: document.querySelector('input[name="service"]:checked').value,
         crowd: Number(crowd.value),
+        ...($("log-form").dataset.line ? { line: $("log-form").dataset.line } : {}),
       }),
     });
     toast(result.matched
@@ -620,6 +624,9 @@ function wire() {
       if (later && !$("at").value) $("at").value = mumbaiNow().time;
     }));
   $("log-form").addEventListener("submit", logCrowding);
+  for (const id of ["log-station", "log-time"]) {
+    $(id).addEventListener("input", () => { delete $("log-form").dataset.line; });
+  }
   $("edit-trip").addEventListener("click", () => {
     unfoldTrip();
     $("from").focus();
