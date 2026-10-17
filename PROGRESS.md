@@ -32,6 +32,25 @@ What moves the project next, in order:
 
 ## 2026-10-17
 
+### Item 26a: the converter reads the Harbour DOWN PDF (done, PR #51)
+- With the folder connected: no new readings (the database was last written at 23:22 on
+  the 16th). The real copy shows this morning's features working: 180 trains over 3
+  weekdays and no weekend days, so the Days switch stays hidden and says so; the delay
+  model is at 3 of 28 days. Only the Harbour **DOWN** PDF is on the PC.
+- Converter: 31 Harbour stations added (codes from NTES's station list and the GTFS feed;
+  King's Circle, Mahim, Santacruz and Goregaon only from erail.in, marked unverified;
+  "Ramnagar" in the PDF is Ram Mandir). `--line harbour` for the CSV header.
+- New rule: a station code in a cell for a station that isn't a row of the table means
+  the train runs beyond it, with that station's time in the next row. Such trains are
+  left out with a reason instead of the next row's time being read as a stop: the 37
+  Trans-Harbour trains from Thane ("TNA" in the CSMT row, joining at Nerul) and 91491
+  (to Borivali). "L/SPL" is read as the ladies' special; 98193 is still left out for an
+  unexplained "#".
+- Result: 312 of 351 DOWN trains, all slow, checked against the rendered page 1. The main
+  line converts byte for byte as before (CSV and report) from the real PDFs.
+- Fixture from real pages 1, 13 and 16; 5 new tests, failing on the old code.
+- Loading is item 26c (a station on two lines); the UP PDF is item 26b and needs you.
+
 ### Item 45: independent review of rounds 10-11 (done, PR #49)
 A separate agent reviewed PRs #46-#48 cold (time zones, the DELETE endpoint's limits and
 SQL, offline behaviour, resize, cost all checked fine). Six findings, all reproduced, all

@@ -274,6 +274,19 @@ converter says "no change; the timetable already says this", which is your cue t
 uv run python -m sitt.ingest.cr_pdf dn.pdf up.pdf --ac-supplement ac.pdf --15-car-supplement cars.pdf -o central.csv
 ```
 
+The Harbour line PDFs (w.e.f. 01.05.2026) convert the same way, with `--line harbour` (it
+only changes the CSV's header) and the edition, which the converter can't tell from them:
+
+```bash
+uv run python -m sitt.ingest.cr_pdf "DN HB REVISED PTT WEF 01.05.2026.pdf" --line harbour --edition 2026-05-01 -o harbour-dn.csv
+```
+
+The DOWN PDF gives 312 trains; 39 are left out with a warning: 37 Trans-Harbour trains from
+Thane and 91491 to Borivali (they run beyond the table; see the module's docstring), and
+98193, whose "#" marker nothing on the page explains. Loading the result is not supported
+yet: a station belongs to one line (see "Loading"), and CSMT, Masjid, Sandhurst Road and
+Kurla are on both.
+
 The converter prints one line per override applied, and the CSV's header comment records how
 many there were. Then load the CSV as usual.
 
@@ -308,8 +321,24 @@ official source**:
 | Lowjee | `LWJ` | Not in NTES's station list. Wikipedia and IndiaRailInfo give `LWJ` |
 | Khopoli | `KHPI` | Not in NTES's station list. Wikipedia and booking sites (ixigo, Goibibo) give `KHPI` |
 
-NTES has none of the four under any code or spelling, and neither does the Indian Railways
-GTFS feed built from it. The third-party sources all agree with the codes used here, so they
+The Harbour line's stations (added 2026-10-17 for its DOWN PDF) were checked the same way.
+Four of them, all Western line stations the Harbour trains run through to Goregaon, are in
+neither NTES's list nor the GTFS feed:
+
+| Station | Code | What was found (2026-10-17) |
+| --- | --- | --- |
+| King's Circle | `KCE` | Not in NTES's list or the GTFS feed. erail.in's station pages use `KCE` |
+| Mahim | `MM` | Not in NTES's list or the GTFS feed. erail.in and ixigo use `MM` |
+| Santacruz | `STC` | Not in NTES's list or the GTFS feed. erail.in and ixigo use `STC` |
+| Goregaon | `GMN` | Not in NTES's list or the GTFS feed. erail.in uses `GMN` |
+
+Two more Harbour notes. The PDF prints "Ramnagar" between Jogeshwari and Goregaon, where
+the station is Ram Mandir (`RMAR`, in NTES's list); the converter reads that label as Ram
+Mandir. Seawoods-Darave-Karave is `SWDK` (the GTFS feed, and NTES's entry with that name);
+NTES also lists `SWDV` and erail.in uses it.
+
+For the Khopoli four: NTES has none of them under any code or spelling, and neither does
+the Indian Railways GTFS feed built from it. The third-party sources all agree with the codes used here, so they
 are probably right, but none is official. The risk is small: nothing matches on these codes
 except this project's own timetable. A wrong one would only matter if a live source reported
 a train at one of these stations under a different code, and `sitt-dq` would then list it

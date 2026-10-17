@@ -47,7 +47,7 @@ uv run sitt-block add --date 2026-10-11 --from MTN --to MLND --start 11:05 --end
 | ------------- | ----------------------------------------------------- | --------- |
 | `--date`      | `YYYY-MM-DD`, the day the block starts                | required  |
 | `--line`      | `central`, `harbour`, `transharbour`, `western`       | `central` |
-| `--from`, `--to` | Station codes or names at the ends of the section  | not set   |
+| `--from`, `--to` | Station codes or names at the ends of the section (names of main line and Harbour line stations are stored as codes) | not set   |
 | `--start`, `--end` | `HH:MM`. An end before the start means past midnight | not set |
 | `--tracks`    | `fast`, `slow`, `both`                                | not set   |
 | `--direction` | `up`, `down`, `both`                                  | not set   |

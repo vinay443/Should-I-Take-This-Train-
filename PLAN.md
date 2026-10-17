@@ -187,17 +187,28 @@ A second view in the web app (`/patterns`): delay by hour and direction from rea
 observations, with the honest caveats from docs/live-drift.md; no Streamlit needed.
 **Done when:** API endpoint + view + tests; screenshots at phone and desktop width.
 
-### 26. Harbour line timetable — [ ] (blocked: needs the PDFs)
-Central Railway now publishes Harbour line PDFs (w.e.f. 01.05.2026) on its timetable page.
-docs/expansion-assessment.md says the converter reads the layout and fails only on station
-names. Add the Harbour stations and convert; keep it behind a separate `line` so main-line
-results don't change. **Done when:** converter tests on a fixture from the real PDF; a
-Harbour route answers in `sitt-next` and the web app.
-Blocked 2026-10-16: the cloud workspace can't reach cr.indianrailways.gov.in (the proxy
-answers 403), and the copies on your PC (`scratch/part10/`) need folder access, which was
-declined. **Needs you:** put `DN HB REVISED PTT WEF 01.05.2026.pdf` and the UP file in the
-project folder (or connect the folder). Also note the size: docs/expansion-assessment.md
-puts it at 5-6 days, most of it letting a station belong to more than one line.
+### 26. Harbour line timetable — in parts
+Central Railway publishes Harbour line PDFs (w.e.f. 01.05.2026) on its timetable page.
+Split 2026-10-17, when the folder was connected: only the DOWN PDF is on your PC
+(`scratch/part10/cr-harbour-dn.pdf`, saved for the 2026-10-05 assessment).
+
+#### 26a. The converter reads the Harbour DOWN PDF — [x]
+Harbour stations (codes checked against NTES and the GTFS feed; four unverified, listed in
+docs/timetable-format.md), trains running beyond the table left out with a clear reason,
+`--line harbour`. Main-line output unchanged (byte for byte on the real PDFs).
+
+#### 26b. The Harbour UP PDF — [ ] (blocked: needs the file)
+**Needs you:** `UP HB REVISED PTT WEF 01.05.2026.pdf` from Central Railway's timetable page
+(this workspace gets 403 there), in the project folder. Then convert it and add a fixture.
+
+#### 26c. A station on more than one line — [ ]
+CSMT, Masjid, Sandhurst Road and Kurla are on both lines, and a station belongs to one
+(`stations.line`). Split stations from station-lines: loader, timetable queries, route
+model, bot lookup. 2-3 days (docs/expansion-assessment.md). Start with 26b in hand, so
+both directions can be checked; the assessment also says expansion adds little without
+live Harbour data.
+
+#### 26d. Harbour routes in `sitt-next` and the web app — [ ] (after 26b and 26c)
 
 ### 27. Independent review of round 6 — [x]
 A separate agent reviewed cold and found 5 issues, all fixed (PROGRESS.md, 2026-10-16).
