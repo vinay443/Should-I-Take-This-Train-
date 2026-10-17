@@ -59,6 +59,15 @@ def run(db: Path, axe: str) -> list[str]:
                     tag = f"{name}/{scheme}"
                     page.goto(url)
                     page.wait_for_selector("#answer:not([hidden]) .trains li")
+                    # A report just logged, so the list under the form has an Undo button.
+                    page.evaluate(
+                        """fetch('/api/reports', {method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({station: 'KYN', departure: '07:12',
+                                              service: 'fast', crowd: 3})})"""
+                    )
+                    page.reload()
+                    page.wait_for_selector("#reports button.undo")
                     page.click(".trains li button")  # open a train's details
                     page.click(".why summary")
                     audit(page, axe, f"{tag} main", problems)

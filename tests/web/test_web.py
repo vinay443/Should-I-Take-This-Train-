@@ -1,6 +1,6 @@
 """The web app's API (sitt.web.app), against the invented sample timetable. No network."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from conftest import SAMPLE_CSV
@@ -149,6 +149,44 @@ def test_log_crowding_and_list_reports(client):
     answer = client.get("/api/recommend", params={"from": "KYN", "to": "CSMT"}).json()
     fast = next(o for o in answer["options"] if o["number"] == "90106")
     assert "report" in fast["crowding"]["reason"]
+
+
+def test_a_report_just_logged_can_be_taken_back(client):
+    body = {"station": "Kalyan", "departure": "7:12", "service": "fast", "crowd": 5}
+    logged = client.post("/api/reports", json=body).json()
+    (listed,) = client.get("/api/reports").json()
+    assert listed["can_undo"] is True
+    assert client.delete(f"/api/reports/{logged['id']}").status_code == 204
+    assert client.get("/api/reports").json() == []
+    # The estimate no longer uses it.
+    answer = client.get("/api/recommend", params={"from": "KYN", "to": "CSMT"}).json()
+    fast = next(o for o in answer["options"] if o["number"] == "90106")
+    assert "report" not in fast["crowding"]["reason"]
+    gone = client.delete(f"/api/reports/{logged['id']}")
+    assert gone.status_code == 404 and "taken back already" in gone.json()["error"]
+
+
+def test_older_reports_and_the_bots_cannot_be_taken_back(client, db):
+    from sitt.web.app import UNDO_MINUTES
+
+    now = datetime.now(UTC)
+    with init_db(db) as con:
+        for when, source in [
+            (now - timedelta(minutes=UNDO_MINUTES + 1), "web"),  # too old
+            (now - timedelta(minutes=1), "telegram"),  # from the bot
+        ]:
+            con.execute(
+                "INSERT INTO crowd_reports (reported_at, station_code, train_description, "
+                "crowd_level, source) VALUES (?, 'KYN', '07:12 fast from KYN', 3, ?)",
+                [when, source],
+            )
+    reports = client.get("/api/reports").json()
+    assert [r["can_undo"] for r in reports] == [False, False]
+    for report in reports:
+        refused = client.delete(f"/api/reports/{report['id']}")
+        assert refused.status_code == 409
+        assert f"in the last {UNDO_MINUTES} minutes" in refused.json()["error"]
+    assert len(client.get("/api/reports").json()) == 2
 
 
 @pytest.mark.parametrize(

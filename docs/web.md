@@ -31,7 +31,10 @@ takes a few seconds, and other requests to the app wait until it is done.
   crowding for it.
 - **Why this train?** shows the full explanation, the same as the bot's `/why`.
 - **How crowded was your train?** saves a crowd report. It is matched to a scheduled train
-  and adjusts the crowding estimate, the same as the bot's `/log`.
+  and adjusts the crowding estimate, the same as the bot's `/log`. Tapped the wrong level?
+  A report logged from the page has an **Undo** button in the list below the form for 15
+  minutes; after that, and for reports sent from the bot, it stays (they can only be removed
+  in the database itself).
 - **Save this route** keeps your usual trips as one-tap buttons (stored in this browser).
 
 ## Delay patterns
@@ -131,6 +134,9 @@ past them, and that opening other pages (the API docs, raw
 JSON) never replaces the kept main page, at phone and desktop width in light and dark,
 saving screenshots to a temp folder. Checked 2026-10-16: all checks pass.
 
+It also logs a crowd report and takes it back with **Undo** (and checks the report stays,
+with a message, when the PC can't be reached).
+
 `scripts/check_web_patterns.py` checks the Delay patterns weekday/weekend switch the same
 way, on two invented databases: with one weekend day the switch stays hidden and the caveat
 says what is missing; with two, the switch changes the numbers, keeps the choice in the
@@ -149,7 +155,8 @@ npm install --prefix /tmp/axe axe-core@4.10.3
 python3 scripts/check_web_a11y.py --axe /tmp/axe/node_modules/axe-core/axe.min.js
 ```
 
-Checked 2026-10-17 (with the weekend view): no violations. axe also lists what it couldn't decide ("check by
+Checked 2026-10-17 (with the weekend view and an Undo button in the reports list): no
+violations. axe also lists what it couldn't decide ("check by
 hand"): on Delay patterns that is the chart's axis labels and text under the tooltip, all
 6:1 or better worked out by hand. Its first run found the board's later rows (2.3:1) and
 the green "on time" text in light mode (4.2:1) below the 4.5:1 minimum, chart bars with a
@@ -177,6 +184,7 @@ yourself. Interactive docs are at <http://127.0.0.1:8000/api/docs>.
 | `GET /api/patterns` | Delay by hour, part of the day and direction, from real readings (the **Delay patterns** page) |
 | `GET /api/reports` | The latest crowd reports |
 | `POST /api/reports` | Log crowding: `{"station": "KYN", "departure": "08:12", "service": "fast", "crowd": 4}` |
+| `DELETE /api/reports/{id}` | Take back a report logged from the page in the last 15 minutes (`can_undo` in the list); 409 for older ones and the bot's |
 
 Errors come back as `{"error": "..."}` with a 4xx status, worded for a person.
 
