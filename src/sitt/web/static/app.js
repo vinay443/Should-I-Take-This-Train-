@@ -555,12 +555,29 @@ async function logCrowding(event) {
 async function loadReports() {
   try {
     const reports = await api("/api/reports?limit=5");
-    $("reports").replaceChildren(...reports.map((r) =>
-      el("li", {},
-        el("span", { text: `${r.train || stationLabel(r.station)}, ${r.crowd_label}` }),
-        el("span", { text: new Date(r.reported_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" }) }),
-      )));
+    $("reports").replaceChildren(...reports.map((r) => {
+      const what = `${r.train || stationLabel(r.station)}, ${r.crowd_label}`;
+      return el("li", {},
+        el("span", { text: what }),
+        el("span", { class: "report-side" },
+          el("span", { text: new Date(r.reported_at).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" }) }),
+          // A report just logged here can be taken back (a mis-tap); older ones and the bot's can't.
+          r.can_undo ? el("button", { type: "button", class: "undo", "aria-label": `Undo report: ${what}`, onclick: () => undoReport(r, what) }, "Undo") : null));
+    }));
   } catch { /* the list is a nicety */ }
+}
+
+async function undoReport(report, what) {
+  try {
+    await api(`/api/reports/${report.id}`, { method: "DELETE" });
+    toast(`Taken back: ${what}.`);
+  } catch (error) {
+    toast(error instanceof OfflineError
+      ? "Can't reach the app on your PC, so the report is still there. Try again when the PC is back."
+      : error.message);
+  }
+  loadReports();
+  $("log-heading").focus(); // the button is gone: keep keyboard users in the same place
 }
 
 // ---------- start ----------

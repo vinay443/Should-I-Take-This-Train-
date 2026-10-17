@@ -272,6 +272,32 @@ Rather than wait for the data, built now and shown only when the data allows: th
 weekend days or holidays; until then both say how many of each there are so far.
 
 ### 41. Independent review of round 10 — [ ]
+Done together with round 11's review (item 45): round 10's only code change, item 39, is
+covered there.
+
+## Round 11 (added 2026-10-17, self-directed)
+
+No Harbour PDFs or folder access yet, and no new readings visible from the cloud, so these
+are things that need neither.
+
+### 42. Undo a crowd report logged by mistake — [x]
+A mis-tap on the crowd meter stays in the database for good and skews that train's estimate.
+Let the page take back its own reports for a short while (15 min); never the bot's or older
+ones. **Done when:** API tests for allowed and refused cases; browser check of Undo, also
+with the PC unreachable; axe clean.
+
+### 43. Timetable and holidays still current — [x]
+Re-checked 2026-10-17: no official 2027 Maharashtra holiday list yet (item 5 stays
+blocked), and no Central Railway timetable or AC supplement newer than what item 19
+recorded. Nothing to change.
+
+### 44. How far the readings are from a real model — [ ]
+`sitt-retrain --check` knows how much real data a model needs (28 days, 5,000 readings…),
+but only on the command line. Show the same progress on Delay patterns ("Readings on 3 of
+the 28 days a delay model needs") so pressing **Check live first** has a visible point.
+**Done when:** API field + page line + test; nothing is trained from the page.
+
+### 45. Independent review of rounds 10-11 — [ ]
 
 ### On the user's PC, only if a working shell is available
 `mcp__remote-devices__device_bash` was blocked by a Windows update on 2026-10-12/13. If it

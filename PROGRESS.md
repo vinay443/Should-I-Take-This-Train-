@@ -20,6 +20,21 @@ Nothing self-directed is left that is worth doing before one of these happens:
 
 ## 2026-10-17
 
+### Item 43: timetable and holidays still current (checked, no change)
+- Web search 2026-10-17: no official 2027 Maharashtra holiday list yet; the latest Central
+  Railway news is still the 12 AC conversions of 29 June, already recorded (item 19).
+
+### Item 42: undo a crowd report logged by mistake (done, PR #47)
+- Reports logged from the page get an **Undo** button in the list below the form for 15
+  minutes (`DELETE /api/reports/{id}`; the list says `can_undo`). Older reports and the
+  bot's are refused (409) and never removed from the page. Taking one back removes it from
+  the crowding estimate at once (tested).
+- If the PC can't be reached, the report stays and the page says so. After Undo, keyboard
+  focus moves to the section heading (the button is gone).
+- Browser check (`check_web_offline.py`): log, Undo while unreachable, Undo; phone and
+  desktop, light and dark. The a11y check now audits the main page with an Undo button:
+  no violations. 2 new API tests.
+
 ### Item 40: weekdays vs weekends in Delay patterns (done, PR #46)
 - Built now, shown only when the data allows, so it turns itself on as readings come in:
   once there are readings on at least 2 weekdays (Mon-Fri) and 2 weekend days or holidays

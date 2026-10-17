@@ -11,6 +11,8 @@ Endpoints (all JSON):
     GET  /api/patterns              delay by hour and direction, from real readings (/patterns)
     GET  /api/reports               the latest crowd reports (from the page or the bot)
     POST /api/reports               log how crowded a train was
+    DELETE /api/reports/{id}        take back a report logged from the page in the last
+                                    UNDO_MINUTES minutes (a mis-tap)
 
 Also /manifest.webmanifest and /sw.js, so a phone can keep the page on its home screen and
 open it when the PC can't be reached (see docs/web.md).
@@ -51,6 +53,9 @@ from sitt.tz import IST
 
 STATIC = Path(__file__).parent / "static"
 WEB_SOURCE = "web"  # crowd_reports.source for reports logged from the page
+# A report logged from the page can be taken back for this long: long enough to notice a
+# mis-tap, short enough that older reports (and the bot's) are never removed from here.
+UNDO_MINUTES = 15
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 
@@ -290,10 +295,11 @@ def create_app(
         with read() as con:
             rows = con.execute(
                 "SELECT id, epoch_us(reported_at), station_code, train_description, "
-                "crowd_level, matched_train_id FROM crowd_reports "
+                "crowd_level, matched_train_id, source FROM crowd_reports "
                 "ORDER BY reported_at DESC, id DESC LIMIT ?",
                 [limit],
             ).fetchall()
+        now = datetime.now(UTC)
         return [
             {
                 "id": report_id,
@@ -305,9 +311,30 @@ def create_app(
                 "crowd": level,
                 "crowd_label": CROWD_LABELS[level],
                 "matched": matched is not None,
+                "can_undo": _undoable(source, _EPOCH + timedelta(microseconds=micros), now),
             }
-            for report_id, micros, station, train, level, matched in rows
+            for report_id, micros, station, train, level, matched, source in rows
         ]
+
+    @app.delete("/api/reports/{report_id}", status_code=204)
+    def undo_report(report_id: int) -> Response:
+        """Take back a report just logged from the page; nothing else can be removed here."""
+        with database(write=True) as con:
+            row = con.execute(
+                "SELECT source, epoch_us(reported_at) FROM crowd_reports WHERE id = ?",
+                [report_id],
+            ).fetchone()
+            if row is None:
+                raise HTTPException(404, "No such report: it may have been taken back already.")
+            source, micros = row
+            if not _undoable(source, _EPOCH + timedelta(microseconds=micros), datetime.now(UTC)):
+                raise HTTPException(
+                    409,
+                    f"Only a report logged from this page in the last {UNDO_MINUTES} minutes "
+                    "can be taken back.",
+                )
+            con.execute("DELETE FROM crowd_reports WHERE id = ?", [report_id])
+        return Response(status_code=204)
 
     @app.post("/api/reports", status_code=201)
     def log_report(report: ReportIn) -> dict:
@@ -396,6 +423,13 @@ def create_app(
 # these with ?v=<version>, so a new version of the page never runs an old cached script.
 SHELL_PAGES = ("/", "/patterns")
 VERSIONED = ("/static/styles.css", "/static/app.js", "/static/patterns.js")
+
+
+def _undoable(source: str, reported_at: datetime, now: datetime) -> bool:
+    """Whether a report can be taken back from the page: logged there, minutes ago."""
+    return source == WEB_SOURCE and timedelta(0) <= now - reported_at <= timedelta(
+        minutes=UNDO_MINUTES
+    )
 
 
 def static_version() -> str:

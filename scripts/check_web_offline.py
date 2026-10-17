@@ -178,6 +178,44 @@ def folded_trip_checks(browser, url: str) -> None:
     context.close()
 
 
+def crowd_undo_checks(browser, url: str, tag: str, shot: Path) -> None:
+    """A crowd report just logged can be taken back from the list under the form; if the PC
+    can't be reached the report stays and the page says so."""
+    size, scheme = tag.split("/")
+    width, height = SIZES[size]
+    context = browser.new_context(
+        viewport={"width": width, "height": height}, color_scheme=scheme, service_workers="block"
+    )
+    page = context.new_page()
+    errors: list[str] = []
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    page.goto(url)
+    page.wait_for_selector("#answer:not([hidden]) .trains li")
+    page.fill("#log-station", "Kalyan (KYN)")
+    page.fill("#log-time", "07:12")
+    page.click("#crowd-options label:nth-child(5)")
+    page.click("#log-form button[type=submit]")
+    undo = page.locator("#reports li").first.locator("button.undo")
+    undo.wait_for()
+    name = undo.get_attribute("aria-label") or ""
+    check(name.startswith("Undo report: 07:12 fast from KYN"), f"{tag}: Undo named ({name!r})")
+    page.screenshot(path=shot)
+
+    page.route("**/api/reports/*", lambda route: route.abort())  # the PC goes away
+    undo.click()
+    page.wait_for_function("document.getElementById('toast').textContent.includes('still there')")
+    check(page.locator("#reports button.undo").count() == 1, f"{tag}: unreachable, report kept")
+    page.unroute("**/api/reports/*")
+
+    page.locator("#reports button.undo").first.click()
+    page.wait_for_function("document.getElementById('toast').textContent.startsWith('Taken back')")
+    page.wait_for_function("!document.querySelector('#reports button.undo')")
+    focused = page.evaluate("document.activeElement.id")
+    check(focused == "log-heading", f"{tag}: after Undo, focus on the section ({focused!r})")
+    check(not errors, f"{tag}: no script errors in the undo flow ({errors})")
+    context.close()
+
+
 def run(db: Path, out: Path) -> None:
     from playwright.sync_api import sync_playwright
 
@@ -266,6 +304,9 @@ def run(db: Path, out: Path) -> None:
                         button_edge_cases(browser, url)
                         if name == "phone":
                             folded_trip_checks(browser, url)
+                        crowd_undo_checks(
+                            browser, url, f"{name}/{scheme}", out / f"{name}-{scheme}-undo.png"
+                        )
                     check(not errors, f"no script errors ({errors})")
                     context.close()
         browser.close()

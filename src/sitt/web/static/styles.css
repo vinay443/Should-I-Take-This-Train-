@@ -285,7 +285,14 @@ button[disabled] { opacity: .55; cursor: progress; }
 
 .reports { list-style: none; padding: 0; margin: 1rem 0 0; }
 .reports li { display: flex; justify-content: space-between; gap: 1rem; padding: .5rem 0; border-bottom: 1px solid var(--line); font-size: .95rem; }
-.reports li span:last-child { color: var(--ink-soft); white-space: nowrap; }
+.reports li { align-items: center; }
+.reports .report-side { display: flex; align-items: center; gap: .6rem; color: var(--ink-soft); white-space: nowrap; }
+.reports .undo {
+  font: inherit; font-size: .9rem; min-height: 2.75rem; padding: 0 .8rem; cursor: pointer;
+  background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 8px;
+}
+.reports .undo:hover { border-color: var(--ink); }
+.reports .undo:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 
 /* ---- footer, toast ---- */
 .foot { margin-top: 3rem; padding: 1.25rem 0 2.5rem; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: .9rem; }
