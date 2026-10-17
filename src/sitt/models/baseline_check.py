@@ -23,7 +23,7 @@ from pathlib import Path
 
 import duckdb
 
-from sitt.models.live_drift import SCHEDULED_LOCAL, runs_ctes
+from sitt.models.live_drift import runs_ctes
 
 # Fewer comparable runs than this, and the result is not a reason to change the baseline.
 MIN_RUNS = 200
@@ -40,31 +40,29 @@ class Row:
 
 
 def backtest(con: duckdb.DuckDBPyConnection) -> list[Row]:
+    # "Every reading" is exactly what the recommender's baseline reads: the `obs` table of
+    # sitt.models.features (matched to the train's route, no flagged or cancelled readings),
+    # by its service day.
+    from sitt.models import features
+
+    features.prepare(con)
     rows = con.execute(
         f"""
         WITH {runs_ctes(suburban_only=True)},
         fin AS (
             SELECT train_id, station_code, CAST(run_key AS DATE) AS day, d_final FROM final
-        ),
-        every AS (
-            SELECT train_id, station_code, delay_minutes AS d,
-                   CAST(date_trunc('day', {SCHEDULED_LOCAL} - INTERVAL 3 HOUR) AS DATE) AS day
-            FROM observations
-            WHERE delay_minutes IS NOT NULL AND actual_or_expected_time IS NOT NULL
-              AND source <> 'synthetic' AND NOT coalesce(cancelled, false)
-              AND event IN ('arrival', 'departure')
-              AND train_id IN (SELECT train_id FROM trains)
         )
         SELECT f.d_final, t.direction,
-               (SELECT median(e.d) FROM every e WHERE e.train_id = f.train_id
-                  AND e.station_code = f.station_code AND e.day < f.day),
+               (SELECT median(o.delay_minutes) FROM obs o WHERE o.train_id = f.train_id
+                  AND o.station_code = f.station_code AND o.service_day < f.day
+                  AND o.source <> 'synthetic'),
                (SELECT median(g.d_final) FROM fin g WHERE g.train_id = f.train_id
-                  AND g.station_code = f.station_code AND g.day < f.day)
+                  AND g.station_code = f.station_code AND g.day < f.day),
+               f.train_id, f.day
         FROM fin f JOIN trains t USING (train_id)
         """
     ).fetchall()
-    both = [(actual, direction, old, new) for actual, direction, old, new in rows]
-    both = [r for r in both if r[2] is not None and r[3] is not None]
+    both = [r for r in rows if r[2] is not None and r[3] is not None]
     out = []
     for group in ("all", "up", "down"):
         sel = [r for r in both if group == "all" or r[1] == group]
@@ -73,11 +71,12 @@ def backtest(con: duckdb.DuckDBPyConnection) -> list[Row]:
         out.append(
             Row(
                 group,
-                len(sel),
-                statistics.mean(abs(a - old) for a, _, old, _ in sel),
-                statistics.mean(abs(a - new) for a, _, _, new in sel),
-                statistics.mean(a - old for a, _, old, _ in sel),
-                statistics.mean(a - new for a, _, _, new in sel),
+                # Runs: one train on one day, however many stations it was read at.
+                len({(r[4], r[5]) for r in sel}),
+                statistics.mean(abs(r[0] - r[2]) for r in sel),
+                statistics.mean(abs(r[0] - r[3]) for r in sel),
+                statistics.mean(r[0] - r[2] for r in sel),
+                statistics.mean(r[0] - r[3] for r in sel),
             )
         )
     return out

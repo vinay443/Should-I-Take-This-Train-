@@ -45,3 +45,33 @@ def test_nothing_to_compare(loaded):
     run(loaded, "central-90106", 0, 10)  # one day only
     assert baseline_check.backtest(loaded) == []
     assert baseline_check.report([]).startswith("No run has an earlier day")
+
+
+def test_flagged_readings_are_left_out_as_the_recommender_leaves_them_out(loaded):
+    run(loaded, "central-90106", 0, 10)
+    run(loaded, "central-90106", 1, 12)
+    # Flag day 0's early "on time" reading (sitt.dq would, for a suspect reading).
+    (early,) = loaded.execute(
+        "SELECT id FROM observations WHERE delay_minutes = 0 ORDER BY observed_at LIMIT 1"
+    ).fetchone()
+    loaded.execute(
+        "INSERT INTO dq_flags (observation_id, flag, flagged_at) VALUES (?, 'test', now())",
+        [early],
+    )
+    (overall, _up) = baseline_check.backtest(loaded)
+    assert overall.mae_every_reading == 2  # only day 0's final reading, 10, is left
+
+
+def test_runs_count_trains_on_days_not_stations(loaded):
+    for station in ("KYN", "TNA"):
+        for day, final in ((0, 10), (1, 12)):
+            due = DAY + timedelta(days=day, hours=7, minutes=12)
+            expected = due + timedelta(minutes=final)
+            loaded.execute(
+                "INSERT INTO observations (observed_at, train_id, station_code, "
+                "actual_or_expected_time, time_kind, delay_minutes, source, event) "
+                "VALUES (?, 'central-90106', ?, ?, 'expected', ?, 'ntes', 'departure')",
+                [expected - timedelta(minutes=2), station, expected, final],
+            )
+    (overall, _up) = baseline_check.backtest(loaded)
+    assert overall.runs == 1  # one train on one day, read at two stations

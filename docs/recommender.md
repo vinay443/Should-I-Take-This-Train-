@@ -54,7 +54,9 @@ Trains are read several times as they approach, and early readings often say "on
 for trains that end up late ([`live-drift.md`](live-drift.md)), so that median may be too
 low. The alternative counts each run once, by its last reading close to the train's time
 (as Delay patterns does). `uv run python -m sitt.models.baseline_check` backtests both,
-predicting each run from earlier days only. On the real readings of 17 October 2026:
+predicting each run from earlier days only, with exactly the readings the recommender
+uses (no flagged ones), and counting runs (a train on a day) rather than stations. On the
+real readings of 17 October 2026:
 
 | Trains | Runs | Error, every reading | Error, each run once | Too optimistic by, every reading | each run once |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -144,8 +146,8 @@ only the Central and Harbour lines: for Dadar → Goregaon it suggests going via
 Road, where in practice the Western line is quicker. Delays and crowding aren't used,
 which is why it asks you to look at each part: the web page has a button for each,
 `sitt-next` prints the two commands (`uv run sitt-next KYN CLA --date … --at 08:04`), and
-the bot the two `/next` messages to send (`/next CLA PNVL tomorrow 00:11`; today or
-tomorrow only).
+the bot the two `/next` messages to send (`/next CLA PNVL tomorrow 00:11`: the day is always
+written, counted from when the reply is sent, and a part beyond tomorrow gets none).
 
 With only the Harbour line's DOWN timetable loaded, some journeys can't be worked out:
 anything on the Harbour line towards CSMT (Panvel → Kalyan), and anything whose natural

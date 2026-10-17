@@ -1,6 +1,7 @@
 """User-facing text. No Telegram imports here."""
 
 from collections.abc import Sequence
+from datetime import datetime
 
 from sitt.bot.flow import LogDraft
 from sitt.bot.parsing import CROWD_LEVELS
@@ -101,7 +102,9 @@ def prediction_footer(recommendation: Recommendation) -> str:
     return f"{basis} {CROWDING_CAVEAT} /why for details."
 
 
-def format_recommendation(recommendation: Recommendation, show_time: bool = False) -> str:
+def format_recommendation(
+    recommendation: Recommendation, show_time: bool = False, now: datetime | None = None
+) -> str:
     """The `/next` reply: the recommendation, then each train with its prediction.
 
     `show_time` adds when the question is about, for a rider who asked about a time other
@@ -112,13 +115,15 @@ def format_recommendation(recommendation: Recommendation, show_time: bool = Fals
     if show_time:
         header += f", at {rec.asked_at:%H:%M on %a %d %b}"
     lines = [header, "", rec.reason, ""]
-    # Each part of a journey with a change, as a command to send (today or tomorrow only,
-    # the days /next understands).
+    # Each part of a journey with a change, as a command to send. The bot reads a day word
+    # from the time the message is sent, so the day is always written, counted from now
+    # (not from the time asked about); a part beyond tomorrow gets no command.
+    today = (now or datetime.now(IST)).replace(tzinfo=None).date()
     asks = []
     for a, b, when in part_requests(rec):
-        days = (when.date() - rec.asked_at.date()).days
+        days = (when.replace(tzinfo=None).date() - today).days
         if days in (0, 1):
-            asks.append(f"/next {a} {b} {'tomorrow ' if days else ''}{when:%H:%M}")
+            asks.append(f"/next {a} {b} {'tomorrow' if days else 'today'} {when:%H:%M}")
     if asks:
         lines += ["Ask each part:", *asks, ""]
     for i, option in enumerate(rec.options):

@@ -2,50 +2,43 @@
 
 Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
-## Where this stopped (2026-10-17, 20:15)
+## Where this stopped (2026-10-17, 21:15)
 
-**Everything is merged (PRs #46-#68).** Since this morning: round 11 (weekdays vs weekends,
-Undo for crowd reports, progress towards a delay model), the Harbour line from its DOWN PDF
-(items 26a-26f, two sessions), and round 12 (items 46-53: the real data checked end to end,
-"why there is no train", the quickest journey with one change and a button to ask each
-part, one command to reload the timetable, and three reviews' fixes). Nothing is open.
+**Everything is merged (PRs #46-#72), nothing is open.** Today: round 11 (weekdays vs
+weekends, Undo for crowd reports, progress towards a delay model), the Harbour line from its
+DOWN PDF (items 26a-26f), round 12 (items 46-53: why there is no train, journeys with one
+change and asking each part, `sitt-timetable-reload`) and round 13 (items 54-57: each part
+from the command line and the bot, docs, a backtest of the baseline, review fixes).
 
-**Checked on your PC at 19:13 (Saturday):** the new code is running, and one live check
-gave 81 NTES readings, the first on a weekend: Delay patterns now has 3 weekdays and 1
-weekend day (the Days switch needs one more weekend day, e.g. a check tomorrow), and the
-delay model is at 4 of 28 days. The timetable reload below had **not** happened yet (the
-database still had 894 main line trains and no Harbour line; no `sitt-before-reload`
-copy): probably `sitt-web` was still running and held the database.
-
-**When you're back at the PC:** stop `sitt-web` (Ctrl+C in its window), then in the
-project folder:
-
-```powershell
-git pull
-uv sync
-uv run sitt-timetable-reload scratch
-uv run sitt-web --host 0.0.0.0
-```
-
-The reload finds the PDFs already in `scratch` by their contents, copies the database to
-`data\sitt-before-reload-<time>.duckdb` first, and loads the main line (adds 95901, the
-08:04 AC fast from CSMT: 894 → 895 trains) and the Harbour DOWN trains (312). Run on a copy
-of your database: all readings kept. It refuses to touch the database while `sitt-web` has
-it, and says so.
+**Checked on your PC at 21:00:** the reload worked (895 main line and 312 Harbour trains,
+2,631 readings), and the running app answers CSMT → Panvel, Kalyan → Panvel (the 21:04 fast,
+change at Kurla, 21:51 slow) and explains Panvel → CSMT. After a `git pull` and `uv sync`,
+restart `sitt-web` to get rounds 13's changes (no reload needed).
 
 What moves the project next, in order:
 1. **More readings.** Press **Check live first** at different times over the next week or
-   two, including a weekend. The weekday/weekend switch then appears by itself, and
-   "Towards a delay model" shows how close `uv run sitt-retrain` is (3 of 28 days now).
-2. **The Harbour UP PDF** (item 26b): `UP HB REVISED PTT WEF 01.05.2026.pdf` from
-   https://cr.indianrailways.gov.in/view_section.jsp?lang=0&id=0,5,2360 into the project
-   folder (this workspace gets 403 there). Then trains towards CSMT on the Harbour line,
-   and changes like Kalyan → Chunabhatti via Kurla, work.
-3. **Mobond permission**, for live CSMT-Kalyan, Harbour and Western locals
-   (docs/data-sources.md); without it Harbour gets timetable times only.
+   two; a check on Sunday turns on the weekday/weekend switch (3 weekdays and 1 weekend day
+   so far). `python -m sitt.models.baseline_check` then says when there are enough runs
+   (200) to decide how the typical past delay should be worked out, and Delay patterns'
+   "Towards a delay model" when `sitt-retrain` can train one (4 of 28 days).
+2. **The Harbour UP PDF** (item 26b) into the project folder, then
+   `uv run sitt-timetable-reload scratch`: trains towards CSMT on the Harbour line.
+3. **Mobond permission** for live CSMT-Kalyan, Harbour and Western locals.
 4. Item 5 (2027 holidays) once Maharashtra publishes the list, usually Nov-Dec.
 
 ## 2026-10-17
+
+### Item 57: review of round 13 (done, PR #72)
+A cold review of items 54-56 checked the docs and the backtest's numbers against your data
+(all true) and found:
+1. MEDIUM, fixed: the bot's per-part commands counted the day from the time asked about,
+   but `/next` reads a day word from when the message is sent: asked tonight about tomorrow
+   evening, `/next TNA CLA 20:09` would have meant tonight. The day is now always written
+   ("today"/"tomorrow"), counted from now; a part beyond tomorrow gets no command.
+2. LOW, fixed: the backtest's "every reading" now uses exactly the readings the
+   recommender's baseline uses (`obs`: no flagged readings, matched to the route).
+3. LOW, fixed: "Runs" (and the 200 threshold) count trains on days, not train-stations.
+Your numbers are unchanged (34 runs). 3 tests changed or added, failing on the old code.
 
 ### Item 56: is the typical past delay too optimistic? (measured, PR #71)
 - Your reload worked: a copy of your database taken at 20:26 has 895 main line and 312

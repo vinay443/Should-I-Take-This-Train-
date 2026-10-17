@@ -246,8 +246,14 @@ def test_cli_and_bot_say_how_to_ask_each_part(both_lines, tmp_path, capsys):
         ("KYN", "CLA", "04:15"),
         ("CLA", "PNVL", "05:17"),
     ]
-    reply = format_recommendation(rec)
-    assert "Ask each part:\n/next KYN CLA 04:15\n/next CLA PNVL 05:17\n" in reply
+    reply = format_recommendation(rec, now=at(MONDAY, "04:00"))
+    assert "Ask each part:\n/next KYN CLA today 04:15\n/next CLA PNVL today 05:17\n" in reply
+    # Asked the evening before about that morning: the day is counted from now, so the
+    # commands say "tomorrow" (the bot reads a bare time from when it is sent).
+    evening = at(MONDAY, "04:00") - timedelta(hours=8)
+    assert "/next KYN CLA tomorrow 04:15" in format_recommendation(rec, now=evening)
+    # Two days ahead: /next can't say that, so no command.
+    assert "Ask each part" not in format_recommendation(rec, now=evening - timedelta(days=1))
 
     from sitt import next_cli
 
@@ -256,4 +262,5 @@ def test_cli_and_bot_say_how_to_ask_each_part(both_lines, tmp_path, capsys):
     assert "  uv run sitt-next CLA PNVL --date 2026-09-28 --at 05:17" in text
     # An ordinary answer has no such lines.
     plain = recommend(both_lines, "KYN", "CSMT", at(MONDAY, "04:00"), model_dir=None)
-    assert part_requests(plain) == [] and "Ask each part" not in format_recommendation(plain)
+    assert part_requests(plain) == []
+    assert "Ask each part" not in format_recommendation(plain, now=at(MONDAY, "04:00"))
