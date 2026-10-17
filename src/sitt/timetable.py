@@ -155,3 +155,100 @@ def _on_service_day(service_day: date, run_start: time, t: time) -> datetime:
     """Place a stop time on the calendar. Times earlier than the run's start are past midnight."""
     day = service_day + timedelta(days=1) if t < run_start else service_day
     return datetime.combine(day, t)
+
+
+# How a line is named in answers, as the web page's status line names it. 'central' is the
+# main line (CSMT-Kalyan-Kasara/Khopoli).
+LINE_NAMES = {"central": "Central line", "harbour": "Harbour line"}
+DIRECTION_NAMES = {"down": "away from CSMT", "up": "towards CSMT"}
+
+
+def line_name(line: str) -> str:
+    return LINE_NAMES.get(line, f"{line.capitalize()} line")
+
+
+def no_train_reason(
+    con: duckdb.DuckDBPyConnection, origin_code: str, destination_code: str
+) -> str | None:
+    """Why no train in the timetable goes from `origin_code` to `destination_code`, or None
+    if some train does (and there is simply none in the time looked at).
+
+    The stations can be on different lines (Kalyan and Panvel: change where the lines
+    meet), or the timetable loaded for their line can lack that direction (only the
+    Harbour line's DOWN PDF is loaded, so nothing runs towards CSMT on it), or no single
+    train calls at both (two branches of one line).
+    """
+    from sitt.routes import station_places_sql
+
+    places = station_places_sql(con)
+    lines_of = {
+        code: {
+            line
+            for (line,) in con.execute(
+                f"SELECT DISTINCT line FROM {places} WHERE code = ?", [code]
+            ).fetchall()
+        }
+        for code in (origin_code, destination_code)
+    }
+    names = dict(con.execute("SELECT code, name FROM stations").fetchall())
+    origin, destination = (
+        names.get(origin_code, origin_code),
+        names.get(destination_code, destination_code),
+    )
+
+    def covering(first: str, second: str) -> list[tuple[str, str]]:
+        """(line, direction) of trains calling at `first` and then at `second`."""
+        return con.execute(
+            """
+            SELECT DISTINCT t.line, t.direction FROM trains t
+            JOIN scheduled_stops a ON a.train_id = t.train_id AND a.station_code = ?
+            JOIN scheduled_stops b ON b.train_id = t.train_id AND b.station_code = ?
+            WHERE a.stop_seq < b.stop_seq
+            """,
+            [first, second],
+        ).fetchall()
+
+    if covering(origin_code, destination_code):
+        return None
+    shared = lines_of[origin_code] & lines_of[destination_code]
+    if not shared:
+        meet = [
+            names.get(code, code)
+            for (code,) in con.execute(
+                f"""
+                SELECT code FROM {places} GROUP BY code
+                HAVING bool_or(list_contains(?, line)) AND bool_or(list_contains(?, line))
+                ORDER BY min(seq), code
+                """,
+                [sorted(lines_of[origin_code]), sorted(lines_of[destination_code])],
+            ).fetchall()
+        ]
+        on = (
+            f"{origin} is on the {_lines_text(lines_of[origin_code])}, "
+            f"{destination} on the {_lines_text(lines_of[destination_code])}"
+        )
+        where = f" They meet at {_and(meet)}: ask for each part separately." if meet else ""
+        return f"No train runs from {origin} to {destination} without a change: {on}.{where}"
+    reverse = covering(destination_code, origin_code)
+    if reverse:
+        line, direction = reverse[0]
+        wanted = "up" if direction == "down" else "down"
+        (count,) = con.execute(
+            "SELECT count(*) FROM trains WHERE line = ? AND direction = ?", [line, wanted]
+        ).fetchone()
+        if not count:
+            return (
+                f"The {line_name(line)} timetable loaded here has no trains "
+                f"{DIRECTION_NAMES[wanted]}, so none from {origin} to {destination}: only "
+                f"its {'DOWN' if direction == 'down' else 'UP'} timetable is loaded "
+                '(README, "Load the timetable").'
+            )
+    return f"No single train in the timetable runs from {origin} to {destination}."
+
+
+def _lines_text(lines: set[str]) -> str:
+    return _and([line_name(line) for line in sorted(lines)])
+
+
+def _and(items: list[str]) -> str:
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1]
