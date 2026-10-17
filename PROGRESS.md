@@ -2,14 +2,13 @@
 
 Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
-## Where this stopped (2026-10-17, 19:15)
+## Where this stopped (2026-10-17, 20:15)
 
-**Everything is merged (PRs #46-#65).** Since this morning: round 11 (weekdays vs weekends,
+**Everything is merged (PRs #46-#68).** Since this morning: round 11 (weekdays vs weekends,
 Undo for crowd reports, progress towards a delay model), the Harbour line from its DOWN PDF
-(converter, a station on two lines, routes, web app and bot: items 26a-26f, two sessions),
-and round 12 (items 46-51: the real data checked end to end, "why there is no train", the
-quickest journey with one change between lines and a button to ask each part, and two
-review rounds' fixes).
+(items 26a-26f, two sessions), and round 12 (items 46-53: the real data checked end to end,
+"why there is no train", the quickest journey with one change and a button to ask each
+part, one command to reload the timetable, and three reviews' fixes). Nothing is open.
 
 **Checked on your PC at 19:13 (Saturday):** the new code is running, and one live check
 gave 81 NTES readings, the first on a weekend: Delay patterns now has 3 weekdays and 1
@@ -47,6 +46,23 @@ What moves the project next, in order:
 4. Item 5 (2027 holidays) once Maharashtra publishes the list, usually Nov-Dec.
 
 ## 2026-10-17
+
+### Item 53: review of item 52 (done, PR #68)
+A focused cold review found nothing that could lose data (the copy is always made before the
+timetable is touched; each line loads in one transaction). Fixed:
+1. A bad file for the second line (Harbour) was found only after the main line had been
+   loaded, leaving a half-reloaded timetable. Every CSV is now read and checked before
+   anything loads ("Nothing was loaded: the timetable is as it was."); if a load still fails,
+   it says which lines loaded and how to put the copy back.
+2. Output piped or redirected on Windows (not UTF-8) crashed on "→" after a successful
+   reload; it now never fails over a character (checked with cp1252: exit 0).
+3. A database taken by another program between the check and the copy, or an unreadable PDF
+   in the folder, gave a traceback; now the "in use" message, or the file is skipped.
+4. Run from another folder, it said "Run `uv run sitt-init-db`", which would make an empty
+   database in the wrong place; it now gives the full path and suggests `--db`.
+5. The docstring said nothing is written before the copy; opening for the check brings the
+   schema up to date (additive). Reworded.
+2 new tests (fail on the old code).
 
 ### Item 52: `sitt-timetable-reload FOLDER` (done, PR #67)
 - The seven reload commands didn't get run on the PC (the database was unchanged and there
