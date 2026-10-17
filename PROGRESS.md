@@ -47,6 +47,17 @@ What moves the project next, in order:
 
 ## 2026-10-17
 
+### Item 56: is the typical past delay too optimistic? (measured, PR #71)
+- Your reload worked: a copy of your database taken at 20:26 has 895 main line and 312
+  Harbour trains, and 2,631 readings.
+- The baseline ("typical past delay") is the median of every reading on earlier days,
+  including early "on time" readings. New `python -m sitt.models.baseline_check` backtests
+  that against counting each run once by its last reading near the train's time. On your
+  readings (34 comparable runs): towards CSMT, each run once is closer (error 26.2 → 20.2
+  min; too optimistic by 26.2 → 15.9 min); away from CSMT it's worse (0.0 → 6.2 min).
+  Overall 10.8 vs 12.0 min. Too few runs to act on, so the recommender is unchanged; the
+  rule (200+ runs, lower overall error) is in docs/recommender.md. 2 tests.
+
 ### Item 55: docs say what is true after the Harbour work (done, PR #70)
 - README "What is real": the optional Harbour DOWN trains, readings collected by pressing
   Check live first (2,631 by 17 October), and answers between lines. The README no longer

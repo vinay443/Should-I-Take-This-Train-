@@ -47,6 +47,27 @@ behind a baseline are synthetic.
 
 Crowding always comes from the rule-of-thumb estimate in [`crowding.md`](crowding.md).
 
+### Is the typical past delay too optimistic?
+
+The baseline is the median of **every** reading of a train at a station on earlier days.
+Trains are read several times as they approach, and early readings often say "on time"
+for trains that end up late ([`live-drift.md`](live-drift.md)), so that median may be too
+low. The alternative counts each run once, by its last reading close to the train's time
+(as Delay patterns does). `uv run python -m sitt.models.baseline_check` backtests both,
+predicting each run from earlier days only. On the real readings of 17 October 2026:
+
+| Trains | Runs | Error, every reading | Error, each run once | Too optimistic by, every reading | each run once |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| All trains | 34 | 10.8 min | 12.0 min | +10.8 min | +2.9 min |
+| Towards CSMT | 14 | 26.2 min | 20.2 min | +26.2 min | +15.9 min |
+| Away from CSMT | 20 | 0.0 min | 6.2 min | +0.0 min | -6.2 min |
+
+Towards CSMT, counting each run once is less optimistic and closer; away from CSMT it is
+worse, because one late run moves a median of two. 34 runs over four days is far too few
+to choose on, so the baseline is unchanged. The rule written down now: switch when the
+command reports at least 200 comparable runs and "each run once" has the lower overall
+error. Re-run it after a few weeks of readings.
+
 ## Live readings
 
 Whatever the level, a **recent reading of a train today** beats a prediction. If the database

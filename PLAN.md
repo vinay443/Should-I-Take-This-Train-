@@ -375,6 +375,11 @@ the two `/next` messages, like the web page's buttons.
 README's "What is real" table (Harbour trains, readings so far, answers between lines), the
 Harbour UP note, and docs/data-sources.md's list of PDFs.
 
+### 56. Is the typical past delay too optimistic? — [x] (measured; no change yet)
+Backtest every-reading vs each-run-once baselines on the real readings
+(`python -m sitt.models.baseline_check`). 34 comparable runs: mixed, too few to choose.
+Rule: switch at 200+ runs if each-run-once has the lower error.
+
 ### On the user's PC, only if a working shell is available
 `mcp__remote-devices__device_bash` was blocked by a Windows update on 2026-10-12/13. If it
 works in a later session: `git pull`, `uv sync`, start `uv run sitt-web --no-browser` in the
