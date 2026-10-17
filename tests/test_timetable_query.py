@@ -235,3 +235,25 @@ def test_no_out_and_back_when_the_direct_way_needs_a_missing_direction(both_line
     reason = no_train_reason(both_lines, "DKRD", "BY", at(MONDAY, "04:00"))
     assert "Quickest" not in reason
     assert reason.endswith("so the part on it can't be worked out yet.")
+
+
+def test_cli_and_bot_say_how_to_ask_each_part(both_lines, tmp_path, capsys):
+    from sitt.bot.formatting import format_recommendation
+    from sitt.recommend import part_requests, recommend
+
+    rec = recommend(both_lines, "KYN", "PNVL", at(MONDAY, "04:00"), model_dir=None)
+    assert [(a, b, f"{t:%H:%M}") for a, b, t in part_requests(rec)] == [
+        ("KYN", "CLA", "04:15"),
+        ("CLA", "PNVL", "05:17"),
+    ]
+    reply = format_recommendation(rec)
+    assert "Ask each part:\n/next KYN CLA 04:15\n/next CLA PNVL 05:17\n" in reply
+
+    from sitt import next_cli
+
+    text = next_cli.format_answer(rec)
+    assert "  uv run sitt-next KYN CLA --date 2026-09-28 --at 04:15" in text
+    assert "  uv run sitt-next CLA PNVL --date 2026-09-28 --at 05:17" in text
+    # An ordinary answer has no such lines.
+    plain = recommend(both_lines, "KYN", "CSMT", at(MONDAY, "04:00"), model_dir=None)
+    assert part_requests(plain) == [] and "Ask each part" not in format_recommendation(plain)

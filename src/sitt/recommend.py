@@ -621,6 +621,18 @@ def recommend(
     )
 
 
+def part_requests(rec: Recommendation) -> list[tuple[str, str, datetime]]:
+    """(from code, to code, departure) for each part of the journey with a change, if any:
+    what to ask next to see each part's delays and crowding."""
+    if rec.change is None:
+        return []
+    c = rec.change
+    return [
+        (c.origin, c.change_at, c.first.departure),
+        (c.change_at, c.destination, c.second.departure),
+    ]
+
+
 # --- Explaining it -------------------------------------------------------------------------
 
 RULE_EXPLANATIONS = {

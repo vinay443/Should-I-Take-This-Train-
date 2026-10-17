@@ -121,7 +121,10 @@ change (`CHANGE_MINUTES`, a guess) and at most 60 minutes of waiting, leaves out
 specials, and picks the earliest arrival (on a tie, the one that leaves latest). It knows
 only the Central and Harbour lines: for Dadar → Goregaon it suggests going via Sandhurst
 Road, where in practice the Western line is quicker. Delays and crowding aren't used,
-which is why it asks you to look at each part.
+which is why it asks you to look at each part: the web page has a button for each,
+`sitt-next` prints the two commands (`uv run sitt-next KYN CLA --date … --at 08:04`), and
+the bot the two `/next` messages to send (`/next CLA PNVL tomorrow 00:11`; today or
+tomorrow only).
 
 With only the Harbour line's DOWN timetable loaded, some journeys can't be worked out:
 anything on the Harbour line towards CSMT (Panvel → Kalyan), and anything whose natural

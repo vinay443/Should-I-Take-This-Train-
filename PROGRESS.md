@@ -47,6 +47,13 @@ What moves the project next, in order:
 
 ## 2026-10-17
 
+### Item 54: ask each part from the command line and the bot (done, PR #69)
+- With a journey with one change, `sitt-next` now ends the reason with
+  `uv run sitt-next KYN CLA --date 2026-10-19 --at 23:15` and
+  `uv run sitt-next CLA PNVL --date 2026-10-20 --at 00:11` (real data), and the bot with
+  `/next KYN CLA 23:15` and `/next CLA PNVL tomorrow 00:11` (only today or tomorrow, the
+  days `/next` understands). Shared helper `recommend.part_requests`. 1 test.
+
 ### Item 53: review of item 52 (done, PR #68)
 A focused cold review found nothing that could lose data (the copy is always made before the
 timetable is touched; each line loads in one transaction). Fixed:
