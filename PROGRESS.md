@@ -2,7 +2,7 @@
 
 Newest first. Say "continue from PROGRESS.md" to pick up where this stops.
 
-## Where this stopped (2026-10-17, 21:00)
+## Where this stopped (2026-10-17, 19:15)
 
 **Everything is merged (PRs #46-#65).** Since this morning: round 11 (weekdays vs weekends,
 Undo for crowd reports, progress towards a delay model), the Harbour line from its DOWN PDF
@@ -10,6 +10,13 @@ Undo for crowd reports, progress towards a delay model), the Harbour line from i
 and round 12 (items 46-51: the real data checked end to end, "why there is no train", the
 quickest journey with one change between lines and a button to ask each part, and two
 review rounds' fixes).
+
+**Checked on your PC at 19:13 (Saturday):** the new code is running, and one live check
+gave 81 NTES readings, the first on a weekend: Delay patterns now has 3 weekdays and 1
+weekend day (the Days switch needs one more weekend day, e.g. a check tomorrow), and the
+delay model is at 4 of 28 days. The timetable reload below had **not** happened yet (the
+database still had 894 main line trains and no Harbour line; no `sitt-before-reload`
+copy): probably `sitt-web` was still running and held the database.
 
 **When you're back at the PC** (stop `sitt-web` first; the reload needs the database to
 itself). In the project folder, in PowerShell:
