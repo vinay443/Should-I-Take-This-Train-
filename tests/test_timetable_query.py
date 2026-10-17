@@ -107,3 +107,64 @@ def test_bad_arguments(loaded):
 def test_empty_database_returns_no_trains(con):
     con.execute("INSERT INTO stations VALUES ('A', 'A', 'central', 1), ('B', 'B', 'central', 2)")
     assert next_trains(con, "A", "B", MONDAY) == []
+
+
+# --- Why no train goes there ---------------------------------------------------------
+
+
+@pytest.fixture
+def both_lines(loaded, tmp_path):
+    """The sample main line plus real Harbour DOWN trains (CSMT, Masjid, Sandhurst Road and
+    Kurla are on both)."""
+    from conftest import harbour_csv
+
+    from sitt.ingest.timetable import load_timetable, read_timetable
+
+    load_timetable(loaded, read_timetable(harbour_csv(tmp_path), line="harbour"))
+    return loaded
+
+
+def test_stations_on_different_lines_say_where_the_lines_meet(both_lines):
+    from sitt.timetable import no_train_reason
+
+    # (The sample timetable spells CSMT out in full.)
+    assert no_train_reason(both_lines, "KYN", "PNVL") == (
+        "No train runs from Kalyan to Panvel without a change: Kalyan is on the Central line, "
+        "Panvel on the Harbour line. They meet at Chhatrapati Shivaji Maharaj Terminus, "
+        "Masjid, Sandhurst Road and Kurla: ask for each part separately."
+    )
+
+
+def test_a_direction_whose_timetable_is_not_loaded_is_named(both_lines):
+    from sitt.timetable import no_train_reason
+
+    reason = no_train_reason(both_lines, "PNVL", "CSMT")
+    assert reason.startswith(
+        "The Harbour line timetable loaded here has no trains towards CSMT, so none from "
+        "Panvel to Chhatrapati Shivaji Maharaj Terminus: only its DOWN timetable is loaded"
+    )
+
+
+def test_two_branches_of_one_line(both_lines):
+    from sitt.timetable import no_train_reason
+
+    # Bandra is on the Goregaon branch, Vashi on the Panvel branch: no train calls at both.
+    assert no_train_reason(both_lines, "BA", "VSH") == (
+        "No single train in the timetable runs from Bandra to Vashi."
+    )
+
+
+def test_a_served_route_has_no_reason(both_lines):
+    from sitt.timetable import no_train_reason
+
+    assert no_train_reason(both_lines, "CSMT", "PNVL") is None
+    assert no_train_reason(both_lines, "KYN", "CSMT") is None
+    assert no_train_reason(both_lines, "CSMT", "KYN") is None
+
+
+def test_the_recommendation_gives_the_reason(both_lines):
+    from sitt.recommend import recommend
+
+    rec = recommend(both_lines, "KYN", "PNVL", at(MONDAY, "08:00"), model_dir=None)
+    assert rec.choice is None and rec.options == []
+    assert rec.reason.startswith("No train runs from Kalyan to Panvel without a change")

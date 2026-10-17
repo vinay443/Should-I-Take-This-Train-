@@ -327,6 +327,22 @@ the 28 days a delay model needs") so pressing **Check live first** has a visible
 ### 45. Independent review of rounds 10-11 — [x]
 Six low/medium findings, all fixed (PROGRESS.md, 2026-10-17).
 
+## Round 12 (added 2026-10-17, self-directed, while you're away)
+
+A parallel session finished the Harbour items (26c-26f, PRs #53-#58) while this one was
+paused; nothing here repeats them.
+
+### 46. Both sessions' work, end to end on the real data — [x]
+On a copy of your database: 36 `sitt-next` answers (4 times, 9 main line routes, with
+`--why`) byte for byte the same with the code before the Harbour work (PR #52) and after
+(PR #58); after loading the Harbour DOWN trains, only routes between two stations both
+lines serve (CSMT-Kurla, CSMT-Masjid) change, by listing Harbour trains too.
+
+### 47. Say why there is no train — [x]
+Panvel → CSMT and Kalyan → Panvel said "No trains found in the timetable for the next day".
+Now: the stations are on different lines (and where they meet), or the line's timetable for
+that direction isn't loaded, or no single train calls at both. Web page: only that sentence.
+
 ### On the user's PC, only if a working shell is available
 `mcp__remote-devices__device_bash` was blocked by a Windows update on 2026-10-12/13. If it
 works in a later session: `git pull`, `uv sync`, start `uv run sitt-web --no-browser` in the

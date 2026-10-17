@@ -178,6 +178,41 @@ def folded_trip_checks(browser, url: str) -> None:
     context.close()
 
 
+def no_train_checks(browser, url: str) -> None:
+    """With no train at all, only the reason shows: no basis line, no empty list heading,
+    no "Why this train?". A normal answer afterwards brings them back."""
+
+    context = browser.new_context(viewport={"width": 390, "height": 844}, service_workers="block")
+    page = context.new_page()
+    page.goto(url)
+    page.wait_for_selector("#answer:not([hidden]) .trains li")
+    real = page.evaluate("fetch('/api/recommend?from=KYN&to=CSMT').then((r) => r.json())")
+    empty = real | {
+        "options": [],
+        "choice": None,
+        "reason": "No train runs from Kalyan to Panvel without a change.",
+    }
+    page.route("**/api/recommend*", lambda route: route.fulfill(json=empty))
+    page.click("#edit-trip") if page.is_visible("#edit-trip") else None
+    page.click("#go")
+    page.wait_for_function("document.getElementById('reason').textContent.startsWith('No train')")
+    hidden = page.evaluate(
+        "['basis', 'trains-heading'].map((id) => document.getElementById(id).hidden)"
+        ".concat(document.querySelector('#answer details.why').hidden)"
+    )
+    check(hidden == [True, True, True], f"no train: only the reason shows ({hidden})")
+    page.unroute("**/api/recommend*")
+    page.click("#edit-trip") if page.is_visible("#edit-trip") else None
+    page.click("#go")
+    page.wait_for_selector("#answer .trains li")
+    shown = page.evaluate(
+        "['basis', 'trains-heading'].map((id) => !document.getElementById(id).hidden)"
+        ".concat(!document.querySelector('#answer details.why').hidden)"
+    )
+    check(shown == [True, True, True], f"a train again: basis, heading and why back ({shown})")
+    context.close()
+
+
 def crowd_undo_checks(browser, url: str, tag: str, shot: Path) -> None:
     """A crowd report just logged can be taken back from the list under the form; if the PC
     can't be reached the report stays and the page says so."""
@@ -317,6 +352,7 @@ def run(db: Path, out: Path) -> None:
                         button_edge_cases(browser, url)
                         if name == "phone":
                             folded_trip_checks(browser, url)
+                            no_train_checks(browser, url)
                         crowd_undo_checks(
                             browser, url, f"{name}/{scheme}", out / f"{name}-{scheme}-undo.png"
                         )

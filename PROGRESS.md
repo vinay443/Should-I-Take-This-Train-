@@ -27,6 +27,28 @@ What moves the project next, in order:
 
 ## 2026-10-17
 
+### Item 47: say why there is no train (done, PR #59)
+- Found in item 46: with the Harbour DOWN trains loaded, Panvel → CSMT and Kalyan → Panvel
+  answered "No trains found in the timetable for the next day", which is wrong about the
+  why. Now `sitt-next`, the web app and the bot say: "No train runs from Kalyan to Panvel
+  without a change: Kalyan is on the Central line, Panvel on the Harbour line. They meet at
+  CSMT, Masjid, Sandhurst Road and Kurla: ask for each part separately."; "The Harbour
+  line timetable loaded here has no trains towards CSMT … only its DOWN timetable is
+  loaded"; or, for Bandra → Vashi (two branches), "No single train in the timetable runs
+  from Bandra to Vashi."
+- The web page, with no train at all, shows only that sentence: the "Timetable times"
+  line, the empty list's heading and "Why this train?" are hidden (browser check, fails on
+  the old page). Checked on the real data in Chromium; axe clean. 5 tests, failing on the
+  old code. docs/recommender.md says so.
+
+### Item 46: both sessions' work, end to end on the real data (checked)
+- On a copy of your database, the same 36 `sitt-next --why` answers (9 main line routes,
+  4 times including last night's live readings) came out byte for byte the same from the
+  code before the Harbour work (PR #52) and after it (PR #58).
+- After loading the Harbour DOWN trains into that copy, only CSMT-Kurla and CSMT-Masjid
+  answers changed, by listing Harbour trains too, which do serve those trips. Harbour
+  routes answer (CSMT → Panvel: the 08:00 slow, arrives 09:20).
+
 ### Review of the Harbour round: fix 3 of 3 (PR #58)
 - MEDIUM: a Harbour CSV loaded without `--line harbour` went in as the main line and moved
   main line places (Thane 19 → 50). The converter now writes `# line: harbour` (or

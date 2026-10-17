@@ -61,7 +61,7 @@ from sitt.models.crowding import (
 )
 from sitt.models.delay import DelayModel, DelayPrediction, load_if_present, predict_targets
 from sitt.models.features import Target, local_naive
-from sitt.timetable import ScheduledTrip, next_trains, resolve_station
+from sitt.timetable import ScheduledTrip, next_trains, no_train_reason, resolve_station
 
 LEVEL_MODEL, LEVEL_BASELINE, LEVEL_TIMETABLE = "model", "baseline", "timetable"
 SYNTHETIC_SOURCE = "synthetic"
@@ -599,6 +599,8 @@ def recommend(
         )
 
     choice, reason, rule = choose(options, settings)
+    if not options and (why := no_train_reason(con, origin_code, destination_code)):
+        reason = why  # e.g. two lines, or a direction whose timetable isn't loaded
     return Recommendation(
         origin=names.get(origin_code, origin_code),
         destination=names.get(destination_code, destination_code),

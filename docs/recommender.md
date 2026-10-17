@@ -105,6 +105,13 @@ and "Take…" otherwise. "Earlier" is by when trains are expected to leave, not 
 timetable: a train 20 minutes late that leaves after the pick isn't one you wait through,
 and an on-time train timetabled after a late pick but leaving before it is.
 
+When no train in the timetable goes from one station to the other at all, the reply says
+why instead of "No trains found": the stations are on different lines (Kalyan and Panvel:
+"They meet at CSMT, Masjid, Sandhurst Road and Kurla: ask for each part separately"), or
+the line's timetable for that direction isn't loaded (only the Harbour line's DOWN PDF is,
+so nothing runs towards CSMT on it), or no single train calls at both (Bandra and Vashi,
+on two branches of the Harbour line). The web page then shows only that sentence.
+
 ## Thresholds
 
 Set these in `.env` (see [`.env.example`](../.env.example)). They are read by

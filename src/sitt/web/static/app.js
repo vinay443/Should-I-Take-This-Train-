@@ -398,8 +398,14 @@ function render(answer, savedAt = null) {
   // the on-time ones that leave before it.
   $("trains").replaceChildren(...byLeaving(options).map((o) => trainRow(o, o === pick, answer)));
   $("explanation").textContent = answer.explanation;
-  // The explanation is about the picked train; once it has left it no longer applies.
-  document.querySelector(".why").hidden = Boolean(saved && saved.pickGone);
+  // No train at all (e.g. the stations are on different lines): only the reason says
+  // anything, so the basis line, the empty list's heading and "Why this train?" go.
+  const none = !options.length;
+  basis.hidden = none;
+  $("trains-heading").hidden = none;
+  // The explanation is about the picked train: with none, or once it has left, it no
+  // longer applies.
+  document.querySelector("#answer details.why").hidden = none || Boolean(saved && saved.pickGone);
 }
 
 /** A saved answer without the trains that have left (predicted departure more than a
