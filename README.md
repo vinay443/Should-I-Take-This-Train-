@@ -110,6 +110,19 @@ applied to. Load the result, replacing any earlier timetable for the line:
 uv run python -m sitt.ingest.timetable central.csv --replace
 ```
 
+**Harbour line (optional, DOWN direction only for now).** Convert Central Railway's Harbour
+DOWN PDF (`DN HB REVISED PTT WEF 01.05.2026.pdf`, same page) and load it as its own line:
+
+```bash
+uv run python -m sitt.ingest.cr_pdf "DN HB REVISED PTT WEF 01.05.2026.pdf" --line harbour --edition 2026-05-01 -o harbour.csv
+uv run python -m sitt.ingest.timetable harbour.csv --line harbour --replace
+```
+
+Routes like CSMT → Panvel or Kurla → Vashi then answer in the web app and `sitt-next`, at
+timetable level (there are no live Harbour readings). The main line's answers don't change:
+stations on both lines (CSMT, Masjid, Sandhurst Road, Kurla) keep their main line places.
+Trains back towards CSMT need the UP PDF, which isn't supported yet.
+
 To try things without the PDFs, load the small invented sample instead:
 
 ```bash

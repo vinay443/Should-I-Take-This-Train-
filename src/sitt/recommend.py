@@ -472,9 +472,13 @@ def recommend(
             + "."
         )
 
-    # The train just ahead of the first candidate matters for crowding, so predict it too.
-    ahead_of_first = gone[-1] if gone else None
-    everything = ([ahead_of_first] if ahead_of_first else []) + trips
+    # The train just ahead of the first candidate matters for crowding, so predict it too:
+    # one per line, since where two lines share stations (CSMT to Kurla on the main and
+    # Harbour lines) their trains leave from different platforms.
+    lines = {trip.line for trip in trips}
+    last_gone = {trip.line: trip for trip in gone if trip.line in lines}
+    aheads = sorted(last_gone.values(), key=lambda trip: (trip.departure, trip.train_id))
+    everything = aheads + trips
     targets = []
     for trip in everything:
         day = trip.service_day or trip.departure.date()
@@ -543,7 +547,7 @@ def recommend(
         return option
 
     all_options = [option_for(i, trip) for i, trip in enumerate(everything)]
-    options = all_options[1:] if ahead_of_first else all_options
+    options = all_options[len(aheads) :]
     live_count = sum(option.live is not None for option in options)
     if live_count:
         oldest = min(option.live.observed_at for option in options if option.live)
@@ -555,7 +559,15 @@ def recommend(
         if any(option.live.source == SYNTHETIC_SOURCE for option in options if option.live):
             synthetic = True
     for i, option in enumerate(options):
-        before = all_options[i] if ahead_of_first else (options[i - 1] if i else None)
+        # The train before it on the same line, if any.
+        before = next(
+            (
+                earlier
+                for earlier in reversed(all_options[: len(aheads) + i])
+                if earlier.trip.line == option.trip.line
+            ),
+            None,
+        )
         trip = option.trip
         day = trip.service_day or trip.departure.date()
         option.crowding = estimate(

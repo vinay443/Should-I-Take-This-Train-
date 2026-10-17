@@ -171,6 +171,18 @@ function toast(text) {
 
 // ---------- status and stations ----------
 
+const LINE_NAMES = { central: "Central line", harbour: "Harbour line" };
+
+/** "Central line timetable, 894 trains." or, with more than one line loaded,
+ * "Central line timetable, 894 trains; Harbour line, 312." */
+function timetableText(s) {
+  const lines = s.lines && s.lines.length ? s.lines : [{ line: "central", trains: s.trains }];
+  const name = (l) => LINE_NAMES[l.line] || `${l.line[0].toUpperCase()}${l.line.slice(1)} line`;
+  const [first, ...rest] = lines;
+  return `${name(first)} timetable, ${first.trains} trains`
+    + rest.map((l) => `; ${name(l)}, ${l.trains}`).join("") + ". ";
+}
+
 async function loadStatus() {
   try {
     const { body: s, offline } = await request("/api/status");
@@ -183,7 +195,7 @@ async function loadStatus() {
       return;
     }
     line.append(
-      s.sample_timetable ? "Sample timetable (invented trains). " : `Central line timetable, ${s.trains} trains. `,
+      s.sample_timetable ? "Sample timetable (invented trains). " : timetableText(s),
     );
     if (s.last_collected) {
       line.append("Live data last fetched ", el("strong", { text: friendlyAge(s.last_collected) }), ".");

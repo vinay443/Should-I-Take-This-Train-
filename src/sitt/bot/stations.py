@@ -88,7 +88,8 @@ def _key(text: str) -> str:
 
 
 class StationDirectory:
-    """The stations the bot knows about, in line order from the CSMT end."""
+    """The stations the bot knows about, in line order from the CSMT end (the main line,
+    then any other line's own stations)."""
 
     def __init__(self, stations: Sequence[Station]):
         self.stations: tuple[Station, ...] = tuple(stations)
@@ -138,7 +139,9 @@ FALLBACK_DIRECTORY = StationDirectory(FALLBACK_STATIONS)
 
 def directory_from(con: duckdb.DuckDBPyConnection) -> StationDirectory:
     """The directory for the `stations` table, or the fallback list if the table is empty."""
-    rows = con.execute("SELECT code, name FROM stations ORDER BY seq, code").fetchall()
+    from sitt.ingest.timetable import STATION_LIST_ORDER
+
+    rows = con.execute(f"SELECT code, name FROM stations {STATION_LIST_ORDER}").fetchall()
     if not rows:
         return FALLBACK_DIRECTORY
     return StationDirectory([Station(code, name) for code, name in rows])

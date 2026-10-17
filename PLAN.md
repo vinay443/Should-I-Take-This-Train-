@@ -214,10 +214,13 @@ Megablock ends are placed on the block's own line; "train ahead" and the line me
 only look at trains on the same line; the synthetic generator keeps to the main line.
 Main line features and answers unchanged on the real data, with and without Harbour.
 
-#### 26e. Harbour routes in the web app and bot — [ ]
-`sitt-next CSMT PNVL` already answers once the Harbour CSV is loaded. Left: station lists
-that don't interleave the two lines' orders (web `/api/stations`, bot), the crowding
-rules (written for Kalyan-CSMT flows), and how to load it (README).
+#### 26e. Harbour routes in the web app and bot — [x]
+The train ahead (for crowding) is the one before on the same line; station lists put the
+main line first, then the Harbour line's own stations; the status line names each line's
+trains; README says how to load it. Checked in Chromium on the real data plus the Harbour
+DOWN trains: CSMT → Panvel answers, the main line is unchanged.
+The crowding rules (written for Kalyan-CSMT flows) apply unchanged: they only use
+direction and time, which hold for the Harbour line too, but nothing has checked them there.
 
 ### 27. Independent review of round 6 — [x]
 A separate agent reviewed cold and found 5 issues, all fixed (PROGRESS.md, 2026-10-16).

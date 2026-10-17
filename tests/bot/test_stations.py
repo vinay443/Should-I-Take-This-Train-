@@ -130,3 +130,15 @@ def test_suggest_stays_quiet_for_nonsense(typed):
     from sitt.bot.stations import FALLBACK_DIRECTORY
 
     assert FALLBACK_DIRECTORY.suggest(typed) == []
+
+
+def test_directory_lists_the_main_line_before_the_harbour_line(loaded, tmp_path):
+    from conftest import harbour_csv
+
+    from sitt.ingest.timetable import load_timetable, read_timetable
+
+    load_timetable(loaded, read_timetable(harbour_csv(tmp_path), line="harbour"))
+    codes = [s.code for s in directory_from(loaded).stations]
+    # Byculla and Dockyard Road are both 4th on their lines; the main line comes first.
+    assert codes[:4] == ["CSMT", "MSD", "SNRD", "BY"]
+    assert codes.index("KYN") < codes.index("DKRD") < codes.index("PNVL")

@@ -65,7 +65,9 @@ taken no more than 30 minutes before the time you ask about (`SITT_LIVE_MAX_AGE_
 - a train whose **scheduled time has passed but which is running late enough to still be
   caught** is put back on the list ("Running late, so still to leave: the 10:06 fast");
 - the train just ahead's live delay feeds the crowding rule ("the train before it is 17 min
-  late"), even at timetable level.
+  late"), even at timetable level. "Just ahead" means on the same line: where the main and
+  Harbour lines share stations (CSMT to Kurla) their trains leave from different platforms,
+  so a late or cancelled Harbour train doesn't count for the next main line train.
 
 Readings taken after the time you ask about are ignored, so asking about a past moment with
 `sitt-next --date … --at …` doesn't see the future. Suspect readings flagged by `sitt-dq` are
