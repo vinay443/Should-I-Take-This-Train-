@@ -9,9 +9,12 @@ editions and its AC and 15-car supplements (`cr_pdf.KNOWN_SOURCES`), and the Har
 DOWN PDF (`HARBOUR_SOURCES` below). Both main line PDFs are needed; a supplement that isn't
 there is left out with a warning; the Harbour line is loaded only if its PDF is there.
 
-Before anything is written, a copy of the database is made beside it
-(`sitt-before-reload-<time>.duckdb`), and nothing is changed if the database is in use
-(stop `sitt-web`, the bot or the dashboard first). Readings, crowd reports and everything
+Before the timetable is touched, a copy of the database is made beside it
+(`sitt-before-reload-<time>.duckdb`; the check that nothing else has the database brings
+its schema up to date first, as opening it for writing always does), and nothing is changed
+if the database is in use (stop `sitt-web`, the bot or the dashboard first). Every PDF is
+converted and every CSV checked before anything is loaded, so a bad file stops the reload
+with the timetable as it was. Readings, crowd reports and everything
 else that isn't the timetable are kept: each line is loaded with `--replace`, which only
 drops that line's trains that are no longer in its timetable.
 """
@@ -70,7 +73,11 @@ def find_pdfs(folder: Path) -> Found:
     for path in sorted(folder.rglob("*")):
         if not path.is_file() or path.suffix.lower() != ".pdf":
             continue
-        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        try:
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        except OSError:
+            found.unknown.append(path)  # can't be read, so it can't be one of ours
+            continue
         if digest in cr_pdf.KNOWN_SOURCES:
             kind = cr_pdf.KNOWN_SOURCES[digest][2]
             if kind == "main":
@@ -163,7 +170,10 @@ def reload(folder: Path, db: Path, *, dry_run: bool = False, out=print) -> int:
     if dry_run:
         return 0
     if not db.exists():
-        out(f"No database at {db}. Run `uv run sitt-init-db` first.")
+        out(
+            f"No database at {db.resolve()}. Run this from the project folder, or pass "
+            "--db with the database's path."
+        )
         return 2
 
     # Is anything else using the database? Find out before converting or copying.
@@ -176,8 +186,17 @@ def reload(folder: Path, db: Path, *, dry_run: bool = False, out=print) -> int:
         )
         return 2
 
-    before = _counts(db)
-    copy = backup(db)
+    import duckdb
+
+    try:
+        before = _counts(db)
+        copy = backup(db)
+    except (duckdb.Error, OSError):
+        out(
+            f"{db} became busy while it was being copied. Stop sitt-web, the bot and the "
+            "dashboard, then run this again. Nothing was changed."
+        )
+        return 2
     out(f"Backed up the database to {copy}")
 
     with tempfile.TemporaryDirectory(prefix="sitt-reload-") as work:
@@ -195,12 +214,19 @@ def reload(folder: Path, db: Path, *, dry_run: bool = False, out=print) -> int:
                 for line in left_out_lines(rejected):
                     out(f"  {line}")
                 csvs.append((loader_line, csv))
+            # Every timetable is read and checked before any is loaded.
+            timetables = [(line, read_timetable(csv, line=line)) for line, csv in csvs]
+        except (cr_pdf.ConversionError, TimetableError, OSError) as exc:
+            out(f"error: {exc}")
+            out("Nothing was loaded: the timetable is as it was.")
+            return 1
+        loaded: list[str] = []
+        try:
             con = open_with_retry(db, attempts=2, wait_seconds=1.0)
             try:
-                for loader_line, csv in csvs:
-                    result = load_timetable(
-                        con, read_timetable(csv, line=loader_line), replace=True
-                    )
+                for loader_line, timetable in timetables:
+                    result = load_timetable(con, timetable, replace=True)
+                    loaded.append(loader_line)
                     removed = (
                         f", {result.removed_trains} no longer in it removed"
                         if result.removed_trains
@@ -209,12 +235,15 @@ def reload(folder: Path, db: Path, *, dry_run: bool = False, out=print) -> int:
                     out(f"Loaded {result.trains} trains for line {loader_line!r}{removed}.")
             finally:
                 con.close()
-        except DatabaseBusyError:
-            out(f"{db} became busy. Stop whatever opened it and run this again.")
-            return 2
-        except (cr_pdf.ConversionError, TimetableError, OSError) as exc:
+        except (DatabaseBusyError, TimetableError, duckdb.Error, OSError) as exc:
+            # Each line loads in one transaction, so a line either loaded fully or not at all.
+            done = ", ".join(loaded) or "none"
+            missing = ", ".join(line for line, _ in timetables if line not in loaded)
             out(f"error: {exc}")
-            out(f"The copy made first is {copy}.")
+            out(
+                f"Lines loaded: {done}; not loaded: {missing}. To go back to the timetable "
+                f"as it was, stop everything and copy {copy} over {db}."
+            )
             return 1
 
     after = _counts(db)
@@ -238,6 +267,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--db", type=Path, help="database (default SITT_DB_PATH)")
     parser.add_argument("--dry-run", action="store_true", help="only list the PDFs found")
     args = parser.parse_args(argv)
+    # Piped or redirected on Windows, output may not be UTF-8: never fail over a "→".
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
     if not args.folder.is_dir():
         print(f"No folder {args.folder}.")
         return 1

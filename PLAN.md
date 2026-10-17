@@ -362,6 +362,9 @@ Seven findings (no high), all fixed; plus one from item 49's rules (PROGRESS.md)
 `uv run sitt-timetable-reload FOLDER`: PDFs found by hash, database backed up, refused while
 in use, main line (and Harbour if present) loaded, before → after printed.
 
+### 53. Review of item 52 — [x]
+No data-loss defects; five small findings fixed (PROGRESS.md).
+
 ### On the user's PC, only if a working shell is available
 `mcp__remote-devices__device_bash` was blocked by a Windows update on 2026-10-12/13. If it
 works in a later session: `git pull`, `uv sync`, start `uv run sitt-web --no-browser` in the

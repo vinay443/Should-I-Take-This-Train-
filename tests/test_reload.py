@@ -143,3 +143,29 @@ def test_backups_never_overwrite(tmp_path):
     when = datetime(2026, 10, 17, 19, 30)
     first, second = reload.backup(db, when), reload.backup(db, when)
     assert first != second and first.exists() and second.exists()
+
+
+def test_a_bad_file_stops_the_reload_before_anything_is_loaded(pdfs, tmp_path, monkeypatch):
+    db = tmp_path / "sitt.duckdb"
+    init_db(db).close()
+
+    def fake_convert(paths, line, out, edition=None, ac=None, cars=None):
+        if line == "main":
+            out.write_text("# line: central\n" + SAMPLE_CSV.read_text(encoding="utf-8"))
+        else:
+            out.write_text("not,a,timetable\n1,2,3\n", encoding="utf-8")
+        return {}
+
+    monkeypatch.setattr(reload, "_convert", fake_convert)
+    said = []
+    assert reload.reload(pdfs, db, out=said.append) == 1
+    assert said[-1] == "Nothing was loaded: the timetable is as it was."
+    with duckdb.connect(str(db), read_only=True) as con:
+        assert con.execute("SELECT count(*) FROM trains").fetchone()[0] == 0
+
+
+def test_no_database_says_where_it_looked(pdfs, tmp_path):
+    said = []
+    assert reload.reload(pdfs, tmp_path / "data" / "sitt.duckdb", out=said.append) == 2
+    assert str((tmp_path / "data" / "sitt.duckdb").resolve()) in said[-1]
+    assert "--db" in said[-1]
