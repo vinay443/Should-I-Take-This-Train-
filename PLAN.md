@@ -348,7 +348,8 @@ When the stations are on different lines, name the earliest-arriving journey wit
 change where they meet, by the timetable (at least 5 min to change, at most 60 min wait),
 instead of only "ask for each part separately".
 
-### 49. Independent review of round 12 — [ ]
+### 49. Independent review of round 12 — [x]
+Five findings (no high); three fixed, one noted (PROGRESS.md, 2026-10-17).
 
 ### On the user's PC, only if a working shell is available
 `mcp__remote-devices__device_bash` was blocked by a Windows update on 2026-10-12/13. If it

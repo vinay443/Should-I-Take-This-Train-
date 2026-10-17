@@ -138,10 +138,29 @@ def test_stations_on_different_lines_say_where_the_lines_meet(both_lines):
 def test_a_direction_whose_timetable_is_not_loaded_is_named(both_lines):
     from sitt.timetable import no_train_reason
 
-    reason = no_train_reason(both_lines, "PNVL", "CSMT")
-    assert reason.startswith(
-        "The Harbour line timetable loaded here has no trains towards CSMT, so none from "
-        "Panvel to Chhatrapati Shivaji Maharaj Terminus: only its DOWN timetable is loaded"
+    # (The sample timetable spells CSMT out in full.)
+    assert no_train_reason(both_lines, "PNVL", "CSMT") == (
+        "The Harbour line timetable loaded here has no trains towards CSMT (only its DOWN "
+        "timetable is loaded), so none from Panvel to Chhatrapati Shivaji Maharaj Terminus."
+    )
+
+
+def test_no_long_way_round_when_the_natural_change_needs_a_missing_direction(both_lines):
+    from sitt.timetable import no_train_reason
+
+    # Kalyan to Chunabhatti: change at Kurla and go back one stop towards CSMT on the
+    # Harbour line, whose UP timetable isn't loaded. Going on to CSMT and back out would be
+    # the long way round, so no journey is named; the reason says what is missing.
+    reason = no_train_reason(both_lines, "KYN", "CHF", at(MONDAY, "04:00"))
+    assert "Quickest" not in reason
+    assert reason.endswith(
+        "They meet at Chhatrapati Shivaji Maharaj Terminus, Masjid, Sandhurst Road and Kurla, "
+        "but the Harbour line timetable loaded here has no trains towards CSMT (only its "
+        "DOWN timetable is loaded), so the part on it can't be worked out yet."
+    )
+    # From the Harbour line to the main line, the first part needs the missing direction.
+    assert "so the part on it can't be worked out yet" in no_train_reason(
+        both_lines, "PNVL", "KYN", at(MONDAY, "04:00")
     )
 
 
@@ -150,7 +169,8 @@ def test_two_branches_of_one_line(both_lines):
 
     # Bandra is on the Goregaon branch, Vashi on the Panvel branch: no train calls at both.
     assert no_train_reason(both_lines, "BA", "VSH") == (
-        "No single train in the timetable runs from Bandra to Vashi."
+        "No single train in the timetable runs from Bandra to Vashi. A journey with a change "
+        "may need Harbour line trains towards CSMT, and only its DOWN timetable is loaded."
     )
 
 

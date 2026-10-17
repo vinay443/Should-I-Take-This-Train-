@@ -123,6 +123,14 @@ only the Central and Harbour lines: for Dadar → Goregaon it suggests going via
 Road, where in practice the Western line is quicker. Delays and crowding aren't used,
 which is why it asks you to look at each part.
 
+With only the Harbour line's DOWN timetable loaded, some journeys can't be worked out:
+anything on the Harbour line towards CSMT (Panvel → Kalyan), and anything whose natural
+change needs it (Kalyan → Chunabhatti: change at Kurla and go back a stop). Rather than
+send you on to CSMT and back out, which the timetable alone would allow, the reply then
+says the Harbour line has no trains towards CSMT loaded. A journey whose first train calls
+at such a station before its own change isn't offered. A second train after midnight is
+marked "after midnight".
+
 ## Thresholds
 
 Set these in `.env` (see [`.env.example`](../.env.example)). They are read by
