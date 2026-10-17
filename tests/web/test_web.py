@@ -262,3 +262,6 @@ def test_patterns_page_and_api(client, db):
     (cell,) = data["by_hour"]
     assert (cell["direction"], cell["key"], cell["median"], cell["few"]) == ("up", 7, 8.0, True)
     assert [b["key"] for b in data["bands"]][:2] == ["early", "am_peak"]
+    # One day of readings: too few to show weekdays and weekends apart.
+    kinds = {k["key"]: k["days"] for k in data["day_kinds"]}
+    assert data["split_ready"] is False and data["by_kind"] == {} and sum(kinds.values()) == 1
