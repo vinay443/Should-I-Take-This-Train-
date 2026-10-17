@@ -150,6 +150,13 @@ def ready(browser, url: str, out: Path) -> None:
             )
             page.click("#days-toggle label:has(input[value=all])")
             check(page.url.endswith("/patterns"), f"{tag}: all days clears the address")
+            gates = page.locator("#model-gates li").all_text_contents()
+            check(
+                page.is_visible("#model")
+                and len(gates) == 4
+                and gates[0] == "Days with observations: 6 of 28",
+                f"{tag}: progress towards a delay model ({gates[:1]})",
+            )
             check(not errors, f"{tag}: no script errors ({errors})")
             context.close()
 

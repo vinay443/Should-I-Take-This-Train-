@@ -20,6 +20,14 @@ Nothing self-directed is left that is worth doing before one of these happens:
 
 ## 2026-10-17
 
+### Item 44: progress towards a delay model on Delay patterns (done, PR #48)
+- New **Towards a delay model** section: the `sitt-retrain` gates (days, usable readings,
+  best-covered station, test window) as "Days with observations: 6 of 28", or which
+  real-data model is in use. Uses `check_readiness` read-only; nothing is trained. Synthetic
+  databases show nothing (sitt-retrain refuses them). `/api/patterns` adds `model` when
+  there are readings; `sitt-patterns` ends with the same line.
+- Browser check (`check_web_patterns.py`) and axe: pass, no violations. 4 new tests.
+
 ### Item 43: timetable and holidays still current (checked, no change)
 - Web search 2026-10-17: no official 2027 Maharashtra holiday list yet; the latest Central
   Railway news is still the 12 AC conversions of 29 June, already recorded (item 19).

@@ -173,9 +173,8 @@ def test_cli_days(tmp_path, capsys):
         run(con, "central-90106", "07:12", 0, day=4)
     assert patterns.main(["--db", str(db)]) == 0
     assert (
-        capsys.readouterr()
-        .out.rstrip()
-        .endswith("on at least 2 of each; so far 2 weekdays and 1 weekend day or holiday.")
+        "on at least 2 of each; so far 2 weekdays and 1 weekend day or holiday.\n"
+        in capsys.readouterr().out
     )
     assert patterns.main(["--db", str(db), "--days", "weekend"]) == 1
     assert capsys.readouterr().out.startswith("Weekdays and weekends are shown apart once")
@@ -190,3 +189,51 @@ def test_cli_days(tmp_path, capsys):
     assert re.search(r"Morning peak \(07-11\)\s+1 min, 0%, 2\*\s+-\n", out)
     assert patterns.main(["--db", str(db), "--days", "weekday"]) == 0
     assert re.search(r"Morning peak \(07-11\)\s+8 min, 100%, 2\*", capsys.readouterr().out)
+
+
+def test_model_progress_counts_against_the_retrain_gates(loaded):
+    run(loaded, "central-90106", "07:12", 10)
+    run(loaded, "central-90104", "07:03", 2, day=1)
+    model = patterns.model_progress(loaded)
+    assert model["ready"] is False and model["in_use"] is None
+    days = model["gates"][0]
+    assert (days["name"], days["have"], days["need"], days["met"]) == (
+        "days with observations",
+        2,
+        28,
+        False,
+    )
+    note = patterns.model_note(model)
+    assert note.startswith("Delay model: not enough real readings yet (days with observations")
+    assert "2 of 28" in note and "5,000" in note
+
+    loaded.execute(
+        "INSERT INTO model_registry (version, created_at, status) "
+        "VALUES ('real-20261101T000000Z', now(), 'promoted')"
+    )
+    model = patterns.model_progress(loaded)
+    assert model["in_use"] == "real-20261101T000000Z"
+    assert "real-20261101T000000Z, trained on real readings, is in use" in patterns.model_note(
+        model
+    )
+
+
+def test_model_progress_on_synthetic_data_is_none(loaded):
+    run(loaded, "central-90106", "07:12", 10, source="synthetic")
+    assert patterns.model_progress(loaded) is None
+    assert "synthetic" in patterns.model_note(None)
+
+
+def test_cli_ends_with_the_model_progress(tmp_path, capsys):
+    from conftest import SAMPLE_CSV
+
+    from sitt.db import init_db
+    from sitt.ingest.timetable import load_timetable, read_timetable
+
+    db = tmp_path / "sitt.duckdb"
+    with init_db(db) as con:
+        load_timetable(con, read_timetable(SAMPLE_CSV))
+        run(con, "central-90106", "07:12", 10)
+    assert patterns.main(["--db", str(db)]) == 0
+    last = capsys.readouterr().out.rstrip().splitlines()[-1]
+    assert last.startswith("Delay model: not enough real readings yet (days with observations 1")
