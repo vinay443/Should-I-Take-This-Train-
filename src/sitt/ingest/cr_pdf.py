@@ -73,6 +73,21 @@ Anything the parser gets wrong beyond that is fixed in the overrides file
 (sitt/ingest/timetable_overrides.toml, format in docs/timetable-format.md), which is
 applied after the PDFs and supplements have been read.
 
+Harbour line
+------------
+The Harbour line PDFs (w.e.f. 01.05.2026, same page) use the same grid, so they convert
+with the same rules (`--line harbour --edition 2026-05-01`; they aren't recognised by hash,
+so the edition must be given). Its stations are in the table below. Two things differ:
+
+- Trains that run beyond the table. A station code in a cell, for a station that isn't a
+  row of this table, says where the train really starts or ends, with its time in the
+  next row: "TNA" in the CSMT row of the 37 Trans-Harbour trains from Thane (their Thane
+  time sits in the Masjid row; they join at Nerul), and "BVI" in the Kurla row of 91491,
+  which continues from Goregaon to Borivali. These trains are left out with a warning:
+  reading on would take the next row's time as a stop. The Trans-Harbour PDF is where
+  they belong.
+- "L/SPL" is the Harbour PDF's spelling of "L SPL" (ladies special).
+
 Supplements
 -----------
 Central Railway amends the main edition with smaller PDFs on the same page, which
@@ -191,7 +206,7 @@ class Station:
 # 2026-10-05) has {"code":"SION","name":"SION"} and no SIN entry. Wikipedia and some
 # third-party sites still give the older code SIN, which the bot accepts as an alias.
 _STATIONS: dict[Station, tuple[str, ...]] = {
-    Station("CSMT", "CSMT"): ("CSMT",),
+    Station("CSMT", "CSMT"): ("CSMT", "Mumbai CSMT"),
     Station("MSD", "Masjid"): ("Masjid",),
     Station("SNRD", "Sandhurst Road"): ("Sandhurst Road",),
     Station("BY", "Byculla"): ("Byculla",),
@@ -242,6 +257,49 @@ _STATIONS: dict[Station, tuple[str, ...]] = {
     Station("KE", "Khardi"): ("Khardi",),
     Station("OMB", "Umbermali"): ("Umbermali", "Umbermalli"),
     Station("KSRA", "Kasara"): ("Kasara",),
+    # Harbour line (from its DOWN PDF, w.e.f. 01.05.2026): CSMT, Masjid, Sandhurst Road and
+    # Kurla are shared with the main line. The trunk to Vadala Road, then the Goregaon
+    # branch, then the Panvel branch. Codes checked against NTES's station list
+    # (station_data.js, saved 2026-10-05) and, for Bandra (BA) and Seawoods, the Indian
+    # Railways GTFS feed. NTES lists Seawoods twice (SWDV "SEAWOODSDARAVE", SWDK "SEAWOODS
+    # DARAVE KARAVE"); the PDF's name and the GTFS feed say SWDK (erail.in uses SWDV).
+    # UNVERIFIED (in neither list): KCE (King's Circle), MM (Mahim), STC (Santacruz) and
+    # GMN (Goregaon), Western line stations; erail.in's station pages use these codes
+    # (checked 2026-10-17).
+    # The PDF prints "Ramnagar" between Jogeshwari and Goregaon. There is no Ramnagar
+    # there: the station between them is Ram Mandir (RMAR in NTES's list, opened 2018),
+    # three minutes from each (e.g. 91491: Jogeshwari 21:31, 21:34, Goregaon 21:38).
+    Station("DKRD", "Dockyard Road"): ("Dockyard Road",),
+    Station("RRD", "Reay Road"): ("Reay Road",),
+    Station("CTGN", "Cotton Green"): ("Cotton Green",),
+    Station("SVE", "Sewri"): ("Sewri",),
+    Station("VDLR", "Vadala Road"): ("Vadala Road",),
+    Station("KCE", "King's Circle"): ("King's Circle",),
+    Station("MM", "Mahim"): ("Mahim Jn", "Mahim"),
+    Station("BA", "Bandra"): ("Bandra",),
+    Station("KHAR", "Khar Road"): ("Khar Road",),
+    Station("STC", "Santacruz"): ("Santacruz",),
+    Station("VLP", "Vile Parle"): ("Vileparle", "Vile Parle"),
+    Station("ADH", "Andheri"): ("Andheri",),
+    Station("JOS", "Jogeshwari"): ("Jogeshwari",),
+    Station("RMAR", "Ram Mandir"): ("Ram Mandir", "Ramnagar"),
+    Station("GMN", "Goregaon"): ("Goregaon",),
+    Station("GTBN", "GTB Nagar"): ("GTB Nagar",),
+    Station("CHF", "Chunabhatti"): ("Chunabhatti",),
+    Station("TKNG", "Tilak Nagar"): ("Tilaknagar", "Tilak Nagar"),
+    Station("CMBR", "Chembur"): ("Chembur",),
+    Station("GV", "Govandi"): ("Govandi",),
+    Station("MNKD", "Mankhurd"): ("Mankhurd",),
+    Station("VSH", "Vashi"): ("Vashi",),
+    Station("SNCR", "Sanpada"): ("Sanpada",),
+    Station("JNJ", "Juinagar"): ("Juinagar",),
+    Station("NEU", "Nerul"): ("Nerul",),
+    Station("SWDK", "Seawoods-Darave-Karave"): ("Seawoods Darave Karave",),
+    Station("BEPR", "Belapur CBD"): ("Belapur CBD",),
+    Station("KHAG", "Kharghar"): ("Kharghar",),
+    Station("MANR", "Mansarovar"): ("Mansarovar",),
+    Station("KNDS", "Khandeshwar"): ("Khandeshwar",),
+    Station("PNVL", "Panvel"): ("Panvel",),
 }
 
 
@@ -253,6 +311,9 @@ _STATION_BY_LABEL: dict[str, Station] = {
     _label_key(label): station for station, labels in _STATIONS.items() for label in labels
 }
 _STATION_BY_CODE: dict[str, Station] = {station.code: station for station in _STATIONS}
+# Stations no table here lists, written in a cell where a train runs beyond the table
+# (Harbour DOWN: 91491 continues from Goregaon to Borivali).
+_OFF_TABLE_STATIONS: dict[str, Station] = {"BVI": Station("BVI", "Borivali")}
 # Row labels in the 15-car supplement that are neither a station's name nor its code.
 # "DLY" is a typo for Dolavli (DLV): it sits between Lowjee and Kelavli on the UP page,
 # and its times match Dolavli's in the main edition (e.g. 95002 at 04:58).
@@ -264,7 +325,7 @@ _FOOTNOTE_RES = (re.compile(r"Services marked as AC# means services running on")
 
 # Header markers. Day codes restrict running days; flags describe the train.
 DAY_CODES: dict[str, str] = {"X": "mon-sat", "XX": "mon-fri"}
-_MARKER_RE = re.compile(r"(?P<cars>\d+)\s*C\b|(?P<lspl>L\s*SPL)\b|(?P<token>\S+)")
+_MARKER_RE = re.compile(r"(?P<cars>\d+)\s*C\b|(?P<lspl>L\s*/?\s*SPL)\b|(?P<token>\S+)")
 _FLAG_TOKENS = {"AC": "ac", "$": "ladies_coaches"}
 # "AC#": runs without AC on Saturdays, Sundays and nominated holidays (AC supplement footnote).
 NON_AC_WEEKENDS = "non_ac_weekends"
@@ -545,6 +606,7 @@ def column_train(column: Column, stations: Sequence[Station], direction: Directi
     passed_since_last_stop = False
     remarks: list[str] = []
     stray_only: list[tuple[Station, str, int]] = []  # (station, text, stops before it)
+    page_codes = {station.code for station in stations}
     for station in stations:
         text = column.cells.get(station, "")
         kind = _classify_cell(text)
@@ -557,6 +619,16 @@ def column_train(column: Column, stations: Sequence[Station], direction: Directi
             if _classify_cell(cleaned):
                 remarks.append(f"stray marks in {text!r} at {station.name} ignored")
                 kind = _classify_cell(cleaned)
+        off_table = _STATION_BY_CODE.get(text) or _OFF_TABLE_STATIONS.get(text)
+        if kind is None and off_table is not None and text not in page_codes:
+            # A station code that isn't a row of this table: the train starts or ends
+            # off the table, and its time there is in the next row ("TNA" in the CSMT
+            # row of Trans-Harbour trains from Thane, "BVI" for Borivali). Leave it to
+            # the table that lists that station rather than misread the next row.
+            return (
+                f"page {column.page}: {text!r} ({off_table.name}) in the {station.name} row: "
+                "the train runs to or from a station this table doesn't list"
+            )
         if kind is None and (named := _STATION_BY_CODE.get(text)) is not None:
             # A station code in a cell says the train starts or ends there instead
             # ("DR" in the CSMT row). Believe it only if the train has a time there.
@@ -895,10 +967,17 @@ def source_info(path: str | Path, edition: str | None = None, kind: str = "main"
 _SOURCE_LABELS = {"main": "source", "ac": "AC supplement", "15car": "15-car supplement"}
 
 
+LINE_TITLES = {"main": "main line", "harbour": "Harbour line"}
+
+
 def write_csv(
-    out, trains: Sequence[ConvertedTrain], sources: Sequence[SourceInfo], overrides: int = 0
+    out,
+    trains: Sequence[ConvertedTrain],
+    sources: Sequence[SourceInfo],
+    overrides: int = 0,
+    line: str = "main",
 ) -> None:
-    out.write("# Central Railway Mumbai suburban timetable, main line.\n")
+    out.write(f"# Central Railway Mumbai suburban timetable, {LINE_TITLES[line]}.\n")
     out.write(f"# Converted by sitt.ingest.cr_pdf on {date.today().isoformat()}.\n")
     for source in sources:
         out.write(
@@ -975,6 +1054,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--edition", help="edition date (w.e.f.) to record, if a main PDF isn't a known one"
     )
     parser.add_argument(
+        "--line",
+        choices=tuple(LINE_TITLES),
+        default="main",
+        help="which line the PDFs are for, as recorded in the CSV's header (default main; "
+        "harbour for the Harbour line PDFs, e.g. with --edition 2026-05-01)",
+    )
+    parser.add_argument(
         "--ac-supplement", type=Path, help="AC services PDF to apply over the main edition"
     )
     parser.add_argument(
@@ -1013,7 +1099,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 file=sys.stderr,
             )
     with args.output.open("w", encoding="utf-8", newline="") as out:
-        write_csv(out, conversion.trains, sources, overrides=len(conversion.overrides))
+        write_csv(
+            out, conversion.trains, sources, overrides=len(conversion.overrides), line=args.line
+        )
 
     for warning in conversion.warnings:
         print(f"warning: {warning}", file=sys.stderr)

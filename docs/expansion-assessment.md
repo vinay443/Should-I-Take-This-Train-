@@ -1,6 +1,8 @@
 # Expanding beyond the Central main line: an assessment
 
-Research only, done on **2026-10-05**. Nothing here is implemented. The question: how much
+Research done on **2026-10-05**. Since then (2026-10-17) the converter reads the Harbour
+DOWN PDF (PLAN.md item 26a, docs/timetable-format.md); loading it, the UP PDF and the
+shared-station work are still to do. The question: how much
 work would it be to add the **Harbour line** (Central Railway) and the **Western line**
 (Western Railway), and is it worth doing now?
 

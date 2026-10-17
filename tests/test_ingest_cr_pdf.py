@@ -438,3 +438,85 @@ def test_known_pdf_given_as_the_wrong_kind_is_refused(tmp_path, monkeypatch):
     assert cr_pdf.source_info(pdf, kind="ac").edition == "2025-04-16"
     with pytest.raises(ConversionError, match="is the ac PDF, but it was given as the main PDF"):
         cr_pdf.source_info(pdf)
+
+
+# --- Harbour line ----------------------------------------------------------------------
+#
+# `fixtures/cr_pdf_harbour_words.json` holds pages 1, 13 and 16 of the Harbour line DOWN
+# PTT (w.e.f. 01.05.2026). Page 1's trains were checked by hand against the rendered page.
+
+HARBOUR_FIXTURE = Path(__file__).parent / "fixtures" / "cr_pdf_harbour_words.json"
+
+
+@pytest.fixture(scope="module")
+def harbour_grids() -> list[PageGrid]:
+    pages = json.loads(HARBOUR_FIXTURE.read_text(encoding="utf-8"))["pages"]
+    return [parse_grid([Word(*w) for w in p["words"]], p["page"]) for p in pages]
+
+
+@pytest.fixture(scope="module")
+def harbour(harbour_grids):
+    return grid_trains(harbour_grids)
+
+
+def test_harbour_page_has_the_trunk_then_both_branches(harbour_grids):
+    for grid in harbour_grids:
+        codes = [s.code for s in grid.stations]
+        assert codes[:8] == ["CSMT", "MSD", "SNRD", "DKRD", "RRD", "CTGN", "SVE", "VDLR"]
+        # Goregaon branch, then Panvel branch.
+        assert codes[8:18] == ["KCE", "MM", "BA", "KHAR", "STC", "VLP", "ADH", "JOS", "RMAR", "GMN"]
+        assert codes[18:21] == ["GTBN", "CHF", "CLA"] and codes[-1] == "PNVL"
+        assert len(codes) == 35 and grid_direction(grid) == "down"
+    # "Ramnagar" in the PDF is Ram Mandir.
+    assert station_for("Ramnagar").code == "RMAR" and station_for("Mumbai CSMT").code == "CSMT"
+
+
+def test_harbour_trains_as_printed(harbour):
+    trains = {t.number: t for t in harbour.trains}
+    panvel = trains["98001"]  # PL 1, CSMT 00:13 to Panvel 01:33
+    assert panvel.service_code == "PL 1" and panvel.service_type == "slow"
+    assert stops(panvel)[:3] == [("CSMT", "00:13"), ("MSD", "00:16"), ("SNRD", "00:19")]
+    assert stops(panvel)[7:9] == [("VDLR", "00:31"), ("GTBN", "00:36")]  # skips the branch
+    assert stops(panvel)[-1] == ("PNVL", "01:33") and len(panvel.stops) == 25
+    bandra = trains["98801"]  # B 1: the Goregaon branch as far as Bandra
+    assert stops(bandra)[-3:] == [("KCE", "00:39"), ("MM", "00:41"), ("BA", "00:45")]
+    assert bandra.destination == "Bandra"
+    vadala = trains["98303"]  # BRVD 1: starts at Vadala Road
+    assert stops(vadala)[0] == ("VDLR", "00:50") and vadala.destination == "Belapur CBD"
+    ac = trains["98573"]  # V 69, AC, to Vashi
+    assert ac.ac and stops(ac)[-1] == ("VSH", "01:13")
+    assert {t.service_type for t in harbour.trains} == {"slow"}
+
+
+def test_harbour_trains_running_beyond_the_table_are_left_out(harbour):
+    # Trans-Harbour trains from Thane: "TNA" in the CSMT row, the Thane time in the next.
+    assert harbour.rejected["99003"] == (
+        "page 1: 'TNA' (Thane) in the CSMT row: the train runs to or from a station this "
+        "table doesn't list"
+    )
+    # 91491 (WBO 1) continues from Goregaon to Borivali: "BVI" in the Kurla row.
+    assert "'BVI' (Borivali) in the Kurla row" in harbour.rejected["91491"]
+    # The time after the code is never read as a stop.
+    assert "99003" not in {t.number for t in harbour.trains}
+
+
+def test_harbour_ladies_special_spelling(harbour):
+    # 98193 is marked "L/SPL" (read as the ladies' special) and "#", which nothing on the
+    # page explains, so it is still left out rather than guessed at.
+    assert column_markers(Column("1", 1, ["PL 1", "L/SPL"])).notes == ["ladies_special"]
+    assert harbour.rejected["98193"] == "page 13: unknown marker '#'"
+
+
+def test_cli_harbour_line_header(tmp_path, monkeypatch, harbour_grids):
+    monkeypatch.setattr(cr_pdf, "read_pdf_grids", lambda path: harbour_grids)
+    pdf = tmp_path / "hb-dn.pdf"
+    pdf.write_bytes(b"not really a pdf")
+    out = tmp_path / "harbour.csv"
+    assert (
+        cr_pdf.main([str(pdf), "-o", str(out), "--line", "harbour", "--edition", "2026-05-01"]) == 0
+    )
+    text = out.read_text(encoding="utf-8")
+    assert text.startswith("# Central Railway Mumbai suburban timetable, Harbour line.\n")
+    assert "# source: hb-dn.pdf, edition w.e.f. 2026-05-01" in text
+    timetable = read_timetable(out, line="harbour")
+    assert len(timetable.trains) == len(grid_trains(harbour_grids).trains)

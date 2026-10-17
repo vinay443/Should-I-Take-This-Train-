@@ -144,7 +144,8 @@ class BlockError(ValueError):
 
 
 def station_code(text: str | None) -> str | None:
-    """A station code where the name is a known Central main line station, else the text."""
+    """A station code where the name is a station the PDF converter knows (Central main
+    line or Harbour line), else the text."""
     if text is None or not text.strip():
         return None
     cleaned = re.sub(r"\s+", " ", text.strip())

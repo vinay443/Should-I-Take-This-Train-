@@ -90,7 +90,8 @@ def test_fetch_makes_one_polite_request():
             "Panvel-Vashi Up and Down harbour lines from 11.05 am to 4.05 pm",
             [
                 ("central", "TNA", "KYN", time(10, 40), time(15, 40), "slow", "both"),
-                ("harbour", "Panvel", "Vashi", time(11, 5), time(16, 5), None, "both"),
+                # Harbour stations are known since the converter reads the Harbour PDF.
+                ("harbour", "PNVL", "VSH", time(11, 5), time(16, 5), None, "both"),
             ],
         ),
         (
