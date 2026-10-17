@@ -44,6 +44,11 @@ fast train, 15 cars".
 Reports you log with `/log` are blended in when they are for a similar train:
 
 - the same boarding station,
+- the same line, where two lines share the station (CSMT to Kurla on the main and Harbour
+  lines): the line of the train the report was matched to, else the line it was logged
+  for (the web app records it when you log from a train), else the station's home line,
+  which is the main line at shared stations. Bot reports don't say, so they count for the
+  main line there, and the matcher only looks for main line trains for them,
 - the same type (fast or slow),
 - a departure time within 30 minutes,
 - logged in the last 90 days.

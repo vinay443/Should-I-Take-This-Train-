@@ -27,6 +27,22 @@ What moves the project next, in order:
 
 ## 2026-10-17
 
+### Review of the Harbour round: fix 2 of 3, crowd reports per line (PR #57)
+- HIGH: at stations both lines share, a report like "08:00 slow from CSMT" was matched
+  against Harbour trains too (on the real timetable: to the 08:00 to Panvel instead of the
+  07:58 to Thane, or to nothing, "two trains too close to tell apart"). The matcher now
+  looks at one line: the one the report names, else the station's home line (the main
+  line at CSMT, Masjid, Sandhurst Road and Kurla), which is exactly what it did before.
+- HIGH/MEDIUM: Harbour crowd reports raised main line crowding at shared stations (4
+  reports of "can't board" on a Harbour train took the 18:03 to Thane from 3 to 4). Only
+  reports about the trip's line count now.
+- New nullable `crowd_reports.line`. The web app sends the train's line when you log from
+  a train's row (checked in Chromium on the real data with Harbour loaded: logging from
+  the 15:44 to Panvel sent "harbour"; editing the time by hand drops it); `/api/recommend`
+  gives each option's `line`. A line that doesn't call at the station is refused (400).
+  Bot reports carry no line, so they are about the main line at shared stations.
+- 3 new tests (the matching and similar-reports ones fail on the old code).
+
 ### Review of the Harbour round (items 26a-26e): fix 1 of 3 (PR #56)
 A cold review of PRs #51-#55 found nine issues (two high). This PR fixes:
 - HIGH: on a database not yet opened for writing since `station_lines` was added (the

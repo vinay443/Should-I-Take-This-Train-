@@ -57,6 +57,7 @@ from datetime import datetime, timedelta
 
 import duckdb
 
+from sitt.matching import has_column
 from sitt.models.features import local_naive
 
 CROWD_LABELS: dict[int, str] = {
@@ -239,21 +240,42 @@ def similar_reports(
     now: datetime | None = None,
     rules: CrowdingRules = RULES,
     exclude_train_id: str | None = None,
+    line: str | None = None,
 ) -> list[int]:
     """Crowd levels the rider logged for trains like this one. See the module docstring.
 
     Reports matched to `exclude_train_id` are left out, so that a train's own reports
-    (see `train_reports`) aren't counted twice.
+    (see `train_reports`) aren't counted twice. With `line`, only reports about that line
+    count: the line of the train a report was matched to, else the line it names, else
+    the station's home line. Where the main and Harbour lines share a station their trains
+    leave from different platforms, and are not alike.
     """
     now = local_naive(now) if now else datetime.now()
     oldest = now - timedelta(days=rules.report_max_age_days)
-    own = (
-        "AND matched_train_id IS DISTINCT FROM ?" if exclude_train_id and _has_matches(con) else ""
-    )
+    matched = _has_matches(con)
+    own = "AND r.matched_train_id IS DISTINCT FROM $own" if exclude_train_id and matched else ""
+    on_line = ""
+    if line is not None:
+        report_line = "r.line" if has_column(con, "crowd_reports", "line") else "NULL"
+        matched_line = (
+            "(SELECT t.line FROM trains t WHERE t.train_id = r.matched_train_id)"
+            if matched
+            else "NULL"
+        )
+        on_line = (
+            f"AND coalesce({matched_line}, {report_line}, "
+            "(SELECT s.line FROM stations s WHERE s.code = r.station_code)) = $line"
+        )
+    params = {"station": station_code}
+    if own:
+        params["own"] = exclude_train_id
+    if on_line:
+        params["line"] = line
     rows = con.execute(
-        "SELECT crowd_level, train_description, epoch_ms(reported_at) FROM crowd_reports "
-        f"WHERE station_code = ? AND train_description IS NOT NULL {own}",
-        [station_code, exclude_train_id] if own else [station_code],
+        "SELECT r.crowd_level, r.train_description, epoch_ms(r.reported_at) "
+        "FROM crowd_reports r "
+        f"WHERE r.station_code = $station AND r.train_description IS NOT NULL {own} {on_line}",
+        params,
     ).fetchall()
     wanted = departure.hour * 60 + departure.minute
     levels = []

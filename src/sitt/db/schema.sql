@@ -240,6 +240,11 @@ ALTER TABLE crowd_reports ADD COLUMN IF NOT EXISTS match_confidence DOUBLE;
 ALTER TABLE crowd_reports ADD COLUMN IF NOT EXISTS match_method VARCHAR;
 ALTER TABLE crowd_reports ADD COLUMN IF NOT EXISTS matched_at TIMESTAMPTZ;
 
+-- Which line the report is about, where the rider said (the web app records the line of
+-- the train a report was logged from). NULL, as for every bot report, means the station's
+-- home line (stations.line): the main line at stations it shares with the Harbour line.
+ALTER TABLE crowd_reports ADD COLUMN IF NOT EXISTS line VARCHAR;
+
 
 -- Every delay model `sitt-retrain` has trained on real observations, and what became of it
 -- (sitt.models.retrain, docs/model-results.md). The model files are under models/<version>/,

@@ -69,6 +69,8 @@ class ReportIn(BaseModel):
     service: str = Field(pattern="^(fast|slow)$")
     crowd: int = Field(ge=1, le=5)
     note: str | None = Field(default=None, max_length=500)
+    # The line of the train it was logged from; without it, the station's home line.
+    line: str | None = Field(default=None, pattern="^[a-z]{1,20}$")
 
 
 def _clock(text: str | None, name: str) -> time | None:
@@ -108,6 +110,7 @@ def option_json(option: Option, asked: datetime) -> dict:
     return {
         "train_id": trip.train_id,
         "number": trip.number,
+        "line": trip.line,
         "type": trip.train_type,
         "destination": trip.label,
         "direction": trip.direction,
@@ -363,12 +366,21 @@ def create_app(
                 station = find_station(directory_from(con), report.station)
             except ScheduleError as exc:
                 raise HTTPException(400, str(exc)) from None
+            if (
+                report.line is not None
+                and not con.execute(
+                    "SELECT count(*) FROM scheduled_stops s JOIN trains t USING (train_id) "
+                    "WHERE s.station_code = ? AND t.line = ?",
+                    [station.code, report.line],
+                ).fetchone()[0]
+            ):
+                raise HTTPException(400, f"No {report.line} line train calls at {station.name}.")
         description = f"{departure:%H:%M} {report.service} from {station.code}"
         with database(write=True) as con:
             (report_id,) = con.execute(
                 "INSERT INTO crowd_reports "
-                "(reported_at, station_code, train_description, crowd_level, source, note) "
-                "VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
+                "(reported_at, station_code, train_description, crowd_level, source, note, line) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
                 [
                     datetime.now(UTC),
                     station.code,
@@ -376,6 +388,7 @@ def create_app(
                     report.crowd,
                     WEB_SOURCE,
                     report.note,
+                    report.line,
                 ],
             ).fetchone()
         matched = None
