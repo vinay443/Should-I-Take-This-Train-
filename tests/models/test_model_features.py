@@ -221,3 +221,71 @@ def test_block_hours_from_the_environment(monkeypatch):
     monkeypatch.setenv("SITT_BLOCK_DEFAULT_END", "teatime")
     with pytest.raises(ValueError, match="SITT_BLOCK_DEFAULT_END"):
         load_block_settings()
+
+
+def test_loading_the_harbour_line_changes_no_main_line_feature(con, tmp_path):
+    from conftest import harbour_csv
+
+    from sitt.ingest.timetable import load_timetable, read_timetable
+
+    def table():
+        features.prepare(con)
+        features.training_targets(con)
+        return features.build_features(con)
+
+    before = table()
+    load_timetable(con, read_timetable(harbour_csv(tmp_path), line="harbour"))
+    after = table()
+    assert before.keys() == after.keys()
+    for name in before:
+        same = (
+            np.array_equal(before[name], after[name], equal_nan=True)
+            if before[name].dtype.kind == "f"
+            else np.array_equal(before[name], after[name])
+        )
+        assert same, name
+
+
+def test_a_blocks_ends_are_placed_on_its_own_line(con, tmp_path):
+    from conftest import harbour_csv
+
+    from sitt.ingest.timetable import load_timetable, read_timetable
+
+    load_timetable(con, read_timetable(harbour_csv(tmp_path), line="harbour"))
+    con.execute(
+        "INSERT INTO blocks (block_id, block_date, line, from_station, to_station, source) "
+        "VALUES ('h1', ?, 'harbour', 'PNVL', 'VSH', 'manual'), "
+        "('c1', ?, 'central', 'CSMT', 'CLA', 'manual')",
+        [MONDAY, MONDAY],
+    )
+    features.prepare(con)
+    spans = con.execute(
+        "SELECT line, least(from_seq, to_seq), greatest(from_seq, to_seq) FROM block_spans "
+        "WHERE from_seq IS NOT NULL ORDER BY ALL"
+    ).fetchall()
+    places = dict(con.execute("SELECT line || ':' || code, seq FROM station_lines").fetchall())
+    assert spans == [
+        ("central", places["central:CSMT"], places["central:CLA"]),  # c1
+        ("central", places["central:MTN"], places["central:MLND"]),  # the fixture's b1
+        ("harbour", places["harbour:VSH"], places["harbour:PNVL"]),  # Harbour places
+    ]
+
+
+def test_a_harbour_train_is_never_the_main_lines_train_ahead(con, tmp_path):
+    from conftest import harbour_csv
+
+    from sitt.ingest.timetable import load_timetable, read_timetable
+
+    load_timetable(con, read_timetable(harbour_csv(tmp_path), line="harbour"))
+    # In the 06:25 batch only a Harbour train was seen: 98001 at Vashi, 30 late, going
+    # down like 90103 (CSMT 06:14 to Kalyan 07:21).
+    con.execute(
+        "INSERT INTO observations (observed_at, train_id, station_code, delay_minutes, "
+        "source, train_number, event, batch_id) VALUES "
+        "(?, 'harbour-98001', 'VSH', 30, 'test', '98001', 'at', 'h-0625')",
+        [at(MONDAY, "06:25").replace(tzinfo=IST)],
+    )
+    features.prepare(con)
+    features.set_targets(con, [Target("central-90103", MONDAY, "KYN", at(MONDAY, "06:30"))])
+    [row] = rows(features.build_features(con))
+    assert np.isnan(row["ahead_delay"]) and np.isnan(row["line_median_delay"])

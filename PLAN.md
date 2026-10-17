@@ -207,10 +207,17 @@ home line: the main line whenever it is on it, in any load order. Main line answ
 unchanged on a copy of the real database. Harbour trains load and answer `next_trains`.
 The rest (routes, recommender, station lists) is 26d.
 
-#### 26d. Harbour routes in `sitt-next` and the web app — [ ]
-Routes and the recommender per line (the route model assumes the main line's CSMT-Kalyan
-core), station lists that don't mix the lines' orders, a line picker or grouping in the
-web app and bot. Can start with the DOWN direction; the UP PDF (26b) completes it.
+#### 26d. Routes and model features per line — [x]
+Route points use each train's own line's places (the route model mixed up Dockyard Road
+and Byculla, both 4th, once Harbour was loaded); only main line trains get pass points.
+Megablock ends are placed on the block's own line; "train ahead" and the line median
+only look at trains on the same line; the synthetic generator keeps to the main line.
+Main line features and answers unchanged on the real data, with and without Harbour.
+
+#### 26e. Harbour routes in the web app and bot — [ ]
+`sitt-next CSMT PNVL` already answers once the Harbour CSV is loaded. Left: station lists
+that don't interleave the two lines' orders (web `/api/stations`, bot), the crowding
+rules (written for Kalyan-CSMT flows), and how to load it (README).
 
 ### 27. Independent review of round 6 — [x]
 A separate agent reviewed cold and found 5 issues, all fixed (PROGRESS.md, 2026-10-16).

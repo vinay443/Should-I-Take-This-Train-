@@ -4,10 +4,15 @@
 trains at stations they pass ("Crossed MATUNGA" for a fast train), so both the synthetic
 generator and the model features need a scheduled time at those stations too.
 
-Between CSMT and Kalyan the line is a single run of stations, so the pass time at a
+Between CSMT and Kalyan the main line is a single run of stations, so the pass time at a
 skipped station is interpolated between the stops either side, in proportion to the
 number of stations. Beyond Kalyan the line branches and trains call at every station, so
-no points are added there.
+no points are added there. The same goes for every other line (the Harbour line's
+trains call everywhere): only main line trains get points added.
+
+A station's place (`station_seq`) is its place on the train's own line, from
+`station_lines`: CSMT is 1 on both lines, and Dockyard Road (4th on the Harbour line) is
+never confused with Byculla (4th on the main line).
 """
 
 from dataclasses import dataclass
@@ -17,7 +22,8 @@ import duckdb
 
 from sitt.ingest.timetable import _stage
 
-# The far end of the unbranched section that starts at seq 1 (CSMT).
+# The far end of the main line's unbranched section that starts at seq 1 (CSMT).
+CORE_LINE = "central"
 CORE_END_STATION = "KYN"
 
 ROUTE_POINT_COLUMNS = {
@@ -34,7 +40,7 @@ ROUTE_POINT_COLUMNS = {
 @dataclass(frozen=True)
 class RoutePoint:
     station_code: str
-    station_seq: int  # stations.seq: position along the line from the CSMT end
+    station_seq: int  # station_lines.seq: place on the train's line from the CSMT end
     minutes: float  # scheduled minutes after the train leaves its first station
     is_stop: bool
 
@@ -61,9 +67,10 @@ def _minutes(t: time) -> float:
 
 def load_routes(con: duckdb.DuckDBPyConnection, line: str | None = None) -> list[Route]:
     """Every train's route points, in travel order."""
-    seqs = dict(con.execute("SELECT code, seq FROM stations").fetchall())
-    core_end = seqs.get(CORE_END_STATION, 0)
-    core = {seq: code for code, seq in seqs.items() if seq <= core_end}
+    line_seqs = line_station_seqs(con)
+    main = line_seqs.get(CORE_LINE, {})
+    core_end = main.get(CORE_END_STATION, 0)
+    core = {seq: code for code, seq in main.items() if seq <= core_end}
     rows = con.execute(
         """
         SELECT t.train_id, t.number, t.direction, t.train_type, t.line,
@@ -79,6 +86,8 @@ def load_routes(con: duckdb.DuckDBPyConnection, line: str | None = None) -> list
 
     routes = []
     for train_id, number, direction, train_type, train_line, codes, times, days in rows:
+        seqs = line_seqs[train_line]
+        interpolate = train_line == CORE_LINE
         start = _minutes(times[0])
         minutes = []
         for t in times:  # times wrap past midnight; they only ever increase along a route
@@ -87,7 +96,7 @@ def load_routes(con: duckdb.DuckDBPyConnection, line: str | None = None) -> list
         points = [RoutePoint(codes[0], seqs[codes[0]], 0.0, True)]
         for i in range(1, len(codes)):
             a, b = seqs[codes[i - 1]], seqs[codes[i]]
-            if a in core and b in core and abs(b - a) > 1:
+            if interpolate and a in core and b in core and abs(b - a) > 1:
                 step = 1 if b > a else -1
                 gap = abs(b - a)
                 for k in range(1, gap):
@@ -101,6 +110,24 @@ def load_routes(con: duckdb.DuckDBPyConnection, line: str | None = None) -> list
             )
         )
     return routes
+
+
+def line_station_seqs(con: duckdb.DuckDBPyConnection) -> dict[str, dict[str, int]]:
+    """{line: {station code: place on that line}}, from station_lines, and from stations
+    for a station whose home line isn't there (a database written without the loader)."""
+    out: dict[str, dict[str, int]] = {}
+    rows = con.execute(
+        """
+        SELECT code, line, seq FROM station_lines
+        UNION ALL
+        SELECT code, line, seq FROM stations s
+        WHERE NOT EXISTS (
+            SELECT 1 FROM station_lines l WHERE l.code = s.code AND l.line = s.line)
+        """
+    ).fetchall()
+    for code, line, seq in rows:
+        out.setdefault(line, {})[code] = seq
+    return out
 
 
 def stage_route_points(con: duckdb.DuckDBPyConnection, routes: list[Route] | None = None) -> None:

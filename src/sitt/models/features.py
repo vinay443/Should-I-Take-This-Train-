@@ -161,7 +161,7 @@ def prepare(
             SELECT o.observed_at, o.train_id, o.station_code, o.delay_minutes, o.batch_id,
                    o.source,
                    make_timestamp((epoch_ms(o.observed_at) + {IST_OFFSET_MS}) * 1000) AS local_ts,
-                   r.run_start_min, r.direction, r.train_type,
+                   r.run_start_min, r.direction, r.train_type, r.line,
                    p.point_seq, p.station_seq, p.minutes AS sched_minutes
             FROM observations o
             JOIN run_info r USING (train_id)
@@ -210,8 +210,9 @@ def prepare(
     con.execute(
         """
         CREATE OR REPLACE TEMP TABLE batch_line AS
-        SELECT batch_id, direction, median(delay_minutes) AS line_median, count(*) AS line_count
-        FROM obs WHERE batch_id IS NOT NULL GROUP BY batch_id, direction
+        SELECT batch_id, line, direction, median(delay_minutes) AS line_median,
+               count(*) AS line_count
+        FROM obs WHERE batch_id IS NOT NULL GROUP BY batch_id, line, direction
         """
     )
     has_blocks = con.execute(
@@ -232,8 +233,10 @@ def prepare(
         "NULL::INTEGER AS to_seq"
     )
     joins = (
-        "LEFT JOIN stations f ON f.code = b.from_station "
-        "LEFT JOIN stations t ON t.code = b.to_station"
+        # Each end's place on the block's own line (a Harbour block between Panvel and
+        # Vashi uses Harbour line places; a line with no stations here has none).
+        "LEFT JOIN station_lines f ON f.code = b.from_station AND f.line = b.line "
+        "LEFT JOIN station_lines t ON t.code = b.to_station AND t.line = b.line"
         if has_blocks
         else ""
     )
@@ -346,6 +349,7 @@ WITH t AS (
            min(abs(a.station_seq - s.our_seq)) AS ahead_gap
     FROM with_state s
     JOIN obs a ON a.batch_id = s.state_batch AND a.direction = s.direction
+              AND a.line = s.line
               AND a.train_type = s.train_type AND a.train_id <> s.train_id
               AND CASE WHEN s.direction = 'down' THEN a.station_seq > s.our_seq
                        ELSE a.station_seq < s.our_seq END
@@ -385,7 +389,8 @@ SELECT s.target_id, s.train_id, s.station_code, s.service_day, s.direction,
                                OR CAST(s.sched_time AS TIME) <= k.end_time END)
        ) AS INTEGER) AS megablock
 FROM with_state s
-LEFT JOIN batch_line l ON l.batch_id = s.state_batch AND l.direction = s.direction
+LEFT JOIN batch_line l ON l.batch_id = s.state_batch AND l.line = s.line
+                     AND l.direction = s.direction
 LEFT JOIN ahead a USING (target_id)
 LEFT JOIN batch_ld d ON d.batch_id = s.state_batch
 LEFT JOIN history h ON h.train_id = s.train_id AND h.station_code = s.station_code
